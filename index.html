@@ -4,6 +4,43 @@
 <head>
 	<meta charset="UTF-8">
 	<title>BrowOS</title>
+	
+	<style>
+  html, body {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100dvw !important;
+    height: 100dvh !important;
+    overflow: hidden !important;
+    position: fixed !important;
+    inset: 0 !important;
+    box-sizing: border-box !important;
+  }
+</style>
+
+<script>
+  function fitBrowOSViewport() {
+    const minDesktopWidth = 900; // Target virtual desktop width
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+
+    if (vw < minDesktopWidth) {
+      const scale = vw / minDesktopWidth;
+      document.documentElement.style.zoom = scale;
+      document.body.style.width = (vw / scale) + "px";
+      document.body.style.height = (vh / scale) + "px";
+    } else {
+      document.documentElement.style.zoom = "1";
+      document.body.style.width = "100dvw";
+      document.body.style.height = "100dvh";
+    }
+  }
+
+  window.addEventListener("load", fitBrowOSViewport);
+  window.addEventListener("resize", fitBrowOSViewport);
+  document.addEventListener("fullscreenchange", () => setTimeout(fitBrowOSViewport, 100));
+</script>
+
 
 	<link rel="manifest" href="./manifest.webmanifest">
     <meta name="theme-color" content="#000000">
