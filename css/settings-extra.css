@@ -1,0 +1,153 @@
+/* Settings: Security, Widgets, Shortcuts and Data pages */
+
+.settings-note {
+	margin: 0 0 14px;
+
+	font-size: 13px;
+	line-height: 1.5;
+
+	color: rgba(var(--soft), 0.65);
+}
+
+.settings-note code {
+	padding: 1px 5px;
+
+	border-radius: 4px;
+
+	background: rgba(var(--soft), 0.1);
+
+	font-size: 12px;
+	overflow-wrap: anywhere;
+}
+
+.pin-input {
+	width: 110px;
+
+	padding: 7px 10px;
+
+	border: 1px solid rgba(var(--soft), 0.15);
+	border-radius: 8px;
+
+	background: rgba(var(--soft), 0.08);
+	color: var(--text);
+
+	font-size: 14px;
+	letter-spacing: 0.2em;
+	text-align: center;
+
+	outline: none;
+}
+
+.pin-input:focus {
+	border-color: var(--accent);
+}
+
+.button-row {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+
+	margin: 4px 0 12px;
+}
+
+.button-row.inline {
+	margin: 0;
+}
+
+.pin-message,
+.data-message {
+	min-height: 20px;
+
+	margin-bottom: 10px;
+
+	font-size: 13px;
+
+	color: #e5534b;
+}
+
+.pin-message.good,
+.data-message.good {
+	color: #4caf50;
+}
+
+.pin-message:empty,
+.data-message:empty {
+	display: none;
+}
+
+/* Shortcuts */
+
+.hotkey-row {
+	gap: 12px;
+}
+
+.hotkey-button {
+	min-width: 150px;
+
+	padding: 6px 12px;
+
+	border: 1px solid rgba(var(--soft), 0.2);
+	border-radius: 8px;
+
+	background: rgba(var(--soft), 0.08);
+	color: var(--text);
+
+	font-size: 12px;
+	cursor: pointer;
+}
+
+.hotkey-button:hover {
+	background: rgba(var(--soft), 0.16);
+}
+
+.hotkey-row.fixed {
+	opacity: 0.75;
+}
+
+.hotkey-fixed {
+	font-size: 12px;
+	text-align: right;
+	color: rgba(var(--soft), 0.8);
+}
+
+/* System page */
+
+#systemPage > div {
+	margin-bottom: 24px;
+}
+
+#systemPage h3 {
+	margin: 0 0 8px;
+
+	font-size: 15px;
+}
+
+#systemPage .button-row.inline {
+	align-items: center;
+}
+
+/* theme editor */
+.my-theme-save { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+.my-theme-save input { flex: 1; min-width: 140px; padding: 8px 10px; border: 1px solid rgba(var(--soft), 0.25); border-radius: 8px; background: rgba(var(--soft), 0.08); color: inherit; }
+.my-theme { display: flex; align-items: center; gap: 8px; padding: 6px 0; }
+.my-theme-swatch { width: 18px; height: 18px; border-radius: 50%; border: 1px solid rgba(var(--soft), 0.4); flex: none; }
+.my-theme-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#customAccent { width: 44px; height: 30px; padding: 0; border: 0; background: none; cursor: pointer; }
+.my-theme-save button,
+.my-theme button {
+	padding: 7px 12px;
+	border: 1px solid rgba(var(--soft), 0.25);
+	border-radius: 8px;
+	background: rgba(var(--soft), 0.1);
+	color: inherit;
+	cursor: pointer;
+}
+
+.my-theme-save button:hover,
+.my-theme button:hover {
+	background: rgba(var(--soft), 0.2);
+}
+
+.my-theme button {
+	padding: 4px 10px;
+}

@@ -230,6 +230,13 @@ function createAppWindow(app) {
 	appWindow.dataset.appName = app.name;
 	appWindow.dataset.appIcon = app.icon;
 
+	// a starting size that suits the app (width, height)
+
+	if (app.size) {
+		appWindow.style.width = Math.min(app.size[0], window.innerWidth - 20) + "px";
+		appWindow.style.height = Math.min(app.size[1], window.innerHeight - 130) + "px";
+	}
+
 	const header = document.createElement("div");
 
 	header.className = "window-header";
@@ -270,9 +277,10 @@ function createAppWindow(app) {
 
 	frame.className = "web-app-frame";
 
-	frame.dataset.src = app.url;
+	// websites use their address, apps that come with BrowOS use their own page
+	frame.dataset.src = app.page || app.url;
 
-	frame.allow = "fullscreen; clipboard-write; autoplay";
+	frame.allow = "fullscreen; clipboard-write; autoplay; microphone; display-capture";
 
 	appWindow.append(header, frame);
 

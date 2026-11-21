@@ -207,10 +207,16 @@ resetSettingsButton.addEventListener("click", function () {
 	localStorage.removeItem("browos-cursor");
 	localStorage.removeItem("browos-custom-cursor");
 	localStorage.removeItem("browos-cursor-size");
+	localStorage.removeItem("browos-theme-pack");
+	localStorage.removeItem("browos-ui-sounds");
+	localStorage.removeItem("browos-dnd");
+	localStorage.removeItem("browos-widgets");
+	localStorage.removeItem("browos-hotkeys");
+	localStorage.removeItem("browos-saver");
+	localStorage.removeItem("browos-saver-minutes");
+	localStorage.removeItem("browos-saver-type");
+	localStorage.removeItem("browos-saver-lock");
+	// the PIN and the lock settings, sticky notes, tasks and the Recycle Bin are not "settings": they stay
 
 	location.reload();
 });
-
-// About: the real version, so users can see if they're up to date
-
-document.getElementById("aboutVersion").textContent = "Version " + chrome.runtime.getManifest().version;
