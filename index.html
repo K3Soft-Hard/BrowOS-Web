@@ -684,6 +684,14 @@
   }
 </script>
 
+<script>
+  document.addEventListener("pointerdown", () => {
+    if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+      document.documentElement.requestFullscreen({ navigationUI: "hide" }).catch(() => {});
+    }
+  }, { passive: true });
+</script>
+
 <!-- Cursor -->
 <div class="fake-cursor hide" id="fakeCursor"></div>
 <script src="js/start-menu.js"></script>
