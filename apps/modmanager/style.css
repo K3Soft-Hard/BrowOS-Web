@@ -1,733 +1,633 @@
-const ROOT_PIN = "3210123";
-const MODS_STORAGE_KEY = "browos-root-mods";
-const BACKUP_SUFFIX = "__browos_clean_bak";
-const INJECT_START = "/* BROWOS-ROOT-MOD:START */";
-const INJECT_END = "/* BROWOS-ROOT-MOD:END */";
-const HTML_INJECT_START = "<!-- BROWOS-ROOT-MOD:START -->";
-const HTML_INJECT_END = "<!-- BROWOS-ROOT-MOD:END -->";
-
-const DEFAULT_MODS = [
-	{
-		id: "mod-oled-black",
-		name: "OLED Pitch-Black UI",
-		targetPath: "index.html",
-		mode: "inject",
-		enabled: true,
-		css: `.taskbar, .start-menu, .apps-panel, .context-menu, .app-window, .window-header {
-	background: #000000 !important;
-	border-color: #1f1f27 !important;
-}`,
-		js: `console.log("[BrowOS Root] OLED Pitch-Black UI active");`,
-	},
-];
-
-let mods = loadMods();
-let selectedModId = mods[0] ? mods[0].id : null;
-let activeEditorTab = "js";
-let lastCopiedPath = "";
-let cachedEntries = []; // { cacheName, cache, request, url, relPath }
-let selectedCacheEntry = null;
-let warningAcknowledged = false;
-
-// --- 1. PIN AUTHENTICATION ---
-const pinOverlay = document.getElementById("pinOverlay");
-const pinForm = document.getElementById("pinForm");
-const pinInput = document.getElementById("pinInput");
-const pinError = document.getElementById("pinError");
-
-if (sessionStorage.getItem("browos-root-unlocked") === "1") {
-	pinOverlay.hidden = true;
+:root {
+	--bg: #000000;
+	--surface: #0b0b0e;
+	--surface-2: #141419;
+	--surface-3: #1c1c24;
+	--border: #23232d;
+	--text: #f3f3f8;
+	--muted: #8a8a98;
+	--accent: #2196f3;
+	--danger: #ef4444;
+	--warn: #f59e0b;
+	--success: #22c55e;
 }
 
-pinForm.addEventListener("submit", (e) => {
-	e.preventDefault();
-	if (pinInput.value.trim() === ROOT_PIN) {
-		sessionStorage.setItem("browos-root-unlocked", "1");
-		pinOverlay.hidden = true;
-		pinError.hidden = true;
-	} else {
-		pinError.hidden = false;
-		pinInput.value = "";
-		pinInput.focus();
-	}
-});
-
-// --- 2. CONFIRMATION / WARNING DIALOG ---
-const confirmOverlay = document.getElementById("confirmOverlay");
-const confirmBadge = document.getElementById("confirmBadge");
-const confirmTitle = document.getElementById("confirmTitle");
-const confirmMessage = document.getElementById("confirmMessage");
-const confirmCancelBtn = document.getElementById("confirmCancelBtn");
-const confirmProceedBtn = document.getElementById("confirmProceedBtn");
-
-function askConfirmation({ badge, title, message, proceedText }) {
-	return new Promise((resolve) => {
-		confirmBadge.textContent = badge || "WARNING";
-		confirmTitle.textContent = title || "Are you sure?";
-		confirmMessage.textContent = message;
-		confirmProceedBtn.textContent = proceedText || "Continue";
-		confirmOverlay.hidden = false;
-
-		function cleanup(result) {
-			confirmOverlay.hidden = true;
-			confirmCancelBtn.removeEventListener("click", onCancel);
-			confirmProceedBtn.removeEventListener("click", onProceed);
-			resolve(result);
-		}
-
-		function onCancel() { cleanup(false); }
-		function onProceed() { cleanup(true); }
-
-		confirmCancelBtn.addEventListener("click", onCancel);
-		confirmProceedBtn.addEventListener("click", onProceed);
-	});
+body[data-theme="light"] {
+	--bg: #f4f4f8;
+	--surface: #ffffff;
+	--surface-2: #ebebf0;
+	--surface-3: #e0e0e8;
+	--border: #d2d2dc;
+	--text: #111116;
+	--muted: #626270;
 }
 
-// --- 3. ROOTING ANIMATION OVERLAY ---
-const bootAnimOverlay = document.getElementById("bootAnimOverlay");
-const animTitle = document.getElementById("animTitle");
-const animProgress = document.getElementById("animProgress");
-const animLog = document.getElementById("animLog");
-
-function sleep(ms) {
-	return new Promise((r) => setTimeout(r, ms));
+* {
+	box-sizing: border-box;
+	margin: 0;
+	padding: 0;
 }
 
-async function runBootAnimation(title, steps) {
-	animTitle.textContent = title;
-	animProgress.style.width = "0%";
-	animLog.innerHTML = "";
-	bootAnimOverlay.hidden = false;
-
-	for (let i = 0; i < steps.length; i++) {
-		const line = document.createElement("div");
-		line.textContent = "> " + steps[i];
-		animLog.appendChild(line);
-		animLog.scrollTop = animLog.scrollHeight;
-		animProgress.style.width = Math.round(((i + 1) / steps.length) * 100) + "%";
-		await sleep(240);
-	}
+html, body {
+	height: 100%;
+	background: var(--bg);
+	color: var(--text);
+	font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+	font-size: 13.5px;
+	overflow: hidden;
 }
 
-// --- 4. SDK & HELPERS ---
-const bannerEl = document.getElementById("banner");
-const statusDot = document.getElementById("statusDot");
-const statusText = document.getElementById("statusText");
-const cacheNameEl = document.getElementById("cacheName");
-const sdkStatusEl = document.getElementById("sdkStatus");
-const unrootBtn = document.getElementById("unrootBtn");
-
-function showBanner(text) {
-	bannerEl.textContent = text;
-	bannerEl.hidden = false;
-	clearTimeout(showBanner._timer);
-	showBanner._timer = setTimeout(() => {
-		bannerEl.hidden = true;
-	}, 4500);
+/* Overlays & Modals */
+.overlay {
+	position: fixed;
+	inset: 0;
+	z-index: 9999;
+	background: rgba(0, 0, 0, 0.86);
+	backdrop-filter: blur(12px);
+	-webkit-backdrop-filter: blur(12px);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 16px;
 }
 
-function notifyOS(title, msg) {
-	if (typeof BrowOS !== "undefined" && BrowOS.available) {
-		BrowOS.notify(title, msg).catch(() => {});
-	}
+.overlay[hidden] {
+	display: none !important;
 }
 
-if (typeof BrowOS !== "undefined" && BrowOS.available) {
-	sdkStatusEl.textContent = "Connected";
-	BrowOS.ready
-		.then((info) => {
-			if (info && info.theme) document.body.dataset.theme = info.theme;
-			if (info && info.accent) document.documentElement.style.setProperty("--accent", info.accent);
-		})
-		.catch(() => {});
-} else {
-	sdkStatusEl.textContent = "Standalone";
+.modal-card {
+	width: 100%;
+	max-width: 400px;
+	background: var(--surface);
+	border: 1px solid var(--border);
+	border-radius: 16px;
+	padding: 24px;
+	box-shadow: 0 20px 50px rgba(0, 0, 0, 0.65);
+	text-align: center;
 }
 
-// Navigation tabs (Cache Explorer vs Mod Patcher)
-document.querySelectorAll(".nav-pill").forEach((pill) => {
-	pill.addEventListener("click", () => {
-		document.querySelectorAll(".nav-pill").forEach((p) => p.classList.remove("active"));
-		document.querySelectorAll(".view").forEach((v) => v.classList.remove("active"));
-		pill.classList.add("active");
-		document.getElementById(pill.dataset.view).classList.add("active");
-	});
-});
-
-// --- 5. REAL CACHE FILE EXPLORER ---
-const baseRootUrl = new URL("../../", window.location.href).href;
-
-function toRelativePath(fullUrl) {
-	if (fullUrl.startsWith(baseRootUrl)) {
-		const rel = fullUrl.slice(baseRootUrl.length).split("?")[0];
-		return rel === "" ? "index.html" : rel;
-	}
-	try {
-		const u = new URL(fullUrl);
-		return u.pathname.replace(/^\/+/, "") || "index.html";
-	} catch (e) {
-		return fullUrl;
-	}
+.lock-badge, .warn-badge {
+	display: inline-block;
+	font-size: 11px;
+	font-weight: 700;
+	letter-spacing: 0.08em;
+	padding: 4px 10px;
+	border-radius: 999px;
+	margin-bottom: 12px;
 }
 
-async function scanOfflineCache() {
-	cachedEntries = [];
-	if (!("caches" in window)) {
-		statusText.textContent = "Cache API unavailable";
-		return;
-	}
-
-	const names = await caches.keys();
-	if (names.length === 0) {
-		statusDot.className = "status-dot unpatched";
-		statusText.textContent = "Offline PWA cache empty — reload BrowOS once";
-		cacheNameEl.textContent = "None";
-		renderFileTree();
-		return;
-	}
-
-	cacheNameEl.textContent = names[0];
-	let hasAnyBackup = false;
-	let hasAnyPatch = false;
-
-	for (const name of names) {
-		const cache = await caches.open(name);
-		const requests = await cache.keys();
-
-		for (const req of requests) {
-			if (req.url.endsWith(BACKUP_SUFFIX)) {
-				hasAnyBackup = true;
-				continue;
-			}
-			const relPath = toRelativePath(req.url);
-			cachedEntries.push({
-				cacheName: name,
-				cache,
-				request: req,
-				url: req.url,
-				relPath,
-			});
-
-			if (relPath === "index.html" || relPath.endsWith(".js") || relPath.endsWith(".css")) {
-				try {
-					const res = await cache.match(req);
-					if (res) {
-						const txt = await res.clone().text();
-						if (txt.includes(INJECT_START) || txt.includes(HTML_INJECT_START)) {
-							hasAnyPatch = true;
-						}
-					}
-				} catch (e) {}
-			}
-		}
-	}
-
-	cachedEntries.sort((a, b) => a.relPath.localeCompare(b.relPath));
-	document.getElementById("fileCount").textContent = cachedEntries.length;
-	unrootBtn.disabled = !hasAnyBackup;
-
-	if (hasAnyPatch || hasAnyBackup) {
-		statusDot.className = "status-dot patched";
-		statusText.textContent = "Rooted • Offline Cache Active (" + cachedEntries.length + " files)";
-	} else {
-		statusDot.className = "status-dot unpatched";
-		statusText.textContent = "Stock PWA Cache (" + cachedEntries.length + " files)";
-	}
-
-	renderFileTree();
+.lock-badge {
+	background: rgba(33, 150, 243, 0.16);
+	color: var(--accent);
+	border: 1px solid rgba(33, 150, 243, 0.35);
 }
 
-function renderFileTree() {
-	const treeEl = document.getElementById("fileTree");
-	const filter = document.getElementById("treeSearch").value.toLowerCase().trim();
-	treeEl.innerHTML = "";
-
-	const filtered = cachedEntries.filter((e) => e.relPath.toLowerCase().includes(filter));
-	const groups = {};
-
-	filtered.forEach((entry) => {
-		const parts = entry.relPath.split("/");
-		const folder = parts.length > 1 ? parts.slice(0, -1).join("/") : "/";
-		if (!groups[folder]) groups[folder] = [];
-		groups[folder].push(entry);
-	});
-
-	Object.keys(groups)
-		.sort()
-		.forEach((folderName) => {
-			const groupDiv = document.createElement("div");
-			groupDiv.className = "folder-group";
-
-			const titleDiv = document.createElement("div");
-			titleDiv.className = "folder-title";
-			titleDiv.textContent = "▾ " + folderName;
-			titleDiv.addEventListener("click", () => {
-				groupDiv.classList.toggle("collapsed");
-				titleDiv.textContent = (groupDiv.classList.contains("collapsed") ? "▸ " : "▾ ") + folderName;
-			});
-
-			const childrenDiv = document.createElement("div");
-			childrenDiv.className = "folder-children";
-
-			groups[folderName].forEach((entry) => {
-				const fileName = entry.relPath.split("/").pop();
-				const row = document.createElement("div");
-				row.className =
-					"tree-file" + (selectedCacheEntry && selectedCacheEntry.url === entry.url ? " active" : "");
-
-				const nameSpan = document.createElement("span");
-				nameSpan.className = "tree-file-name";
-				nameSpan.textContent = fileName;
-
-				row.appendChild(nameSpan);
-				row.addEventListener("click", () => inspectCacheEntry(entry));
-				childrenDiv.appendChild(row);
-			});
-
-			groupDiv.append(titleDiv, childrenDiv);
-			treeEl.appendChild(groupDiv);
-		});
+.warn-badge {
+	background: rgba(239, 68, 68, 0.16);
+	color: var(--danger);
+	border: 1px solid rgba(239, 68, 68, 0.35);
 }
 
-async function inspectCacheEntry(entry) {
-	selectedCacheEntry = entry;
-	renderFileTree();
-
-	document.getElementById("selectedFilePath").textContent = entry.relPath;
-	document.getElementById("copyPathBtn").disabled = false;
-	document.getElementById("useInModBtn").disabled = false;
-	document.getElementById("replaceFileInput").disabled = false;
-	document.getElementById("replaceUploadLabel").classList.remove("disabled");
-
-	const previewEl = document.getElementById("filePreview");
-	const metaEl = document.getElementById("fileMeta");
-
-	try {
-		const res = await entry.cache.match(entry.request);
-		if (!res) {
-			previewEl.value = "File missing in cache.";
-			return;
-		}
-		const contentType = res.headers.get("Content-Type") || "unknown";
-		const blob = await res.clone().blob();
-		const sizeKB = (blob.size / 1024).toFixed(1);
-
-		const isPatched = await entry.cache.match(entry.url + BACKUP_SUFFIX);
-		metaEl.textContent = `Cache: ${entry.cacheName} • Type: ${contentType} • Size: ${sizeKB} KB` + (isPatched ? " • [MODIFIED]" : "");
-
-		if (contentType.startsWith("image/") || contentType.startsWith("audio/")) {
-			previewEl.value = `[Binary asset: ${contentType}, ${sizeKB} KB]\nUse "Replace File…" to overwrite this asset in offline PWA cache.`;
-		} else {
-			previewEl.value = await res.text();
-		}
-	} catch (err) {
-		previewEl.value = "Error reading cached file: " + err.message;
-	}
+.modal-card h2 {
+	font-size: 18px;
+	margin-bottom: 8px;
 }
 
-document.getElementById("treeSearch").addEventListener("input", renderFileTree);
-document.getElementById("refreshCacheBtn").addEventListener("click", scanOfflineCache);
-
-document.getElementById("copyPathBtn").addEventListener("click", async () => {
-	if (!selectedCacheEntry) return;
-	lastCopiedPath = selectedCacheEntry.relPath;
-	try {
-		await navigator.clipboard.writeText(lastCopiedPath);
-	} catch (e) {}
-	showBanner("Copied path: " + lastCopiedPath);
-});
-
-document.getElementById("useInModBtn").addEventListener("click", () => {
-	if (!selectedCacheEntry) return;
-	lastCopiedPath = selectedCacheEntry.relPath;
-	document.getElementById("modTargetInput").value = lastCopiedPath;
-	document.querySelector('.nav-pill[data-view="modsView"]').click();
-	showBanner("Target set to: " + lastCopiedPath);
-});
-
-// Direct file replacement from Cache Explorer
-document.getElementById("replaceFileInput").addEventListener("change", async (e) => {
-	const file = e.target.files[0];
-	e.target.value = "";
-	if (!file || !selectedCacheEntry) return;
-
-	const ok = await askConfirmation({
-		badge: "ROOT OVERWRITE WARNING",
-		title: "Overwrite Cached System File?",
-		message: `You are about to replace "${selectedCacheEntry.relPath}" inside the offline PWA cache with "${file.name}". If the file is broken, BrowOS may fail to boot and you will need to Clear Site Data (Reset). Continue?`,
-		proceedText: "Overwrite File",
-	});
-
-	if (!ok) return;
-
-	const origRes = await selectedCacheEntry.cache.match(selectedCacheEntry.request);
-	const backupUrl = selectedCacheEntry.url + BACKUP_SUFFIX;
-	if (origRes && !(await selectedCacheEntry.cache.match(backupUrl))) {
-		await selectedCacheEntry.cache.put(backupUrl, origRes.clone());
-	}
-
-	const headers = new Headers(origRes ? origRes.headers : {});
-	if (file.type) headers.set("Content-Type", file.type);
-
-	const buf = await file.arrayBuffer();
-	await selectedCacheEntry.cache.put(
-		selectedCacheEntry.request,
-		new Response(buf, { status: 200, statusText: "OK", headers })
-	);
-
-	notifyOS("BrowOS Root", "Replaced " + selectedCacheEntry.relPath);
-	showBanner("Replaced " + selectedCacheEntry.relPath + " in offline cache!");
-	await scanOfflineCache();
-	await inspectCacheEntry(selectedCacheEntry);
-});
-
-// --- 6. MOD PATCHER ---
-function loadMods() {
-	try {
-		const raw = JSON.parse(localStorage.getItem(MODS_STORAGE_KEY));
-		if (Array.isArray(raw) && raw.length > 0) return raw;
-	} catch (e) {}
-	return JSON.parse(JSON.stringify(DEFAULT_MODS));
+.modal-card p {
+	font-size: 13px;
+	color: var(--muted);
+	line-height: 1.5;
+	margin-bottom: 18px;
 }
 
-function persistMods() {
-	localStorage.setItem(MODS_STORAGE_KEY, JSON.stringify(mods));
+#pinForm {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
 }
 
-function getSelectedMod() {
-	return mods.find((m) => m.id === selectedModId) || null;
+#pinInput {
+	background: var(--surface-2);
+	border: 1px solid var(--border);
+	color: var(--text);
+	font-size: 20px;
+	letter-spacing: 0.25em;
+	text-align: center;
+	padding: 11px;
+	border-radius: 10px;
+	outline: none;
 }
 
-function saveEditorToMemory() {
-	const mod = getSelectedMod();
-	if (!mod) return;
-	mod.name = document.getElementById("modNameInput").value.trim() || "Untitled Mod";
-	mod.targetPath = document.getElementById("modTargetInput").value.trim() || "index.html";
-	mod.mode = document.getElementById("modModeSelect").value;
-	mod.enabled = document.getElementById("modEnabledInput").checked;
-	mod[activeEditorTab] = document.getElementById("codeEditor").value;
+#pinInput:focus {
+	border-color: var(--accent);
 }
 
-function renderModList() {
-	const listEl = document.getElementById("modList");
-	listEl.innerHTML = "";
-
-	mods.forEach((mod) => {
-		const item = document.createElement("div");
-		item.className = "mod-item" + (mod.id === selectedModId ? " active" : "");
-
-		const left = document.createElement("div");
-		left.style.minWidth = "0";
-
-		const title = document.createElement("div");
-		title.className = "mod-item-title";
-		title.textContent = mod.name;
-
-		const meta = document.createElement("div");
-		meta.className = "mod-item-meta";
-		meta.textContent = `${mod.targetPath} (${mod.mode})`;
-
-		left.append(title, meta);
-
-		const badge = document.createElement("span");
-		badge.className = "mod-badge" + (mod.enabled ? " on" : "");
-		badge.textContent = mod.enabled ? "ON" : "OFF";
-
-		item.append(left, badge);
-		item.addEventListener("click", () => {
-			saveEditorToMemory();
-			persistMods();
-			selectedModId = mod.id;
-			loadModIntoEditor();
-			renderModList();
-		});
-
-		listEl.appendChild(item);
-	});
+.pin-error {
+	color: var(--danger);
+	font-size: 12.5px;
+	font-weight: 500;
 }
 
-function loadModIntoEditor() {
-	const mod = getSelectedMod();
-	const nameEl = document.getElementById("modNameInput");
-	const targetEl = document.getElementById("modTargetInput");
-	const modeEl = document.getElementById("modModeSelect");
-	const enabledEl = document.getElementById("modEnabledInput");
-	const codeEl = document.getElementById("codeEditor");
-	const tabsEl = document.getElementById("editorTabs");
-
-	if (!mod) {
-		nameEl.value = "";
-		targetEl.value = "";
-		codeEl.value = "";
-		return;
-	}
-
-	nameEl.value = mod.name;
-	targetEl.value = mod.targetPath || "index.html";
-	modeEl.value = mod.mode || "inject";
-	enabledEl.checked = Boolean(mod.enabled);
-
-	if (mod.mode === "replace") {
-		tabsEl.style.display = "none";
-		activeEditorTab = "js";
-		codeEl.placeholder = "// Paste full replacement file content or click 'Load from File…'";
-	} else {
-		tabsEl.style.display = "flex";
-		codeEl.placeholder = "// Write JS or CSS to inject/append into target file…";
-	}
-
-	codeEl.value = mod[activeEditorTab] || "";
+.modal-actions {
+	display: flex;
+	gap: 10px;
+	justify-content: flex-end;
 }
 
-document.getElementById("modModeSelect").addEventListener("change", () => {
-	saveEditorToMemory();
-	loadModIntoEditor();
-	renderModList();
-});
-
-document.querySelectorAll(".tab").forEach((btn) => {
-	btn.addEventListener("click", () => {
-		saveEditorToMemory();
-		persistMods();
-		document.querySelectorAll(".tab").forEach((b) => b.classList.remove("active"));
-		btn.classList.add("active");
-		activeEditorTab = btn.dataset.tab;
-		loadModIntoEditor();
-	});
-});
-
-document.getElementById("pastePathBtn").addEventListener("click", async () => {
-	let text = lastCopiedPath;
-	try {
-		const clip = await navigator.clipboard.readText();
-		if (clip) text = clip.trim();
-	} catch (e) {}
-
-	if (text) {
-		document.getElementById("modTargetInput").value = text;
-		saveEditorToMemory();
-		renderModList();
-		showBanner("Pasted path: " + text);
-	} else {
-		showBanner("No path copied yet — copy a file path in Cache Explorer first.");
-	}
-});
-
-document.getElementById("loadModFileInput").addEventListener("change", async (e) => {
-	const file = e.target.files[0];
-	e.target.value = "";
-	if (!file) return;
-
-	const content = await file.text();
-	document.getElementById("codeEditor").value = content;
-	saveEditorToMemory();
-	persistMods();
-	showBanner(`Loaded "${file.name}" into editor.`);
-});
-
-document.getElementById("newModBtn").addEventListener("click", () => {
-	saveEditorToMemory();
-	const id = "mod-" + Date.now();
-	mods.push({
-		id,
-		name: "Custom Patch " + (mods.length + 1),
-		targetPath: lastCopiedPath || "index.html",
-		mode: "inject",
-		enabled: true,
-		js: `console.log("Custom patch loaded!");`,
-		css: ``,
-	});
-	selectedModId = id;
-	persistMods();
-	renderModList();
-	loadModIntoEditor();
-});
-
-document.getElementById("deleteModBtn").addEventListener("click", () => {
-	if (!selectedModId) return;
-	mods = mods.filter((m) => m.id !== selectedModId);
-	selectedModId = mods[0] ? mods[0].id : null;
-	persistMods();
-	renderModList();
-	loadModIntoEditor();
-});
-
-document.getElementById("saveModBtn").addEventListener("click", () => {
-	saveEditorToMemory();
-	persistMods();
-	renderModList();
-	showBanner("Module saved.");
-});
-
-document.getElementById("modEnabledInput").addEventListener("change", () => {
-	saveEditorToMemory();
-	persistMods();
-	renderModList();
-});
-
-// --- 7. APPLY ALL MODS TO OFFLINE CACHE & REBOOT ---
-function buildInjectPayload(mod) {
-	const safeCheck = `if (new URLSearchParams(location.search).get("safemode") === "1") return;`;
-	const cssBlock =
-		mod.css && mod.css.trim()
-			? `(function(){var s=document.createElement("style");s.textContent=${JSON.stringify(mod.css)};document.head.appendChild(s);})();`
-			: "";
-	const jsBlock = mod.js && mod.js.trim() ? mod.js : "";
-	return `(function(){\n${safeCheck}\ntry{\n${cssBlock}\n${jsBlock}\n}catch(e){console.error("[RootMod:${mod.name}]",e);}\n})();`;
+.modal-actions .btn {
+	flex: 1;
+	padding: 10px;
 }
 
-document.getElementById("applyBtn").addEventListener("click", async () => {
-	saveEditorToMemory();
-	persistMods();
+/* Rooting Animation */
+.spinner-ring {
+	width: 44px;
+	height: 44px;
+	margin: 0 auto 14px;
+	border: 3px solid var(--surface-3);
+	border-top-color: var(--accent);
+	border-radius: 50%;
+	animation: spin 0.85s linear infinite;
+}
 
-	if (!warningAcknowledged) {
-		const agreed = await askConfirmation({
-			badge: "DANGER • ROOT ACCESS",
-			title: "Modify Offline PWA System Files?",
-			message:
-				"Root patching directly alters cached BrowOS HTML/JS/CSS files. If a faulty script breaks the desktop interface, the ONLY way to recover is using ?safemode=1 or performing a full browser Clear Site Data (Reset). Do you want to proceed?",
-			proceedText: "Yes, Patch & Reboot",
-		});
-		if (!agreed) return;
-		warningAcknowledged = true;
+@keyframes spin {
+	to { transform: rotate(360deg); }
+}
+
+.progress-track {
+	width: 100%;
+	height: 6px;
+	background: var(--surface-2);
+	border-radius: 999px;
+	overflow: hidden;
+	margin-bottom: 14px;
+}
+
+.progress-fill {
+	width: 0%;
+	height: 100%;
+	background: var(--accent);
+	transition: width 0.28s ease;
+}
+
+.boot-log {
+	background: #050507;
+	border: 1px solid var(--border);
+	border-radius: 8px;
+	padding: 10px;
+	text-align: left;
+	font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+	font-size: 11.5px;
+	color: #38bdf8;
+	height: 110px;
+	overflow-y: auto;
+	line-height: 1.45;
+}
+
+/* App Shell */
+.app {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+}
+
+.topbar {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 10px;
+	padding: 10px 14px;
+	background: var(--surface);
+	border-bottom: 1px solid var(--border);
+	flex-wrap: wrap;
+}
+
+.brand {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+}
+
+.status-dot {
+	width: 10px;
+	height: 10px;
+	border-radius: 50%;
+	background: var(--muted);
+	flex-shrink: 0;
+}
+
+.status-dot.patched {
+	background: var(--success);
+}
+
+.status-dot.unpatched {
+	background: var(--warn);
+}
+
+.brand h1 {
+	font-size: 14.5px;
+	font-weight: 600;
+}
+
+.brand p {
+	font-size: 11.5px;
+	color: var(--muted);
+}
+
+.nav-switch {
+	display: flex;
+	background: var(--surface-2);
+	padding: 3px;
+	border-radius: 9px;
+	border: 1px solid var(--border);
+}
+
+.nav-pill {
+	background: transparent;
+	border: none;
+	color: var(--muted);
+	padding: 5px 12px;
+	border-radius: 6px;
+	font-size: 12.5px;
+	font-weight: 500;
+	cursor: pointer;
+}
+
+.nav-pill.active {
+	background: var(--surface-3);
+	color: var(--text);
+}
+
+.top-actions {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.btn {
+	border: 1px solid var(--border);
+	background: var(--surface-2);
+	color: var(--text);
+	padding: 6px 12px;
+	border-radius: 8px;
+	font-size: 12.5px;
+	font-weight: 500;
+	cursor: pointer;
+	white-space: nowrap;
+}
+
+.btn:disabled {
+	opacity: 0.4;
+	cursor: not-allowed;
+}
+
+.btn.primary {
+	background: var(--accent);
+	border-color: var(--accent);
+	color: #ffffff;
+}
+
+.btn.danger {
+	background: rgba(239, 68, 68, 0.14);
+	border-color: rgba(239, 68, 68, 0.35);
+	color: #f87171;
+}
+
+.btn.small {
+	padding: 4px 9px;
+	font-size: 12px;
+}
+
+.btn.full {
+	width: 100%;
+	padding: 10px;
+}
+
+.upload-label {
+	display: inline-flex;
+	align-items: center;
+}
+
+.upload-label.disabled {
+	opacity: 0.4;
+	pointer-events: none;
+}
+
+.toast-banner {
+	padding: 8px 14px;
+	background: var(--surface-3);
+	border-bottom: 1px solid var(--border);
+	font-size: 12px;
+	color: var(--text);
+}
+
+/* Views */
+.view {
+	display: none;
+	flex: 1;
+	min-height: 0;
+}
+
+.view.active {
+	display: flex;
+}
+
+.tree-sidebar, .mod-sidebar {
+	width: 270px;
+	background: var(--surface);
+	border-right: 1px solid var(--border);
+	display: flex;
+	flex-direction: column;
+	min-height: 0;
+}
+
+.panel-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 9px 12px;
+	border-bottom: 1px solid var(--border);
+	font-weight: 600;
+	font-size: 12.5px;
+}
+
+.search-box {
+	margin: 8px;
+	padding: 6px 10px;
+	border-radius: 7px;
+	border: 1px solid var(--border);
+	background: var(--surface-2);
+	color: var(--text);
+	font-size: 12.5px;
+	outline: none;
+}
+
+.file-tree, .mod-list {
+	flex: 1;
+	overflow-y: auto;
+	padding: 6px 8px;
+	display: flex;
+	flex-direction: column;
+	gap: 3px;
+}
+
+.folder-group {
+	margin-bottom: 4px;
+}
+
+.folder-title {
+	font-size: 11.5px;
+	font-weight: 600;
+	color: var(--muted);
+	padding: 4px 6px;
+	cursor: pointer;
+	user-select: none;
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.folder-children {
+	padding-left: 10px;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.folder-group.collapsed .folder-children {
+	display: none;
+}
+
+.tree-file, .mod-item {
+	padding: 6px 9px;
+	border-radius: 7px;
+	border: 1px solid transparent;
+	background: transparent;
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 6px;
+	font-size: 12.5px;
+}
+
+.tree-file:hover, .mod-item:hover {
+	background: var(--surface-2);
+}
+
+.tree-file.active, .mod-item.active {
+	background: var(--surface-2);
+	border-color: var(--accent);
+}
+
+.tree-file-name, .mod-item-title {
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.mod-item-meta {
+	font-size: 10.5px;
+	color: var(--muted);
+}
+
+.mod-badge {
+	font-size: 10.5px;
+	padding: 2px 6px;
+	border-radius: 4px;
+	background: var(--bg);
+	color: var(--muted);
+}
+
+.mod-badge.on {
+	color: var(--success);
+}
+
+.sidebar-footer {
+	padding: 9px 12px;
+	border-top: 1px solid var(--border);
+	font-size: 11px;
+	color: var(--muted);
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.info-line {
+	display: flex;
+	justify-content: space-between;
+	gap: 6px;
+}
+
+/* Inspector & Editor */
+.inspector-panel, .editor-panel {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+	background: var(--bg);
+}
+
+.inspector-bar, .editor-header, .target-bar {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 8px 12px;
+	background: var(--surface);
+	border-bottom: 1px solid var(--border);
+	flex-wrap: wrap;
+}
+
+.path-pill {
+	flex: 1;
+	min-width: 160px;
+	background: var(--surface-2);
+	border: 1px solid var(--border);
+	border-radius: 7px;
+	padding: 5px 10px;
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	overflow: hidden;
+}
+
+.path-label {
+	font-size: 10.5px;
+	font-weight: 700;
+	color: var(--accent);
+}
+
+#selectedFilePath {
+	font-size: 12px;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.inspector-actions {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.file-meta {
+	padding: 5px 12px;
+	font-size: 11.5px;
+	color: var(--muted);
+	background: var(--surface-2);
+	border-bottom: 1px solid var(--border);
+}
+
+#filePreview, #codeEditor {
+	flex: 1;
+	width: 100%;
+	background: var(--bg);
+	color: #e4e4ec;
+	border: none;
+	outline: none;
+	padding: 12px;
+	font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+	font-size: 12.5px;
+	line-height: 1.5;
+	resize: none;
+}
+
+body[data-theme="light"] #filePreview,
+body[data-theme="light"] #codeEditor {
+	color: #181820;
+}
+
+.editor-header input[type="text"],
+.target-field input,
+#modModeSelect {
+	background: var(--surface-2);
+	border: 1px solid var(--border);
+	color: var(--text);
+	padding: 6px 9px;
+	border-radius: 7px;
+	font-size: 12.5px;
+	outline: none;
+}
+
+.editor-header input[type="text"] {
+	flex: 1;
+	min-width: 120px;
+}
+
+.target-field {
+	flex: 1;
+	min-width: 180px;
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	font-size: 12px;
+	color: var(--muted);
+}
+
+.target-field input {
+	flex: 1;
+	font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.toggle {
+	display: flex;
+	align-items: center;
+	gap: 5px;
+	font-size: 12.5px;
+	cursor: pointer;
+	user-select: none;
+}
+
+.tabs {
+	display: flex;
+	gap: 4px;
+	padding: 6px 12px 0;
+	background: var(--surface);
+	border-bottom: 1px solid var(--border);
+}
+
+.tab {
+	background: transparent;
+	border: 1px solid transparent;
+	border-bottom: none;
+	color: var(--muted);
+	padding: 6px 12px;
+	border-radius: 6px 6px 0 0;
+	cursor: pointer;
+	font-size: 12px;
+}
+
+.tab.active {
+	background: var(--bg);
+	color: var(--text);
+	border-color: var(--border);
+}
+
+.editor-footer {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	padding: 8px 12px;
+	background: var(--surface);
+	border-top: 1px solid var(--border);
+	font-size: 11.5px;
+	color: var(--muted);
+}
+
+.footer-btns {
+	display: flex;
+	gap: 6px;
+}
+
+@media (max-width: 680px) {
+	.view.active {
+		flex-direction: column;
 	}
-
-	await scanOfflineCache();
-	if (cachedEntries.length === 0) {
-		showBanner("Offline PWA cache is empty. Reload BrowOS first.");
-		return;
+	.tree-sidebar, .mod-sidebar {
+		width: 100%;
+		max-height: 190px;
+		border-right: none;
+		border-bottom: 1px solid var(--border);
 	}
-
-	const enabledMods = mods.filter((m) => m.enabled);
-	const steps = [
-		"Mounting PWA CacheStorage (" + cachedEntries[0].cacheName + ")…",
-		"Verifying clean system backups…",
-		`Applying ${enabledMods.length} enabled module(s)…`,
-		"Flushing modified responses to Service Worker cache…",
-		"Rebooting BrowOS shell…",
-	];
-
-	// Group mods by targetPath
-	const modsByPath = {};
-	enabledMods.forEach((mod) => {
-		const p = (mod.targetPath || "index.html").replace(/^\/+/, "");
-		if (!modsByPath[p]) modsByPath[p] = [];
-		modsByPath[p].push(mod);
-	});
-
-	// Restore any previously patched files to clean backup first
-	for (const entry of cachedEntries) {
-		const backupUrl = entry.url + BACKUP_SUFFIX;
-		const bakRes = await entry.cache.match(backupUrl);
-		if (bakRes) {
-			await entry.cache.put(entry.request, bakRes.clone());
-		}
-	}
-
-	// Apply mods to each targeted file
-	for (const [targetPath, pathMods] of Object.entries(modsByPath)) {
-		const entry = cachedEntries.find((e) => e.relPath === targetPath);
-		if (!entry) continue;
-
-		const origRes = await entry.cache.match(entry.request);
-		if (!origRes) continue;
-
-		const backupUrl = entry.url + BACKUP_SUFFIX;
-		if (!(await entry.cache.match(backupUrl))) {
-			await entry.cache.put(backupUrl, origRes.clone());
-		}
-
-		let content = await origRes.text();
-		const isHtml = targetPath.endsWith(".html");
-
-		for (const mod of pathMods) {
-			const payload = buildInjectPayload(mod);
-			if (mod.mode === "replace") {
-				content = mod.js || "";
-			} else if (mod.mode === "append") {
-				content += isHtml
-					? `\n${HTML_INJECT_START}\n<script>\n${payload}\n</script>\n${HTML_INJECT_END}\n`
-					: `\n${INJECT_START}\n${payload}\n${INJECT_END}\n`;
-			} else {
-				// inject mode
-				if (isHtml) {
-					const tag = `\n${HTML_INJECT_START}\n<script>\n${payload}\n</script>\n${HTML_INJECT_END}\n`;
-					content = content.includes("</body>") ? content.replace("</body>", tag + "</body>") : content + tag;
-				} else {
-					content += `\n${INJECT_START}\n${payload}\n${INJECT_END}\n`;
-				}
-			}
-		}
-
-		const headers = new Headers(origRes.headers);
-		await entry.cache.put(entry.request, new Response(content, { status: 200, statusText: "OK", headers }));
-	}
-
-	notifyOS("BrowOS Root", "Offline cache patched. Rebooting…");
-	await runBootAnimation("Rooting & Patching Cache…", steps);
-
-	if (window.parent && window.parent !== window) {
-		window.parent.location.reload();
-	} else {
-		window.location.reload();
-	}
-});
-
-// --- 8. UNROOT / RESTORE STOCK FILES ---
-unrootBtn.addEventListener("click", async () => {
-	const ok = await askConfirmation({
-		badge: "RESTORE STOCK",
-		title: "Unroot & Restore Original Files?",
-		message: "All patched files in the offline PWA cache will be reverted to their original clean backups.",
-		proceedText: "Restore & Reboot",
-	});
-	if (!ok) return;
-
-	await scanOfflineCache();
-	for (const entry of cachedEntries) {
-		const backupUrl = entry.url + BACKUP_SUFFIX;
-		const bakRes = await entry.cache.match(backupUrl);
-		if (bakRes) {
-			await entry.cache.put(entry.request, bakRes.clone());
-			await entry.cache.delete(backupUrl);
-		}
-	}
-
-	notifyOS("BrowOS Root", "Stock files restored.");
-	await runBootAnimation("Restoring Stock BrowOS…", [
-		"Locating clean system backups…",
-		"Reverting cached HTML/JS/CSS assets…",
-		"Cleaning root metadata…",
-		"Rebooting BrowOS…",
-	]);
-
-	if (window.parent && window.parent !== window) {
-		window.parent.location.reload();
-	} else {
-		window.location.reload();
-	}
-});
-
-// --- 9. SYNC TO BROWOS FILES APP ---
-document.getElementById("backupFilesBtn").addEventListener("click", async () => {
-	saveEditorToMemory();
-	persistMods();
-
-	if (typeof BrowOS === "undefined" || !BrowOS.available) {
-		showBanner("Open inside BrowOS to sync with Files.");
-		return;
-	}
-
-	try {
-		const name = await BrowOS.files.write("root-mods-backup.json", JSON.stringify(mods, null, 2));
-		await BrowOS.notify("BrowOS Root", "Backup saved to Files: " + name);
-		showBanner("Saved backup to Files / Apps / " + name);
-	} catch (e) {
-		showBanner("File permission denied.");
-	}
-});
-
-// Init
-renderModList();
-loadModIntoEditor();
-scanOfflineCache();
+}
