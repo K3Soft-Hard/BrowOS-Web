@@ -1,501 +1,442 @@
-// BrowOS apps
+// Window manager
 
-// Every app BrowOS knows about.
-// Only real facts go here: name, where it runs, its official website and source.
-// Descriptions and developer info are never written here, BrowStore loads them
-// from the official page or the official GitHub API when the user opens the details.
+let highestWindowZ = 100;
 
-function siteIcon(host) {
-	return "https://www.google.com/s2/favicons?domain=" + host + "&sz=64";
+function bringToFront(windowElement) {
+	highestWindowZ++;
+
+	windowElement.style.zIndex = highestWindowZ;
 }
 
-const appCatalog = [
-	// built into BrowOS
+// Snapping
+// Drag a window to the left or right edge for half the screen, or to the top edge to maximize.
 
-	{
-		id: "notepad",
-		name: "Notepad",
-		category: "apps",
-		builtIn: true,
-		icon: "icons/notepad-icon.png",
-		window: "notepadWindow",
-		officialPage: "apps/notepad/index.html",
-		github: "amitmerchant1990/notepad",
-		website: "https://notepad.js.org",
-		credit: "Notepad by Amit Merchant",
-		license: "MIT License",
-		dataKeys: [
-			"note",
-			"mode",
-			"selectedFont",
-			"dyslexicFont",
-			"monospaced",
-			"serifFont",
-			"timerChime",
-			"isUserPreferredTheme",
-			"hasUserDismissedDonationPopup",
-			"userChosenBreakReminders",
-			"userChosenExplodingEffect",
-			"userChosenFontSize",
-			"userChosenFontWeight",
-			"userChosenLineHeight",
-			"userChosenOptimalLineLengthSelected",
-			"userChosenSpellCheck",
-			"userChosenTabIndentation",
-			"userChosenTexture",
-			"userChosenTransparentWordCountPillSelected",
-			"userChosenTypewriterSound",
-			"userChosenTypewriterVolume",
-			"userChosenWordCountPillSelected",
-			"userChosenWriteDirection",
-			"recentUnicodeSymbols",
-			"ambient-noise-presets",
-			"breakReminderState",
-		],
-		dataDatabases: ["NotepadSnapshotsDB"],
-	},
+const SNAP_EDGE = 8;
 
-	{
-		id: "calculator",
-		name: "Calculator",
-		category: "apps",
-		builtIn: true,
-		icon: "icons/calculator-icon.png",
-		window: "calculatorWindow",
-		officialPage: "apps/calculator/index.html",
-		github: "nikh-tail/CodeAlpha_Task",
-		credit: "NEO-CALC Pro by Nikhil Rathor (nikh-tail)",
-		license: "MIT License",
-		dataKeys: ["neocalc_history", "neocalc_theme"],
-	},
+// the free space above the taskbar
+function snapArea() {
+	return { width: window.innerWidth, height: window.innerHeight - 90 };
+}
 
-	{
-		id: "clock",
-		name: "Clock",
-		category: "apps",
-		builtIn: true,
-		icon: "icons/clock-icon.png",
-		window: "clockWindow",
-		credit: "Made for BrowOS",
-	},
+function snapZoneAt(x, y) {
+	if (y <= SNAP_EDGE) {
+		return "max";
+	}
 
-	{
-		id: "paint",
-		name: "Paint",
-		category: "apps",
-		builtIn: true,
-		icon: "icons/paint-icon.png",
-		window: "paintWindow",
-		url: "https://viliusle.github.io/miniPaint/",
-		github: "viliusle/miniPaint",
-		website: "https://viliusle.github.io/miniPaint/",
-		credit: "miniPaint by ViliusL",
-		license: "MIT License",
-	},
+	if (x <= SNAP_EDGE) {
+		return "left";
+	}
 
-	{
-		id: "browser",
-		name: "Browser",
-		category: "apps",
-		builtIn: true,
-		icon: "icons/browser-icon.png",
-		window: "browserWindow",
-		credit: "Made for BrowOS",
-	},
+	if (x >= window.innerWidth - SNAP_EDGE) {
+		return "right";
+	}
 
-	// more apps that come with BrowOS (they live in apps/ and get their own window when opened)
+	return null;
+}
 
-	{
-		id: "files",
-		name: "Files",
-		category: "apps",
-		builtIn: true,
-		icon: "icons/files-icon.svg",
-		page: "apps/files/index.html",
-		size: [760, 560],
-		officialPage: "apps/files/index.html",
-		credit: "Made for BrowOS",
-		dataDatabases: ["browos-files"],
-	},
+function snapRect(zone) {
+	const area = snapArea();
 
-	{
-		id: "calendar",
-		name: "Calendar",
-		category: "apps",
-		builtIn: true,
-		icon: "icons/calendar-icon.svg",
-		page: "apps/calendar/index.html",
-		size: [820, 600],
-		officialPage: "apps/calendar/index.html",
-		credit: "Made for BrowOS",
-		dataKeys: ["browos-calendar", "browos-calendar-fired"],
-	},
+	if (zone === "max") {
+		return { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight };
+	}
 
-	{
-		id: "imageviewer",
-		name: "Image Viewer",
-		category: "apps",
-		builtIn: true,
-		icon: "icons/imageviewer-icon.svg",
-		page: "apps/imageviewer/index.html",
-		size: [860, 620],
-		officialPage: "apps/imageviewer/index.html",
-		credit: "Made for BrowOS",
-	},
+	const half = Math.floor(area.width / 2);
 
-	{
-		id: "pdfviewer",
-		name: "PDF Viewer",
-		category: "apps",
-		builtIn: true,
-		icon: "icons/pdfviewer-icon.svg",
-		page: "apps/pdfviewer/index.html",
-		size: [860, 640],
-		officialPage: "apps/pdfviewer/index.html",
-		credit: "Made for BrowOS",
-	},
+	return {
+		left: zone === "left" ? 0 : half,
+		top: 0,
+		width: half,
+		height: area.height,
+	};
+}
 
-	{
-		id: "codeeditor",
-		name: "Code Editor",
-		category: "apps",
-		builtIn: true,
-		icon: "icons/codeeditor-icon.svg",
-		page: "apps/codeeditor/index.html",
-		size: [820, 580],
-		officialPage: "apps/codeeditor/index.html",
-		credit: "Made for BrowOS",
-	},
+let snapPreview = null;
 
-	{
-		id: "notes",
-		name: "Notes",
-		category: "apps",
-		builtIn: true,
-		icon: "icons/notes-icon.svg",
-		page: "apps/notes/index.html",
-		size: [720, 520],
-		officialPage: "apps/notes/index.html",
-		credit: "Made for BrowOS",
-	},
+function showSnapPreview(zone) {
+	if (!snapPreview) {
+		snapPreview = document.createElement("div");
 
-	{
-		id: "habits",
-		name: "Habits",
-		category: "apps",
-		builtIn: true,
-		icon: "icons/habits-icon.svg",
-		page: "apps/habits/index.html",
-		size: [520, 560],
-		officialPage: "apps/habits/index.html",
-		credit: "Made for BrowOS",
-		dataKeys: ["browos-habits"],
-	},
+		snapPreview.className = "snap-preview";
+		snapPreview.style.pointerEvents = "none";
 
-	{
-		id: "budget",
-		name: "Budget",
-		category: "apps",
-		builtIn: true,
-		icon: "icons/budget-icon.svg",
-		page: "apps/budget/index.html",
-		size: [640, 640],
-		officialPage: "apps/budget/index.html",
-		credit: "Made for BrowOS",
-		dataKeys: ["browos-budget"],
-	},
+		const shell = document.querySelector(".desktop-shell");
+		if (shell) {
+			shell.appendChild(snapPreview);
+		}
+	}
 
-	{
-		id: "bookmarks",
-		name: "Bookmarks",
-		category: "apps",
-		builtIn: true,
-		icon: "icons/bookmarks-icon.svg",
-		page: "apps/bookmarks/index.html",
-		size: [520, 560],
-		officialPage: "apps/bookmarks/index.html",
-		credit: "Made for BrowOS",
-	},
+	if (!zone) {
+		snapPreview.classList.remove("show");
 
-	{
-		id: "recorder",
-		name: "Recorder",
-		category: "apps",
-		builtIn: true,
-		icon: "icons/recorder-icon.svg",
-		page: "apps/recorder/index.html",
-		size: [520, 560],
-		officialPage: "apps/recorder/index.html",
-		credit: "Made for BrowOS",
-	},
+		return;
+	}
 
-	{
-		id: "chess",
-		name: "Chess",
-		category: "games",
-		builtIn: true,
-		icon: "icons/chess-icon.svg",
-		page: "apps/chess/index.html",
-		size: [820, 620],
-		officialPage: "apps/chess/index.html",
-		credit: "Made for BrowOS",
-	},
+	const rect = snapRect(zone);
 
-	{
-		id: "sudoku",
-		name: "Sudoku",
-		category: "games",
-		builtIn: true,
-		icon: "icons/sudoku-icon.svg",
-		page: "apps/sudoku/index.html",
-		size: [560, 720],
-		officialPage: "apps/sudoku/index.html",
-		credit: "Made for BrowOS",
-		dataKeys: ["browos-sudoku", "browos-sudoku-best"],
-	},
+	snapPreview.style.left = rect.left + "px";
+	snapPreview.style.top = rect.top + "px";
+	snapPreview.style.width = rect.width + "px";
+	snapPreview.style.height = rect.height + "px";
 
-	{
-		id: "solitaire",
-		name: "Solitaire",
-		category: "games",
-		builtIn: true,
-		icon: "icons/solitaire-icon.svg",
-		page: "apps/solitaire/index.html",
-		size: [880, 640],
-		officialPage: "apps/solitaire/index.html",
-		credit: "Made for BrowOS",
-	},
+	snapPreview.classList.add("show");
+}
 
-	{
-		id: "orbhop",
-		name: "Orb Hop",
-		category: "games",
-		builtIn: true,
-		icon: "icons/orbhop-icon.svg",
-		page: "apps/orbhop/index.html",
-		size: [420, 640],
-		officialPage: "apps/orbhop/index.html",
-		credit: "Made for BrowOS",
-		dataKeys: ["browos-orbhop-best"],
-	},
+// zone: "left", "right", "max" or "restore"
+function snapWindow(appWindow, zone) {
+	if (zone === "restore") {
+		unsnapWindow(appWindow);
 
-	{
-		id: "todo",
-		name: "To-Do",
-		category: "apps",
-		builtIn: true,
-		icon: "icons/todo-icon.svg",
-		page: "apps/todo/index.html",
-		size: [520, 600],
-		officialPage: "apps/todo/index.html",
-		credit: "Made for BrowOS",
-		dataKeys: ["browos-todo"],
-	},
+		return;
+	}
 
-	{
-		id: "pomodoro",
-		name: "Pomodoro",
-		category: "apps",
-		builtIn: true,
-		icon: "icons/pomodoro-icon.svg",
-		page: "apps/pomodoro/index.html",
-		size: [460, 560],
-		officialPage: "apps/pomodoro/index.html",
-		credit: "Made for BrowOS",
-		dataKeys: ["browos-pomodoro"],
-	},
+	if (zone === "max") {
+		unsnapWindow(appWindow);
 
-	{
-		id: "weather",
-		name: "Weather",
-		category: "apps",
-		builtIn: true,
-		icon: "icons/weather-icon.svg",
-		page: "apps/weather/index.html",
-		size: [560, 560],
-		officialPage: "apps/weather/index.html",
-		website: "https://open-meteo.com",
-		credit: "Made for BrowOS, weather data by Open-Meteo",
-		dataKeys: ["browos-weather-place", "browos-weather-unit"],
-	},
+		if (!appWindow.classList.contains("maximized")) {
+			toggleMaximize(appWindow);
+		}
 
-	{
-		id: "music",
-		name: "Music",
-		category: "apps",
-		builtIn: true,
-		icon: "icons/music-icon.svg",
-		page: "apps/music/index.html",
-		size: [520, 640],
-		officialPage: "apps/music/index.html",
-		credit: "Made for BrowOS",
-	},
+		return;
+	}
 
-	{
-		id: "terminal",
-		name: "Terminal",
-		category: "apps",
-		builtIn: true,
-		icon: "icons/terminal-icon.svg",
-		page: "apps/terminal/index.html",
-		size: [720, 440],
-		officialPage: "apps/terminal/index.html",
-		credit: "Made for BrowOS",
-	},
+	// from maximized straight to a half
+	if (appWindow.classList.contains("maximized")) {
+		toggleMaximize(appWindow);
+	}
 
-	{
-		id: "recyclebin",
-		name: "Recycle Bin",
-		category: "apps",
-		builtIn: true,
-		icon: "icons/recyclebin-icon.svg",
-		page: "apps/recyclebin/index.html",
-		size: [560, 440],
-		officialPage: "apps/recyclebin/index.html",
-		credit: "Made for BrowOS",
-	},
+	// remember the normal size, once
+	if (!appWindow.dataset.snapped) {
+		appWindow.dataset.beforeSnap = JSON.stringify({
+			width: appWindow.style.width,
+			height: appWindow.style.height,
+		});
+	}
 
-	{
-		id: "snake",
-		name: "Snake",
-		category: "games",
-		builtIn: true,
-		icon: "icons/snake-icon.svg",
-		page: "apps/snake/index.html",
-		size: [520, 620],
-		officialPage: "apps/snake/index.html",
-		credit: "Made for BrowOS",
-		dataKeys: ["browos-snake-best"],
-	},
+	const rect = snapRect(zone);
 
-	{
-		id: "minesweeper",
-		name: "Minesweeper",
-		category: "games",
-		builtIn: true,
-		icon: "icons/minesweeper-icon.svg",
-		page: "apps/minesweeper/index.html",
-		size: [620, 600],
-		officialPage: "apps/minesweeper/index.html",
-		credit: "Made for BrowOS",
-	},
+	appWindow.style.transform = "none";
+	appWindow.style.left = rect.left + "px";
+	appWindow.style.top = rect.top + "px";
+	appWindow.style.width = rect.width + "px";
+	appWindow.style.height = rect.height + "px";
 
-	{
-		id: "tetris",
-		name: "Tetris",
-		category: "games",
-		builtIn: true,
-		icon: "icons/tetris-icon.svg",
-		page: "apps/tetris/index.html",
-		size: [560, 680],
-		officialPage: "apps/tetris/index.html",
-		credit: "Made for BrowOS",
-		dataKeys: ["browos-tetris-best"],
-	},
+	appWindow.dataset.snapped = zone;
 
-	{
-		id: "kanban",
-		name: "Kanban",
-		category: "apps",
-		builtIn: true,
-		icon: "icons/kanban-icon.svg",
-		page: "apps/kanban/index.html",
-		size: [820, 520],
-		officialPage: "apps/kanban/index.html",
-		credit: "Made for BrowOS",
-		dataKeys: ["browos-kanban"],
-	},
+	bringToFront(appWindow);
+}
 
-	{
-		id: "converter",
-		name: "Converter",
-		category: "apps",
-		builtIn: true,
-		icon: "icons/converter-icon.svg",
-		page: "apps/converter/index.html",
-		size: [460, 420],
-		officialPage: "apps/converter/index.html",
-		credit: "Made for BrowOS",
-		dataKeys: [],
-	},
+// back to the size before snapping or maximizing
+function unsnapWindow(appWindow) {
+	if (appWindow.classList.contains("maximized")) {
+		toggleMaximize(appWindow);
+	}
 
-	{
-		id: "passgen",
-		name: "Password Generator",
-		category: "apps",
-		builtIn: true,
-		icon: "icons/passgen-icon.svg",
-		page: "apps/passgen/index.html",
-		size: [460, 440],
-		officialPage: "apps/passgen/index.html",
-		credit: "Made for BrowOS",
-		dataKeys: [],
-	},
+	if (!appWindow.dataset.snapped) {
+		return;
+	}
 
-	{
-		id: "typing",
-		name: "Typing Test",
-		category: "games",
-		builtIn: true,
-		icon: "icons/typing-icon.svg",
-		page: "apps/typing/index.html",
-		size: [720, 480],
-		officialPage: "apps/typing/index.html",
-		credit: "Made for BrowOS",
-		dataKeys: ["browos-typing-best-30", "browos-typing-best-60", "browos-typing-best-120"],
-	},
+	try {
+		const before = JSON.parse(appWindow.dataset.beforeSnap);
 
-	// web apps
+		appWindow.style.width = before.width;
+		appWindow.style.height = before.height;
+	} catch (error) {
+		appWindow.style.width = "";
+		appWindow.style.height = "";
+	}
 
-	{
-		id: "spotify",
-		name: "Spotify",
-		category: "apps",
-		icon: siteIcon("spotify.com"),
-		url: "https://open.spotify.com/",
-		website: "https://open.spotify.com/",
-		defaultMode: "window",
-		requires: "Requires a Spotify account",
-	},
+	delete appWindow.dataset.snapped;
+	delete appWindow.dataset.beforeSnap;
+}
 
-	// games
+function setupWindow(appWindow) {
+	const header = appWindow.querySelector(".window-header");
 
-	{
-		id: "game2048",
-		name: "2048",
-		category: "games",
-		icon: "https://play2048.co/favicon.ico",
-		url: "https://play2048.co/",
-		website: "https://play2048.co/",
-		github: "gabrielecirulli/2048",
-	},
+	const closeButton = appWindow.querySelector(".window-close");
 
-	{
-		id: "adarkroom",
-		name: "A Dark Room",
-		category: "games",
-		icon: "https://doublespeakgames.github.io/adarkroom/favicon.ico",
-		url: "https://doublespeakgames.github.io/adarkroom/",
-		website: "https://adarkroom.doublespeakgames.com",
-		github: "doublespeakgames/adarkroom",
-	},
+	const minimizeButton = appWindow.querySelector(".window-minimize");
 
-	{
-		id: "clumsybird",
-		name: "Clumsy Bird",
-		category: "games",
-		icon: "https://ellisonleao.github.io/clumsy-bird/data/img/favicon.ico",
-		url: "https://ellisonleao.github.io/clumsy-bird/",
-		website: "https://ellisonleao.github.io/clumsy-bird/",
-		github: "ellisonleao/clumsy-bird",
-	},
-];
+	if (!header) {
+		return;
+	}
 
-// BrowStore itself: always in the Start menu, can't be removed
+	header.style.touchAction = "none";
 
-const browStoreApp = {
-	id: "browstore",
-	name: "BrowStore",
-	icon: "icons/browstore-icon.png",
-	window: "browstoreWindow",
-};
+	let dragging = false;
+
+	let activePointerId = null;
+
+	let offsetX = 0;
+
+	let offsetY = 0;
+
+	let snapZone = null;
+
+	// where the pointer went down, so a small shake doesn't count as a drag
+	let startX = 0;
+
+	let startY = 0;
+
+	appWindow.addEventListener("pointerdown", function () {
+		bringToFront(appWindow);
+	});
+
+	if (closeButton) {
+		closeButton.addEventListener("click", function () {
+			closeApp(appWindow);
+		});
+	}
+
+	if (minimizeButton) {
+		minimizeButton.addEventListener("click", function () {
+			minimizeApp(appWindow);
+		});
+	}
+
+	header.addEventListener("pointerdown", function (event) {
+		if (event.target.closest(".window-controls, .window-tools, button")) {
+			return;
+		}
+
+		if (event.button !== undefined && event.button !== 0 && event.pointerType === "mouse") {
+			return;
+		}
+
+		dragging = true;
+
+		activePointerId = event.pointerId;
+
+		startX = event.clientX;
+
+		startY = event.clientY;
+
+		bringToFront(appWindow);
+
+		const rect = appWindow.getBoundingClientRect();
+
+		offsetX = event.clientX - rect.left;
+
+		offsetY = event.clientY - rect.top;
+
+		appWindow.style.transform = "none";
+
+		appWindow.style.left = rect.left + "px";
+
+		appWindow.style.top = rect.top + "px";
+
+		appWindow.querySelectorAll("iframe").forEach(function (frame) {
+			frame.style.pointerEvents = "none";
+		});
+
+		try {
+			header.setPointerCapture(event.pointerId);
+		} catch (error) {
+			// fallback
+		}
+	});
+
+	function onPointerMove(event) {
+		if (!dragging || (activePointerId !== null && event.pointerId !== activePointerId)) {
+			return;
+		}
+
+		const wasMaximized = appWindow.classList.contains("maximized");
+
+		if (wasMaximized || appWindow.dataset.snapped) {
+			if (Math.abs(event.clientX - startX) < 5 && Math.abs(event.clientY - startY) < 5) {
+				return;
+			}
+
+			const widthBefore = appWindow.getBoundingClientRect().width;
+
+			const grabbedAt = widthBefore > 0 ? offsetX / widthBefore : 0.5;
+
+			unsnapWindow(appWindow);
+
+			const widthNow = appWindow.getBoundingClientRect().width;
+
+			offsetX = Math.max(30, Math.min(widthNow - 30, grabbedAt * widthNow));
+		}
+
+		const maxLeft = Math.max(0, window.innerWidth - 60);
+		const maxTop = Math.max(0, window.innerHeight - 90);
+
+		const nextLeft = Math.min(maxLeft, Math.max(-appWindow.offsetWidth + 60, event.clientX - offsetX));
+		const nextTop = Math.min(maxTop, Math.max(0, event.clientY - offsetY));
+
+		appWindow.style.left = nextLeft + "px";
+
+		appWindow.style.top = nextTop + "px";
+
+		snapZone = snapZoneAt(event.clientX, event.clientY);
+
+		showSnapPreview(snapZone);
+	}
+
+	function endDrag(event, cancelled) {
+		if (!dragging || (activePointerId !== null && event.pointerId !== activePointerId)) {
+			return;
+		}
+
+		dragging = false;
+
+		activePointerId = null;
+
+		showSnapPreview(null);
+
+		appWindow.querySelectorAll("iframe").forEach(function (frame) {
+			frame.style.pointerEvents = "";
+		});
+
+		try {
+			if (header.hasPointerCapture(event.pointerId)) {
+				header.releasePointerCapture(event.pointerId);
+			}
+		} catch (error) {
+			// ignore
+		}
+
+		if (snapZone && !cancelled) {
+			snapWindow(appWindow, snapZone);
+		}
+
+		snapZone = null;
+	}
+
+	header.addEventListener("pointermove", onPointerMove);
+	window.addEventListener("pointermove", onPointerMove);
+
+	header.addEventListener("pointerup", function (event) {
+		endDrag(event, false);
+	});
+	window.addEventListener("pointerup", function (event) {
+		endDrag(event, false);
+	});
+
+	header.addEventListener("pointercancel", function (event) {
+		endDrag(event, true);
+	});
+	window.addEventListener("pointercancel", function (event) {
+		endDrag(event, true);
+	});
+}
+
+document.querySelectorAll(".app-window").forEach(setupWindow);
+
+// Resizable windows
+
+function makeResizable(windowElement) {
+	const directions = ["n", "s", "e", "w", "ne", "nw", "se", "sw"];
+
+	directions.forEach(function (direction) {
+		const handle = document.createElement("div");
+
+		handle.className = "resize-handle " + direction;
+		handle.style.touchAction = "none";
+
+		windowElement.appendChild(handle);
+
+		handle.addEventListener("pointerdown", function (event) {
+			event.preventDefault();
+			event.stopPropagation();
+
+			const rect = windowElement.getBoundingClientRect();
+
+			delete windowElement.dataset.snapped;
+			delete windowElement.dataset.beforeSnap;
+
+			windowElement.style.transform = "none";
+
+			windowElement.style.left = rect.left + "px";
+
+			windowElement.style.top = rect.top + "px";
+
+			windowElement.querySelectorAll("iframe").forEach(function (frame) {
+				frame.style.pointerEvents = "none";
+			});
+
+			const startX = event.clientX;
+
+			const startY = event.clientY;
+
+			const startWidth = rect.width;
+
+			const startHeight = rect.height;
+
+			const startLeft = rect.left;
+
+			const startTop = rect.top;
+
+			const minWidth = Math.min(300, window.innerWidth - 20);
+
+			const minHeight = 200;
+
+			try {
+				handle.setPointerCapture(event.pointerId);
+			} catch (error) {
+				// ignore
+			}
+
+			function resize(event) {
+				const deltaX = event.clientX - startX;
+
+				const deltaY = event.clientY - startY;
+
+				let newWidth = startWidth;
+
+				let newHeight = startHeight;
+
+				let newLeft = startLeft;
+
+				let newTop = startTop;
+
+				if (direction.includes("e")) {
+					newWidth = Math.max(minWidth, startWidth + deltaX);
+				}
+
+				if (direction.includes("w")) {
+					newWidth = Math.max(minWidth, startWidth - deltaX);
+
+					newLeft = startLeft + (startWidth - newWidth);
+				}
+
+				if (direction.includes("s")) {
+					newHeight = Math.max(minHeight, startHeight + deltaY);
+				}
+
+				if (direction.includes("n")) {
+					newHeight = Math.max(minHeight, startHeight - deltaY);
+
+					newTop = startTop + (startHeight - newHeight);
+				}
+
+				windowElement.style.width = newWidth + "px";
+
+				windowElement.style.height = newHeight + "px";
+
+				windowElement.style.left = newLeft + "px";
+
+				windowElement.style.top = newTop + "px";
+			}
+
+			function stopResize() {
+				windowElement.querySelectorAll("iframe").forEach(function (frame) {
+					frame.style.pointerEvents = "";
+				});
+
+				window.removeEventListener("pointermove", resize);
+				window.removeEventListener("pointerup", stopResize);
+				window.removeEventListener("pointercancel", stopResize);
+			}
+
+			window.addEventListener("pointermove", resize);
+			window.addEventListener("pointerup", stopResize);
+			window.addEventListener("pointercancel", stopResize);
+		});
+	});
+}
+
+document.querySelectorAll(".app-window, .explorer-window").forEach(function (windowElement) {
+	makeResizable(windowElement);
+});
