@@ -24,8 +24,6 @@ let taskbarPins = loadList("browos-pins", ["browstore"]);
 
 let customSites = loadList("browos-sites", []);
 
-// how each web app opens: "inside" BrowOS (default), as a floating "window", or in a browser "tab"
-
 let openModes = {};
 
 try {
@@ -33,8 +31,6 @@ try {
 } catch (error) {
 	openModes = {};
 }
-
-// websites set to "Always open in tab" before this version
 
 customSites.forEach(function (site) {
 	if (site.openInTab) {
@@ -51,8 +47,6 @@ function saveApps() {
 	localStorage.setItem("browos-sites", JSON.stringify(customSites));
 	localStorage.setItem("browos-open-modes", JSON.stringify(openModes));
 }
-
-// FIRST RUN OR AFTER DATA RESET (only the main 5 apps preinstalled; the rest are in BrowStore)
 
 function applyDefaultFiveApps() {
 	const defaultPreinstalled = [
@@ -96,26 +90,37 @@ function applyDefaultFiveApps() {
 	saveApps();
 }
 
-if (installedApps === null || installedApps.length === 0) {
+const isFreshBoot = installedApps === null || installedApps.length === 0;
+
+if (isFreshBoot) {
 	applyDefaultFiveApps();
 }
 
-// Guard against external reset scripts (e.g., Settings -> Reset Data) populating all 32 builtIn apps
-const _originalSetItem = localStorage.setItem.bind(localStorage);
-localStorage.setItem = function (key, value) {
-	if (key === "browos-installed") {
-		try {
-			const parsed = JSON.parse(value);
-			if (Array.isArray(parsed) && parsed.length > 20 && !localStorage.getItem("browos-installed")) {
-				installedApps = MAIN_FIVE_APPS.slice();
-				value = JSON.stringify(installedApps);
+// Block builtin-updates.js / app-actions.js from auto-installing all 32 built-in apps on fresh boot
+window.addEventListener("DOMContentLoaded", function () {
+	if (isFreshBoot && typeof installApp === "function") {
+		const origInstallApp = installApp;
+		const bootTime = Date.now();
+		window.installApp = function (id) {
+			// Ignore automatic bulk-install of built-in apps during startup (first 2.5s)
+			if (Date.now() - bootTime < 2500 && !MAIN_FIVE_APPS.includes(id)) {
+				return;
 			}
-		} catch (e) {}
+			return origInstallApp.apply(this, arguments);
+		};
 	}
-	return _originalSetItem(key, value);
-};
 
-// HELIUM WAS REPLACED BY BROWSER: keep its place in Start, desktop and taskbar
+	if (isFreshBoot) {
+		installedApps = MAIN_FIVE_APPS.slice();
+		saveApps();
+		if (typeof renderAppsPanel === "function") {
+			renderAppsPanel();
+		}
+		document.dispatchEvent(new Event("apps-changed"));
+	}
+});
+
+// HELIUM WAS REPLACED BY BROWSER
 
 function renameApp(oldId, newId) {
 	let changed = false;
@@ -210,8 +215,6 @@ function hasShortcut(id) {
 		return shortcut.id === id;
 	});
 }
-
-// a neutral icon when a website has none
 
 function placeholderIcon(label) {
 	const letter = (label || "?").trim().charAt(0).toUpperCase() || "?";
@@ -321,8 +324,6 @@ function createAppWindow(app) {
 	return appWindow;
 }
 
-// the small ↗ next to the title: opens the website in a normal browser tab
-
 function addOpenInTabButton(appWindow, app) {
 	if (!appWindow || !app.url || appWindow.querySelector(".window-tab-button")) {
 		return;
@@ -349,8 +350,6 @@ function addOpenInTabButton(appWindow, app) {
 function openInBrowserTab(url) {
 	window.open(url, "_blank", "noopener");
 }
-
-// How web apps open
 
 function defaultOpenMode(id) {
 	const app = getApp(id);
@@ -490,7 +489,7 @@ function launchApp(id) {
 	openApp(getAppWindow(app));
 }
 
-// Start menu (non-conflicting with js/start-menu.js)
+// Start menu
 
 const appsMenuItem = document.getElementById("appsMenuItem");
 
