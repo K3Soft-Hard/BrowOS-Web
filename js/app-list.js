@@ -70,6 +70,17 @@ const appCatalog = [
 	},
 
 	{
+		id: "modmanager",
+		name: "Root & Mods",
+		category: "apps",
+		icon: "icons/settings-icon.png",
+		page: "apps/modmanager/index.html",
+		size: [820, 560],
+		officialPage: "apps/modmanager/index.html",
+		credit: "Made for BrowOS",
+	},
+
+	{
 		id: "clock",
 		name: "Clock",
 		category: "apps",
