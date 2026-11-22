@@ -17,6 +17,7 @@ function loadList(key, fallback) {
 const MAIN_FIVE_APPS = ["browser", "files", "notepad", "calculator", "clock"];
 
 let installedApps = loadList("browos-installed", null);
+const isFreshBoot = installedApps === null || installedApps.length === 0;
 
 let desktopShortcuts = loadList("browos-desktop", []);
 
@@ -90,34 +91,92 @@ function applyDefaultFiveApps() {
 	saveApps();
 }
 
-const isFreshBoot = installedApps === null || installedApps.length === 0;
-
 if (isFreshBoot) {
 	applyDefaultFiveApps();
 }
 
-// Block builtin-updates.js / app-actions.js from auto-installing all 32 built-in apps on fresh boot
-window.addEventListener("DOMContentLoaded", function () {
-	if (isFreshBoot && typeof installApp === "function") {
-		const origInstallApp = installApp;
-		const bootTime = Date.now();
-		window.installApp = function (id) {
-			// Ignore automatic bulk-install of built-in apps during startup (first 2.5s)
-			if (Date.now() - bootTime < 2500 && !MAIN_FIVE_APPS.includes(id)) {
-				return;
+// Clear recycle bin / trash storage
+function emptyTrashStorage() {
+	try {
+		Object.keys(localStorage).forEach(function (key) {
+			const lower = key.toLowerCase();
+			if (lower.includes("trash") || lower.includes("recycle")) {
+				localStorage.removeItem(key);
 			}
-			return origInstallApp.apply(this, arguments);
-		};
+		});
+		localStorage.setItem("browos-trash", "[]");
+		localStorage.setItem("browos-recycle-bin", "[]");
+	} catch (e) {}
+
+	// Clear trash entries inside browos-files IndexedDB if present
+	try {
+		if (window.indexedDB) {
+			const req = indexedDB.open("browos-files");
+			req.onsuccess = function (event) {
+				const db = event.target.result;
+				const storeNames = Array.from(db.objectStoreNames);
+				storeNames.forEach(function (storeName) {
+					if (storeName.toLowerCase().includes("trash") || storeName.toLowerCase().includes("recycle")) {
+						try {
+							const tx = db.transaction(storeName, "readwrite");
+							tx.objectStore(storeName).clear();
+						} catch (e) {}
+					}
+				});
+				db.close();
+			};
+		}
+	} catch (e) {}
+}
+
+// After startup downloads/registers built-in apps, uninstall extra ones and empty trash
+window.addEventListener("load", function () {
+	if (!isFreshBoot) {
+		return;
 	}
 
-	if (isFreshBoot) {
-		installedApps = MAIN_FIVE_APPS.slice();
+	setTimeout(function () {
+		const toUninstall = installedApps.filter(function (id) {
+			return !MAIN_FIVE_APPS.includes(id);
+		});
+
+		toUninstall.forEach(function (id) {
+			if (typeof removeApp === "function") {
+				removeApp(id);
+			}
+		});
+
+		installedApps = installedApps.filter(function (id) {
+			return MAIN_FIVE_APPS.includes(id);
+		});
+
+		if (installedApps.length === 0) {
+			installedApps = MAIN_FIVE_APPS.slice();
+		}
+
+		desktopShortcuts = desktopShortcuts.filter(function (shortcut) {
+			return MAIN_FIVE_APPS.includes(shortcut.id);
+		});
+
+		taskbarPins = taskbarPins.filter(function (id) {
+			return id === "browstore" || MAIN_FIVE_APPS.includes(id);
+		});
+
 		saveApps();
+		emptyTrashStorage();
+
 		if (typeof renderAppsPanel === "function") {
 			renderAppsPanel();
 		}
+		if (typeof renderDesktopShortcuts === "function") {
+			renderDesktopShortcuts();
+		}
+		if (typeof renderTaskbarPins === "function") {
+			renderTaskbarPins();
+		}
+
 		document.dispatchEvent(new Event("apps-changed"));
-	}
+	}, 600);
 });
 
 // HELIUM WAS REPLACED BY BROWSER
