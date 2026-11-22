@@ -1,359 +1,501 @@
-// Floating windows
+// BrowOS apps
 
-// Websites that refuse to run inside BrowOS open as real Chrome windows,
-// placed on the BrowOS desktop and kept inside it.
+// Every app BrowOS knows about.
+// Only real facts go here: name, where it runs, its official website and source.
+// Descriptions and developer info are never written here, BrowStore loads them
+// from the official page or the official GitHub API when the user opens the details.
 
-const floatingWindows = {};
-const minimizedWithBrowOS = [];
-
-let mainWindowId = null;
-let lastMainBounds = null;
-
-function floatingAppId(windowId) {
-	return Object.keys(floatingWindows).find(function (appId) {
-		return floatingWindows[appId] === windowId;
-	});
+function siteIcon(host) {
+	return "https://www.google.com/s2/favicons?domain=" + host + "&sz=64";
 }
 
-// the BrowOS desktop on the screen (the page, minus the taskbar)
-
-async function browosArea() {
-	const main = await chrome.windows.getCurrent();
-
-	const border = Math.max(0, Math.round((window.outerWidth - window.innerWidth) / 2));
-
-	return {
-		left: main.left + border,
-		top: main.top + (window.outerHeight - window.innerHeight) - border,
-		width: window.innerWidth,
-		height: window.innerHeight - 90,
-	};
-}
-
-function fitInArea(bounds, area) {
-	const width = Math.min(bounds.width, area.width);
-
-	const height = Math.min(bounds.height, area.height);
-
-	return {
-		left: Math.round(
-			Math.min(Math.max(bounds.left, area.left), area.left + area.width - width)
-		),
-		top: Math.round(Math.min(Math.max(bounds.top, area.top), area.top + area.height - height)),
-		width: Math.round(width),
-		height: Math.round(height),
-	};
-}
-
-function setFloatingButton(appId, open) {
-	const app = getApp(appId);
-
-	if (!app) {
-		return;
-	}
-
-	let button = getTaskbarButton(appId);
-
-	if (open) {
-		button = button || createTaskbarButton(getAppWindow(app));
-
-		button.classList.add("active");
-	} else if (button && isPinned(appId)) {
-		button.classList.remove("active");
-	} else if (button) {
-		button.remove();
-	}
-}
-
-async function openFloatingWindow(app) {
-	// already open: bring it to the front
-
-	if (floatingWindows[app.id]) {
-		try {
-			await chrome.windows.update(floatingWindows[app.id], {
-				state: "normal",
-				focused: true,
-			});
-
-			return;
-		} catch (error) {
-			delete floatingWindows[app.id];
-		}
-	}
-
-	const area = await browosArea();
-
-	const width = Math.min(1200, area.width - 60);
-
-	const height = Math.min(800, area.height - 40);
-
-	const created = await chrome.windows.create({
-		url: app.url,
-		type: "popup",
-		left: Math.round(area.left + (area.width - width) / 2),
-		top: Math.round(area.top + 20),
-		width: Math.round(width),
-		height: Math.round(height),
-		focused: true,
-	});
-
-	floatingWindows[app.id] = created.id;
-	setFloatingButton(app.id, true);
-}
-
-function closeFloatingWindow(appId) {
-	if (floatingWindows[appId]) {
-		chrome.windows.remove(floatingWindows[appId]).catch(function () {});
-	}
-}
-
-// keep floating windows inside BrowOS, and move them when BrowOS moves
-
-// Windows reports every small move while dragging and adds an invisible border,
-// so BrowOS waits until the drag is over, only moves the window back
-// (never resizes it unless it's bigger than BrowOS), and ignores its own corrections.
-
-const snapTimers = {};
-const ignoreBoundsUntil = {};
-
-const snapTolerance = 16;
-
-async function keepInside(windowId) {
-	let floating;
-
-	try {
-		floating = await chrome.windows.get(windowId);
-	} catch (error) {
-		return;
-	}
-
-	if (floating.state === "minimized") {
-		return;
-	}
-
-	const area = await browosArea();
-
-	// "maximize" means: fill the BrowOS desktop, not the whole screen
-
-	if (floating.state === "maximized" || floating.state === "fullscreen") {
-		ignoreBoundsUntil[windowId] = Date.now() + 800;
-
-		chrome.windows
-			.update(windowId, Object.assign({ state: "normal" }, area))
-			.catch(function () {});
-
-		return;
-	}
-
-	const fitted = fitInArea(floating, area);
-
-	const outside =
-		Math.abs(fitted.left - floating.left) > snapTolerance ||
-		Math.abs(fitted.top - floating.top) > snapTolerance;
-
-	const tooBig =
-		floating.width > area.width + snapTolerance ||
-		floating.height > area.height + snapTolerance;
-
-	if (!outside && !tooBig) {
-		return;
-	}
-
-	const update = {
-		left: fitted.left,
-		top: fitted.top,
-	};
-
-	if (tooBig) {
-		update.width = fitted.width;
-		update.height = fitted.height;
-	}
-
-	ignoreBoundsUntil[windowId] = Date.now() + 800;
-
-	chrome.windows.update(windowId, update).catch(function () {});
-}
-
-chrome.windows.onBoundsChanged.addListener(async function (changed) {
-	// BrowOS itself moved: the floating windows follow (position only)
-
-	if (changed.id === mainWindowId) {
-		const dx = lastMainBounds ? changed.left - lastMainBounds.left : 0;
-		const dy = lastMainBounds ? changed.top - lastMainBounds.top : 0;
-
-		lastMainBounds = {
-			left: changed.left,
-			top: changed.top,
-		};
-
-		if (dx === 0 && dy === 0) {
-			return;
-		}
-
-		for (const windowId of Object.values(floatingWindows)) {
-			try {
-				const floating = await chrome.windows.get(windowId);
-
-				if (floating.state !== "normal") {
-					continue;
-				}
-
-				ignoreBoundsUntil[windowId] = Date.now() + 800;
-
-				await chrome.windows.update(windowId, {
-					left: floating.left + dx,
-					top: floating.top + dy,
-				});
-			} catch (error) {
-				// the window was closed
-			}
-		}
-
-		return;
-	}
-
-	if (!floatingAppId(changed.id)) {
-		return;
-	}
-
-	// a correction BrowOS just made itself
-
-	if (Date.now() < (ignoreBoundsUntil[changed.id] || 0)) {
-		return;
-	}
-
-	// wait until the user stops dragging
-
-	clearTimeout(snapTimers[changed.id]);
-
-	snapTimers[changed.id] = setTimeout(function () {
-		keepInside(changed.id);
-	}, 150);
-});
-
-// Double check, a few times per second
-
-// Some browsers don't report every move or minimize,
-// so BrowOS also checks its floating windows itself.
-// A window is only moved back once it has stopped moving (the drag is over).
-
-const lastSeenBounds = {};
-
-setInterval(async function () {
-	if (Object.keys(floatingWindows).length === 0 || mainWindowId === null) {
-		return;
-	}
-
-	let main;
-
-	try {
-		main = await chrome.windows.get(mainWindowId);
-	} catch (error) {
-		return;
-	}
-
-	for (const windowId of Object.values(floatingWindows)) {
-		let floating;
-
-		try {
-			floating = await chrome.windows.get(windowId);
-		} catch (error) {
-			continue;
-		}
-
-		// the BrowOS taskbar button shows if the window is open or minimized
-
-		const floatingButton = getTaskbarButton(floatingAppId(windowId));
-
-		if (floatingButton) {
-			floatingButton.classList.toggle("active", floating.state !== "minimized");
-		}
-
-		// the browser was minimized: minimize with it
-
-		if (main.state === "minimized") {
-			if (floating.state !== "minimized") {
-				minimizedWithBrowOS.push(windowId);
-
-				chrome.windows.update(windowId, { state: "minimized" }).catch(function () {});
-			}
-
-			continue;
-		}
-
-		// the browser came back: so do the windows it minimized
-
-		if (minimizedWithBrowOS.includes(windowId)) {
-			minimizedWithBrowOS.splice(minimizedWithBrowOS.indexOf(windowId), 1);
-
-			chrome.windows.update(windowId, { state: "normal" }).catch(function () {});
-
-			continue;
-		}
-
-		// outside BrowOS and not moving anymore: put it back inside
-
-		const bounds = [
-			floating.left,
-			floating.top,
-			floating.width,
-			floating.height,
-			floating.state,
-		].join(",");
-
-		if (lastSeenBounds[windowId] === bounds) {
-			keepInside(windowId);
-		}
-
-		lastSeenBounds[windowId] = bounds;
-	}
-}, 250);
-
-if (chrome.windows && chrome.windows.onRemoved) chrome.windows.onRemoved.addListener(function (windowId) {
-	const appId = floatingAppId(windowId);
-
-	if (appId) {
-		delete floatingWindows[appId];
-		setFloatingButton(appId, false);
-	}
-});
-
-// floating windows minimize with BrowOS and come back with it
-
-document.addEventListener("visibilitychange", function () {
-	if (document.hidden) {
-		Object.values(floatingWindows).forEach(function (windowId) {
-			chrome.windows
-				.get(windowId)
-				.then(function (floating) {
-					if (floating.state !== "minimized") {
-						minimizedWithBrowOS.push(windowId);
-
-						chrome.windows.update(windowId, { state: "minimized" });
-					}
-				})
-				.catch(function () {});
-		});
-	} else {
-		minimizedWithBrowOS.splice(0).forEach(function (windowId) {
-			chrome.windows.update(windowId, { state: "normal" }).catch(function () {});
-		});
-	}
-});
-
-// closing BrowOS closes its windows
-
-window.addEventListener("pagehide", function () {
-	Object.values(floatingWindows).forEach(function (windowId) {
-		chrome.windows.remove(windowId).catch(function () {});
-	});
-});
-
-chrome.windows.getCurrent().then(function (main) {
-	mainWindowId = main.id;
-
-	lastMainBounds = {
-		left: main.left,
-		top: main.top,
-	};
-});
+const appCatalog = [
+	// built into BrowOS
+
+	{
+		id: "notepad",
+		name: "Notepad",
+		category: "apps",
+		builtIn: true,
+		icon: "icons/notepad-icon.png",
+		window: "notepadWindow",
+		officialPage: "apps/notepad/index.html",
+		github: "amitmerchant1990/notepad",
+		website: "https://notepad.js.org",
+		credit: "Notepad by Amit Merchant",
+		license: "MIT License",
+		dataKeys: [
+			"note",
+			"mode",
+			"selectedFont",
+			"dyslexicFont",
+			"monospaced",
+			"serifFont",
+			"timerChime",
+			"isUserPreferredTheme",
+			"hasUserDismissedDonationPopup",
+			"userChosenBreakReminders",
+			"userChosenExplodingEffect",
+			"userChosenFontSize",
+			"userChosenFontWeight",
+			"userChosenLineHeight",
+			"userChosenOptimalLineLengthSelected",
+			"userChosenSpellCheck",
+			"userChosenTabIndentation",
+			"userChosenTexture",
+			"userChosenTransparentWordCountPillSelected",
+			"userChosenTypewriterSound",
+			"userChosenTypewriterVolume",
+			"userChosenWordCountPillSelected",
+			"userChosenWriteDirection",
+			"recentUnicodeSymbols",
+			"ambient-noise-presets",
+			"breakReminderState",
+		],
+		dataDatabases: ["NotepadSnapshotsDB"],
+	},
+
+	{
+		id: "calculator",
+		name: "Calculator",
+		category: "apps",
+		builtIn: true,
+		icon: "icons/calculator-icon.png",
+		window: "calculatorWindow",
+		officialPage: "apps/calculator/index.html",
+		github: "nikh-tail/CodeAlpha_Task",
+		credit: "NEO-CALC Pro by Nikhil Rathor (nikh-tail)",
+		license: "MIT License",
+		dataKeys: ["neocalc_history", "neocalc_theme"],
+	},
+
+	{
+		id: "clock",
+		name: "Clock",
+		category: "apps",
+		builtIn: true,
+		icon: "icons/clock-icon.png",
+		window: "clockWindow",
+		credit: "Made for BrowOS",
+	},
+
+	{
+		id: "paint",
+		name: "Paint",
+		category: "apps",
+		builtIn: true,
+		icon: "icons/paint-icon.png",
+		window: "paintWindow",
+		url: "https://viliusle.github.io/miniPaint/",
+		github: "viliusle/miniPaint",
+		website: "https://viliusle.github.io/miniPaint/",
+		credit: "miniPaint by ViliusL",
+		license: "MIT License",
+	},
+
+	{
+		id: "browser",
+		name: "Browser",
+		category: "apps",
+		builtIn: true,
+		icon: "icons/browser-icon.png",
+		window: "browserWindow",
+		credit: "Made for BrowOS",
+	},
+
+	// more apps that come with BrowOS (they live in apps/ and get their own window when opened)
+
+	{
+		id: "files",
+		name: "Files",
+		category: "apps",
+		builtIn: true,
+		icon: "icons/files-icon.svg",
+		page: "apps/files/index.html",
+		size: [760, 560],
+		officialPage: "apps/files/index.html",
+		credit: "Made for BrowOS",
+		dataDatabases: ["browos-files"],
+	},
+
+	{
+		id: "calendar",
+		name: "Calendar",
+		category: "apps",
+		builtIn: true,
+		icon: "icons/calendar-icon.svg",
+		page: "apps/calendar/index.html",
+		size: [820, 600],
+		officialPage: "apps/calendar/index.html",
+		credit: "Made for BrowOS",
+		dataKeys: ["browos-calendar", "browos-calendar-fired"],
+	},
+
+	{
+		id: "imageviewer",
+		name: "Image Viewer",
+		category: "apps",
+		builtIn: true,
+		icon: "icons/imageviewer-icon.svg",
+		page: "apps/imageviewer/index.html",
+		size: [860, 620],
+		officialPage: "apps/imageviewer/index.html",
+		credit: "Made for BrowOS",
+	},
+
+	{
+		id: "pdfviewer",
+		name: "PDF Viewer",
+		category: "apps",
+		builtIn: true,
+		icon: "icons/pdfviewer-icon.svg",
+		page: "apps/pdfviewer/index.html",
+		size: [860, 640],
+		officialPage: "apps/pdfviewer/index.html",
+		credit: "Made for BrowOS",
+	},
+
+	{
+		id: "codeeditor",
+		name: "Code Editor",
+		category: "apps",
+		builtIn: true,
+		icon: "icons/codeeditor-icon.svg",
+		page: "apps/codeeditor/index.html",
+		size: [820, 580],
+		officialPage: "apps/codeeditor/index.html",
+		credit: "Made for BrowOS",
+	},
+
+	{
+		id: "notes",
+		name: "Notes",
+		category: "apps",
+		builtIn: true,
+		icon: "icons/notes-icon.svg",
+		page: "apps/notes/index.html",
+		size: [720, 520],
+		officialPage: "apps/notes/index.html",
+		credit: "Made for BrowOS",
+	},
+
+	{
+		id: "habits",
+		name: "Habits",
+		category: "apps",
+		builtIn: true,
+		icon: "icons/habits-icon.svg",
+		page: "apps/habits/index.html",
+		size: [520, 560],
+		officialPage: "apps/habits/index.html",
+		credit: "Made for BrowOS",
+		dataKeys: ["browos-habits"],
+	},
+
+	{
+		id: "budget",
+		name: "Budget",
+		category: "apps",
+		builtIn: true,
+		icon: "icons/budget-icon.svg",
+		page: "apps/budget/index.html",
+		size: [640, 640],
+		officialPage: "apps/budget/index.html",
+		credit: "Made for BrowOS",
+		dataKeys: ["browos-budget"],
+	},
+
+	{
+		id: "bookmarks",
+		name: "Bookmarks",
+		category: "apps",
+		builtIn: true,
+		icon: "icons/bookmarks-icon.svg",
+		page: "apps/bookmarks/index.html",
+		size: [520, 560],
+		officialPage: "apps/bookmarks/index.html",
+		credit: "Made for BrowOS",
+	},
+
+	{
+		id: "recorder",
+		name: "Recorder",
+		category: "apps",
+		builtIn: true,
+		icon: "icons/recorder-icon.svg",
+		page: "apps/recorder/index.html",
+		size: [520, 560],
+		officialPage: "apps/recorder/index.html",
+		credit: "Made for BrowOS",
+	},
+
+	{
+		id: "chess",
+		name: "Chess",
+		category: "games",
+		builtIn: true,
+		icon: "icons/chess-icon.svg",
+		page: "apps/chess/index.html",
+		size: [820, 620],
+		officialPage: "apps/chess/index.html",
+		credit: "Made for BrowOS",
+	},
+
+	{
+		id: "sudoku",
+		name: "Sudoku",
+		category: "games",
+		builtIn: true,
+		icon: "icons/sudoku-icon.svg",
+		page: "apps/sudoku/index.html",
+		size: [560, 720],
+		officialPage: "apps/sudoku/index.html",
+		credit: "Made for BrowOS",
+		dataKeys: ["browos-sudoku", "browos-sudoku-best"],
+	},
+
+	{
+		id: "solitaire",
+		name: "Solitaire",
+		category: "games",
+		builtIn: true,
+		icon: "icons/solitaire-icon.svg",
+		page: "apps/solitaire/index.html",
+		size: [880, 640],
+		officialPage: "apps/solitaire/index.html",
+		credit: "Made for BrowOS",
+	},
+
+	{
+		id: "orbhop",
+		name: "Orb Hop",
+		category: "games",
+		builtIn: true,
+		icon: "icons/orbhop-icon.svg",
+		page: "apps/orbhop/index.html",
+		size: [420, 640],
+		officialPage: "apps/orbhop/index.html",
+		credit: "Made for BrowOS",
+		dataKeys: ["browos-orbhop-best"],
+	},
+
+	{
+		id: "todo",
+		name: "To-Do",
+		category: "apps",
+		builtIn: true,
+		icon: "icons/todo-icon.svg",
+		page: "apps/todo/index.html",
+		size: [520, 600],
+		officialPage: "apps/todo/index.html",
+		credit: "Made for BrowOS",
+		dataKeys: ["browos-todo"],
+	},
+
+	{
+		id: "pomodoro",
+		name: "Pomodoro",
+		category: "apps",
+		builtIn: true,
+		icon: "icons/pomodoro-icon.svg",
+		page: "apps/pomodoro/index.html",
+		size: [460, 560],
+		officialPage: "apps/pomodoro/index.html",
+		credit: "Made for BrowOS",
+		dataKeys: ["browos-pomodoro"],
+	},
+
+	{
+		id: "weather",
+		name: "Weather",
+		category: "apps",
+		builtIn: true,
+		icon: "icons/weather-icon.svg",
+		page: "apps/weather/index.html",
+		size: [560, 560],
+		officialPage: "apps/weather/index.html",
+		website: "https://open-meteo.com",
+		credit: "Made for BrowOS, weather data by Open-Meteo",
+		dataKeys: ["browos-weather-place", "browos-weather-unit"],
+	},
+
+	{
+		id: "music",
+		name: "Music",
+		category: "apps",
+		builtIn: true,
+		icon: "icons/music-icon.svg",
+		page: "apps/music/index.html",
+		size: [520, 640],
+		officialPage: "apps/music/index.html",
+		credit: "Made for BrowOS",
+	},
+
+	{
+		id: "terminal",
+		name: "Terminal",
+		category: "apps",
+		builtIn: true,
+		icon: "icons/terminal-icon.svg",
+		page: "apps/terminal/index.html",
+		size: [720, 440],
+		officialPage: "apps/terminal/index.html",
+		credit: "Made for BrowOS",
+	},
+
+	{
+		id: "recyclebin",
+		name: "Recycle Bin",
+		category: "apps",
+		builtIn: true,
+		icon: "icons/recyclebin-icon.svg",
+		page: "apps/recyclebin/index.html",
+		size: [560, 440],
+		officialPage: "apps/recyclebin/index.html",
+		credit: "Made for BrowOS",
+	},
+
+	{
+		id: "snake",
+		name: "Snake",
+		category: "games",
+		builtIn: true,
+		icon: "icons/snake-icon.svg",
+		page: "apps/snake/index.html",
+		size: [520, 620],
+		officialPage: "apps/snake/index.html",
+		credit: "Made for BrowOS",
+		dataKeys: ["browos-snake-best"],
+	},
+
+	{
+		id: "minesweeper",
+		name: "Minesweeper",
+		category: "games",
+		builtIn: true,
+		icon: "icons/minesweeper-icon.svg",
+		page: "apps/minesweeper/index.html",
+		size: [620, 600],
+		officialPage: "apps/minesweeper/index.html",
+		credit: "Made for BrowOS",
+	},
+
+	{
+		id: "tetris",
+		name: "Tetris",
+		category: "games",
+		builtIn: true,
+		icon: "icons/tetris-icon.svg",
+		page: "apps/tetris/index.html",
+		size: [560, 680],
+		officialPage: "apps/tetris/index.html",
+		credit: "Made for BrowOS",
+		dataKeys: ["browos-tetris-best"],
+	},
+
+	{
+		id: "kanban",
+		name: "Kanban",
+		category: "apps",
+		builtIn: true,
+		icon: "icons/kanban-icon.svg",
+		page: "apps/kanban/index.html",
+		size: [820, 520],
+		officialPage: "apps/kanban/index.html",
+		credit: "Made for BrowOS",
+		dataKeys: ["browos-kanban"],
+	},
+
+	{
+		id: "converter",
+		name: "Converter",
+		category: "apps",
+		builtIn: true,
+		icon: "icons/converter-icon.svg",
+		page: "apps/converter/index.html",
+		size: [460, 420],
+		officialPage: "apps/converter/index.html",
+		credit: "Made for BrowOS",
+		dataKeys: [],
+	},
+
+	{
+		id: "passgen",
+		name: "Password Generator",
+		category: "apps",
+		builtIn: true,
+		icon: "icons/passgen-icon.svg",
+		page: "apps/passgen/index.html",
+		size: [460, 440],
+		officialPage: "apps/passgen/index.html",
+		credit: "Made for BrowOS",
+		dataKeys: [],
+	},
+
+	{
+		id: "typing",
+		name: "Typing Test",
+		category: "games",
+		builtIn: true,
+		icon: "icons/typing-icon.svg",
+		page: "apps/typing/index.html",
+		size: [720, 480],
+		officialPage: "apps/typing/index.html",
+		credit: "Made for BrowOS",
+		dataKeys: ["browos-typing-best-30", "browos-typing-best-60", "browos-typing-best-120"],
+	},
+
+	// web apps
+
+	{
+		id: "spotify",
+		name: "Spotify",
+		category: "apps",
+		icon: siteIcon("spotify.com"),
+		url: "https://open.spotify.com/",
+		website: "https://open.spotify.com/",
+		defaultMode: "window",
+		requires: "Requires a Spotify account",
+	},
+
+	// games
+
+	{
+		id: "game2048",
+		name: "2048",
+		category: "games",
+		icon: "https://play2048.co/favicon.ico",
+		url: "https://play2048.co/",
+		website: "https://play2048.co/",
+		github: "gabrielecirulli/2048",
+	},
+
+	{
+		id: "adarkroom",
+		name: "A Dark Room",
+		category: "games",
+		icon: "https://doublespeakgames.github.io/adarkroom/favicon.ico",
+		url: "https://doublespeakgames.github.io/adarkroom/",
+		website: "https://adarkroom.doublespeakgames.com",
+		github: "doublespeakgames/adarkroom",
+	},
+
+	{
+		id: "clumsybird",
+		name: "Clumsy Bird",
+		category: "games",
+		icon: "https://ellisonleao.github.io/clumsy-bird/data/img/favicon.ico",
+		url: "https://ellisonleao.github.io/clumsy-bird/",
+		website: "https://ellisonleao.github.io/clumsy-bird/",
+		github: "ellisonleao/clumsy-bird",
+	},
+];
+
+// BrowStore itself: always in the Start menu, can't be removed
+
+const browStoreApp = {
+	id: "browstore",
+	name: "BrowStore",
+	icon: "icons/browstore-icon.png",
+	window: "browstoreWindow",
+};
