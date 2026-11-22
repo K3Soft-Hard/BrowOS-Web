@@ -9,11 +9,8 @@ function bringToFront(windowElement) {
 }
 
 // Snapping
-// Drag a window to the left or right edge for half the screen, or to the top edge to maximize.
-
 const SNAP_EDGE = 8;
 
-// the free space above the taskbar
 function snapArea() {
 	return { width: window.innerWidth, height: window.innerHeight - 90 };
 }
@@ -82,7 +79,6 @@ function showSnapPreview(zone) {
 	snapPreview.classList.add("show");
 }
 
-// zone: "left", "right", "max" or "restore"
 function snapWindow(appWindow, zone) {
 	if (zone === "restore") {
 		unsnapWindow(appWindow);
@@ -100,12 +96,10 @@ function snapWindow(appWindow, zone) {
 		return;
 	}
 
-	// from maximized straight to a half
 	if (appWindow.classList.contains("maximized")) {
 		toggleMaximize(appWindow);
 	}
 
-	// remember the normal size, once
 	if (!appWindow.dataset.snapped) {
 		appWindow.dataset.beforeSnap = JSON.stringify({
 			width: appWindow.style.width,
@@ -126,7 +120,6 @@ function snapWindow(appWindow, zone) {
 	bringToFront(appWindow);
 }
 
-// back to the size before snapping or maximizing
 function unsnapWindow(appWindow) {
 	if (appWindow.classList.contains("maximized")) {
 		toggleMaximize(appWindow);
@@ -162,20 +155,14 @@ function setupWindow(appWindow) {
 	}
 
 	header.style.touchAction = "none";
+	header.style.userSelect = "none";
+	header.style.webkitUserSelect = "none";
 
 	let dragging = false;
-
-	let activePointerId = null;
-
 	let offsetX = 0;
-
 	let offsetY = 0;
-
 	let snapZone = null;
-
-	// where the pointer went down, so a small shake doesn't count as a drag
 	let startX = 0;
-
 	let startY = 0;
 
 	appWindow.addEventListener("pointerdown", function () {
@@ -194,108 +181,78 @@ function setupWindow(appWindow) {
 		});
 	}
 
-	header.addEventListener("pointerdown", function (event) {
-		if (event.target.closest(".window-controls, .window-tools, button")) {
-			return;
-		}
-
-		if (event.button !== undefined && event.button !== 0 && event.pointerType === "mouse") {
-			return;
+	function beginDrag(clientX, clientY, target) {
+		if (target && target.closest(".window-controls, .window-tools, button")) {
+			return false;
 		}
 
 		dragging = true;
-
-		activePointerId = event.pointerId;
-
-		startX = event.clientX;
-
-		startY = event.clientY;
+		startX = clientX;
+		startY = clientY;
 
 		bringToFront(appWindow);
 
 		const rect = appWindow.getBoundingClientRect();
 
-		offsetX = event.clientX - rect.left;
-
-		offsetY = event.clientY - rect.top;
+		offsetX = clientX - rect.left;
+		offsetY = clientY - rect.top;
 
 		appWindow.style.transform = "none";
-
 		appWindow.style.left = rect.left + "px";
-
 		appWindow.style.top = rect.top + "px";
 
 		appWindow.querySelectorAll("iframe").forEach(function (frame) {
 			frame.style.pointerEvents = "none";
 		});
 
-		try {
-			header.setPointerCapture(event.pointerId);
-		} catch (error) {
-			// fallback
-		}
-	});
+		return true;
+	}
 
-	function onPointerMove(event) {
-		if (!dragging || (activePointerId !== null && event.pointerId !== activePointerId)) {
+	function moveDrag(clientX, clientY) {
+		if (!dragging) {
 			return;
 		}
 
 		const wasMaximized = appWindow.classList.contains("maximized");
 
 		if (wasMaximized || appWindow.dataset.snapped) {
-			if (Math.abs(event.clientX - startX) < 5 && Math.abs(event.clientY - startY) < 5) {
+			if (Math.abs(clientX - startX) < 5 && Math.abs(clientY - startY) < 5) {
 				return;
 			}
 
 			const widthBefore = appWindow.getBoundingClientRect().width;
-
 			const grabbedAt = widthBefore > 0 ? offsetX / widthBefore : 0.5;
 
 			unsnapWindow(appWindow);
 
 			const widthNow = appWindow.getBoundingClientRect().width;
-
 			offsetX = Math.max(30, Math.min(widthNow - 30, grabbedAt * widthNow));
 		}
 
 		const maxLeft = Math.max(0, window.innerWidth - 60);
 		const maxTop = Math.max(0, window.innerHeight - 90);
 
-		const nextLeft = Math.min(maxLeft, Math.max(-appWindow.offsetWidth + 60, event.clientX - offsetX));
-		const nextTop = Math.min(maxTop, Math.max(0, event.clientY - offsetY));
+		const nextLeft = Math.min(maxLeft, Math.max(-appWindow.offsetWidth + 60, clientX - offsetX));
+		const nextTop = Math.min(maxTop, Math.max(0, clientY - offsetY));
 
 		appWindow.style.left = nextLeft + "px";
-
 		appWindow.style.top = nextTop + "px";
 
-		snapZone = snapZoneAt(event.clientX, event.clientY);
-
+		snapZone = snapZoneAt(clientX, clientY);
 		showSnapPreview(snapZone);
 	}
 
-	function endDrag(event, cancelled) {
-		if (!dragging || (activePointerId !== null && event.pointerId !== activePointerId)) {
+	function finishDrag(cancelled) {
+		if (!dragging) {
 			return;
 		}
 
 		dragging = false;
-
-		activePointerId = null;
-
 		showSnapPreview(null);
 
 		appWindow.querySelectorAll("iframe").forEach(function (frame) {
 			frame.style.pointerEvents = "";
 		});
-
-		try {
-			if (header.hasPointerCapture(event.pointerId)) {
-				header.releasePointerCapture(event.pointerId);
-			}
-		} catch (error) {
-			// ignore
-		}
 
 		if (snapZone && !cancelled) {
 			snapWindow(appWindow, snapZone);
@@ -304,21 +261,65 @@ function setupWindow(appWindow) {
 		snapZone = null;
 	}
 
-	header.addEventListener("pointermove", onPointerMove);
-	window.addEventListener("pointermove", onPointerMove);
+	// Mouse / Pointer events
+	header.addEventListener("pointerdown", function (event) {
+		if (event.pointerType === "touch") return;
+		if (event.button !== undefined && event.button !== 0) return;
 
-	header.addEventListener("pointerup", function (event) {
-		endDrag(event, false);
+		if (beginDrag(event.clientX, event.clientY, event.target)) {
+			try {
+				header.setPointerCapture(event.pointerId);
+			} catch (e) {}
+		}
 	});
+
+	window.addEventListener("pointermove", function (event) {
+		if (event.pointerType === "touch" || !dragging) return;
+		moveDrag(event.clientX, event.clientY);
+	});
+
 	window.addEventListener("pointerup", function (event) {
-		endDrag(event, false);
+		if (event.pointerType === "touch" || !dragging) return;
+		finishDrag(false);
 	});
 
-	header.addEventListener("pointercancel", function (event) {
-		endDrag(event, true);
-	});
 	window.addEventListener("pointercancel", function (event) {
-		endDrag(event, true);
+		if (event.pointerType === "touch" || !dragging) return;
+		finishDrag(true);
+	});
+
+	// Native Touch events (bulletproof for Android PWA standalone mode)
+	header.addEventListener(
+		"touchstart",
+		function (event) {
+			if (event.touches.length !== 1) return;
+			const touch = event.touches[0];
+			if (beginDrag(touch.clientX, touch.clientY, event.target)) {
+				event.preventDefault();
+			}
+		},
+		{ passive: false }
+	);
+
+	window.addEventListener(
+		"touchmove",
+		function (event) {
+			if (!dragging || event.touches.length === 0) return;
+			event.preventDefault();
+			const touch = event.touches[0];
+			moveDrag(touch.clientX, touch.clientY);
+		},
+		{ passive: false }
+	);
+
+	window.addEventListener("touchend", function () {
+		if (!dragging) return;
+		finishDrag(false);
+	});
+
+	window.addEventListener("touchcancel", function () {
+		if (!dragging) return;
+		finishDrag(true);
 	});
 }
 
@@ -337,103 +338,105 @@ function makeResizable(windowElement) {
 
 		windowElement.appendChild(handle);
 
-		handle.addEventListener("pointerdown", function (event) {
-			event.preventDefault();
-			event.stopPropagation();
-
+		function startResizeAt(clientX, clientY) {
 			const rect = windowElement.getBoundingClientRect();
 
 			delete windowElement.dataset.snapped;
 			delete windowElement.dataset.beforeSnap;
 
 			windowElement.style.transform = "none";
-
 			windowElement.style.left = rect.left + "px";
-
 			windowElement.style.top = rect.top + "px";
 
 			windowElement.querySelectorAll("iframe").forEach(function (frame) {
 				frame.style.pointerEvents = "none";
 			});
 
-			const startX = event.clientX;
-
-			const startY = event.clientY;
-
 			const startWidth = rect.width;
-
 			const startHeight = rect.height;
-
 			const startLeft = rect.left;
-
 			const startTop = rect.top;
-
 			const minWidth = Math.min(300, window.innerWidth - 20);
-
 			const minHeight = 200;
 
-			try {
-				handle.setPointerCapture(event.pointerId);
-			} catch (error) {
-				// ignore
-			}
-
-			function resize(event) {
-				const deltaX = event.clientX - startX;
-
-				const deltaY = event.clientY - startY;
+			function applyResize(curX, curY) {
+				const deltaX = curX - clientX;
+				const deltaY = curY - clientY;
 
 				let newWidth = startWidth;
-
 				let newHeight = startHeight;
-
 				let newLeft = startLeft;
-
 				let newTop = startTop;
 
 				if (direction.includes("e")) {
 					newWidth = Math.max(minWidth, startWidth + deltaX);
 				}
-
 				if (direction.includes("w")) {
 					newWidth = Math.max(minWidth, startWidth - deltaX);
-
 					newLeft = startLeft + (startWidth - newWidth);
 				}
-
 				if (direction.includes("s")) {
 					newHeight = Math.max(minHeight, startHeight + deltaY);
 				}
-
 				if (direction.includes("n")) {
 					newHeight = Math.max(minHeight, startHeight - deltaY);
-
 					newTop = startTop + (startHeight - newHeight);
 				}
 
 				windowElement.style.width = newWidth + "px";
-
 				windowElement.style.height = newHeight + "px";
-
 				windowElement.style.left = newLeft + "px";
-
 				windowElement.style.top = newTop + "px";
 			}
 
-			function stopResize() {
+			function onMouseMove(e) {
+				if (e.pointerType === "touch") return;
+				applyResize(e.clientX, e.clientY);
+			}
+
+			function onTouchMove(e) {
+				if (e.touches.length === 0) return;
+				e.preventDefault();
+				applyResize(e.touches[0].clientX, e.touches[0].clientY);
+			}
+
+			function endResize() {
 				windowElement.querySelectorAll("iframe").forEach(function (frame) {
 					frame.style.pointerEvents = "";
 				});
-
-				window.removeEventListener("pointermove", resize);
-				window.removeEventListener("pointerup", stopResize);
-				window.removeEventListener("pointercancel", stopResize);
+				window.removeEventListener("pointermove", onMouseMove);
+				window.removeEventListener("pointerup", endResize);
+				window.removeEventListener("pointercancel", endResize);
+				window.removeEventListener("touchmove", onTouchMove);
+				window.removeEventListener("touchend", endResize);
+				window.removeEventListener("touchcancel", endResize);
 			}
 
-			window.addEventListener("pointermove", resize);
-			window.addEventListener("pointerup", stopResize);
-			window.addEventListener("pointercancel", stopResize);
+			window.addEventListener("pointermove", onMouseMove);
+			window.addEventListener("pointerup", endResize);
+			window.addEventListener("pointercancel", endResize);
+			window.addEventListener("touchmove", onTouchMove, { passive: false });
+			window.addEventListener("touchend", endResize);
+			window.addEventListener("touchcancel", endResize);
+		}
+
+		handle.addEventListener("pointerdown", function (event) {
+			if (event.pointerType === "touch") return;
+			event.preventDefault();
+			event.stopPropagation();
+			startResizeAt(event.clientX, event.clientY);
 		});
+
+		handle.addEventListener(
+			"touchstart",
+			function (event) {
+				if (event.touches.length !== 1) return;
+				event.preventDefault();
+				event.stopPropagation();
+				startResizeAt(event.touches[0].clientX, event.touches[0].clientY);
+			},
+			{ passive: false }
+		);
 	});
 }
 
