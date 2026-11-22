@@ -148,6 +148,7 @@
 		<div class="context-item" data-action="browstore">BrowStore</div>
 		<div class="context-item" data-action="task-manager">Task Manager</div>
 		<div class="context-line"></div>
+		<div class="context-item" data-action="fullscreen" id="desktopFullscreenItem">Fullscreen</div>
 		<div class="context-item" data-action="refresh">Refresh</div>
 	</div>
 
@@ -1081,27 +1082,6 @@
       navigator.serviceWorker.register("./sw.js").catch(() => {});
     });
   }
-</script>
-
-<script>
-  (function () {
-    const isInstalledApp =
-      window.matchMedia("(display-mode: standalone)").matches ||
-      window.matchMedia("(display-mode: fullscreen)").matches ||
-      window.navigator.standalone === true;
-
-    if (!isInstalledApp) return;
-
-    function enterAppFullscreen() {
-      if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
-        document.documentElement.requestFullscreen({ navigationUI: "hide" }).catch(() => {});
-      }
-    }
-
-    // Attempt immediately, and guarantee on first touch if Android requires a user gesture
-    enterAppFullscreen();
-    document.addEventListener("pointerdown", enterAppFullscreen, { passive: true });
-  })();
 </script>
 
 <!-- Cursor -->
