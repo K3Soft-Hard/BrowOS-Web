@@ -14,6 +14,8 @@ function loadList(key, fallback) {
 	return fallback;
 }
 
+const MAIN_FIVE_APPS = ["browser", "files", "notepad", "calculator", "clock"];
+
 let installedApps = loadList("browos-installed", null);
 
 let desktopShortcuts = loadList("browos-desktop", []);
@@ -50,9 +52,9 @@ function saveApps() {
 	localStorage.setItem("browos-open-modes", JSON.stringify(openModes));
 }
 
-// FIRST RUN (only the main 5 apps preinstalled; the rest are available in BrowStore)
+// FIRST RUN OR AFTER DATA RESET (only the main 5 apps preinstalled; the rest are in BrowStore)
 
-if (installedApps === null) {
+function applyDefaultFiveApps() {
 	const defaultPreinstalled = [
 		["browser", "heliumDesktopIcon", 32, 29, true],
 		["files", "filesDesktopIcon", 32, 119, true],
@@ -87,8 +89,31 @@ if (installedApps === null) {
 		localStorage.removeItem(iconId + "-deleted");
 	});
 
+	if (!Array.isArray(taskbarPins) || taskbarPins.length === 0) {
+		taskbarPins = ["browstore"];
+	}
+
 	saveApps();
 }
+
+if (installedApps === null || installedApps.length === 0) {
+	applyDefaultFiveApps();
+}
+
+// Guard against external reset scripts (e.g., Settings -> Reset Data) populating all 32 builtIn apps
+const _originalSetItem = localStorage.setItem.bind(localStorage);
+localStorage.setItem = function (key, value) {
+	if (key === "browos-installed") {
+		try {
+			const parsed = JSON.parse(value);
+			if (Array.isArray(parsed) && parsed.length > 20 && !localStorage.getItem("browos-installed")) {
+				installedApps = MAIN_FIVE_APPS.slice();
+				value = JSON.stringify(installedApps);
+			}
+		} catch (e) {}
+	}
+	return _originalSetItem(key, value);
+};
 
 // HELIUM WAS REPLACED BY BROWSER: keep its place in Start, desktop and taskbar
 
