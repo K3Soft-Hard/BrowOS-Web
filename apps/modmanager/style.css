@@ -518,6 +518,43 @@ html, body {
 	border-bottom: 1px solid var(--border);
 }
 
+/* Image Preview Box */
+.image-preview-box, .mod-image-preview {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 10px;
+	padding: 20px;
+	overflow: auto;
+	background-color: #09090c;
+	background-image:
+		linear-gradient(45deg, #14141a 25%, transparent 25%),
+		linear-gradient(-45deg, #14141a 25%, transparent 25%),
+		linear-gradient(45deg, transparent 75%, #14141a 75%),
+		linear-gradient(-45deg, transparent 75%, #14141a 75%);
+	background-size: 20px 20px;
+	background-position: 0 0, 0 10px, 10px -10px, -10px 0;
+}
+
+.image-preview-box[hidden], .mod-image-preview[hidden] {
+	display: none !important;
+}
+
+.image-preview-box img, .mod-image-preview img {
+	max-width: 100%;
+	max-height: 85%;
+	object-fit: contain;
+	border-radius: 6px;
+	box-shadow: 0 8px 28px rgba(0, 0, 0, 0.65);
+}
+
+.mod-image-preview span {
+	font-size: 11.5px;
+	color: var(--muted);
+}
+
 #filePreview, #codeEditor {
 	flex: 1;
 	width: 100%;
@@ -530,6 +567,10 @@ html, body {
 	font-size: 12.5px;
 	line-height: 1.5;
 	resize: none;
+}
+
+#filePreview[hidden], #codeEditor[hidden] {
+	display: none !important;
 }
 
 body[data-theme="light"] #filePreview,
