@@ -138,26 +138,39 @@ function snapWindow(appWindow, zone) {
 }
 
 function unsnapWindow(appWindow) {
-	if (appWindow.classList.contains("maximized")) {
-		toggleMaximize(appWindow);
+	const wasMaximized = appWindow.classList.contains("maximized");
+
+	if (wasMaximized) {
+		if (typeof toggleMaximize === "function") {
+			toggleMaximize(appWindow);
+		} else {
+			appWindow.classList.remove("maximized");
+		}
 	}
 
-	if (!appWindow.dataset.snapped) {
-		return;
+	if (appWindow.dataset.snapped) {
+		try {
+			const before = JSON.parse(appWindow.dataset.beforeSnap);
+
+			appWindow.style.width = before.width;
+			appWindow.style.height = before.height;
+		} catch (error) {
+			appWindow.style.width = "";
+			appWindow.style.height = "";
+		}
+
+		delete appWindow.dataset.snapped;
+		delete appWindow.dataset.beforeSnap;
 	}
 
-	try {
-		const before = JSON.parse(appWindow.dataset.beforeSnap);
-
-		appWindow.style.width = before.width;
-		appWindow.style.height = before.height;
-	} catch (error) {
-		appWindow.style.width = "";
-		appWindow.style.height = "";
+	// Ensure window has a draggable floating size on mobile/desktop after leaving fullscreen/maximized
+	const currentRect = appWindow.getBoundingClientRect();
+	if (wasMaximized || currentRect.width >= window.innerWidth - 4) {
+		const targetW = Math.min(680, Math.max(280, window.innerWidth - 36));
+		const targetH = Math.min(520, Math.max(240, window.innerHeight - 140));
+		appWindow.style.width = targetW + "px";
+		appWindow.style.height = targetH + "px";
 	}
-
-	delete appWindow.dataset.snapped;
-	delete appWindow.dataset.beforeSnap;
 }
 
 function setupWindow(appWindow) {
@@ -181,6 +194,7 @@ function setupWindow(appWindow) {
 	let snapZone = null;
 	let startX = 0;
 	let startY = 0;
+	let needsUnmaximize = false;
 
 	appWindow.addEventListener("pointerdown", function () {
 		bringToFront(appWindow);
@@ -209,10 +223,22 @@ function setupWindow(appWindow) {
 
 		bringToFront(appWindow);
 
-		const rect = detachCentering(appWindow);
+		const rect = appWindow.getBoundingClientRect();
+		const isFullWidth = rect.width >= window.innerWidth - 4;
 
-		offsetX = clientX - rect.left;
-		offsetY = clientY - rect.top;
+		needsUnmaximize =
+			appWindow.classList.contains("maximized") ||
+			Boolean(appWindow.dataset.snapped) ||
+			isFullWidth;
+
+		if (!needsUnmaximize) {
+			const cleanRect = detachCentering(appWindow);
+			offsetX = clientX - cleanRect.left;
+			offsetY = clientY - cleanRect.top;
+		} else {
+			offsetX = clientX - rect.left;
+			offsetY = clientY - rect.top;
+		}
 
 		appWindow.querySelectorAll("iframe").forEach(function (frame) {
 			frame.style.pointerEvents = "none";
@@ -226,21 +252,29 @@ function setupWindow(appWindow) {
 			return;
 		}
 
-		const wasMaximized = appWindow.classList.contains("maximized");
-
-		if (wasMaximized || appWindow.dataset.snapped) {
-			if (Math.abs(clientX - startX) < 5 && Math.abs(clientY - startY) < 5) {
+		if (needsUnmaximize) {
+			if (Math.abs(clientX - startX) < 6 && Math.abs(clientY - startY) < 6) {
 				return;
 			}
 
-			const widthBefore = appWindow.getBoundingClientRect().width;
-			const grabbedAt = widthBefore > 0 ? offsetX / widthBefore : 0.5;
+			needsUnmaximize = false;
+
+			if (document.fullscreenElement) {
+				document.exitFullscreen().catch(function () {});
+			}
 
 			unsnapWindow(appWindow);
-			detachCentering(appWindow);
 
-			const widthNow = appWindow.getBoundingClientRect().width;
-			offsetX = Math.max(30, Math.min(widthNow - 30, grabbedAt * widthNow));
+			appWindow.style.transform = "none";
+			appWindow.style.translate = "none";
+			appWindow.style.margin = "0";
+			appWindow.style.right = "auto";
+			appWindow.style.bottom = "auto";
+
+			const widthNow = appWindow.getBoundingClientRect().width || Math.min(680, window.innerWidth - 36);
+			// Place the title bar directly centered under the finger
+			offsetX = Math.round(widthNow / 2);
+			offsetY = 20;
 		}
 
 		const parentRect = (appWindow.offsetParent || document.body).getBoundingClientRect();
@@ -267,6 +301,7 @@ function setupWindow(appWindow) {
 		}
 
 		dragging = false;
+		needsUnmaximize = false;
 		showSnapPreview(null);
 
 		appWindow.querySelectorAll("iframe").forEach(function (frame) {
