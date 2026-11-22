@@ -28,6 +28,7 @@ let lastCopiedPath = "";
 let cachedEntries = []; // { cacheName, cache, request, url, relPath }
 let selectedCacheEntry = null;
 let warningAcknowledged = false;
+let currentPreviewObjectUrl = null;
 
 // --- 1. PIN AUTHENTICATION ---
 const pinOverlay = document.getElementById("pinOverlay");
@@ -170,6 +171,23 @@ function toRelativePath(fullUrl) {
 	}
 }
 
+function isImagePathOrType(relPath, contentType) {
+	return (
+		(contentType && contentType.startsWith("image/")) ||
+		/\.(png|jpe?g|gif|webp|svg|ico|bmp|avif)$/i.test(relPath)
+	);
+}
+
+function guessImageMime(filename) {
+	const lower = filename.toLowerCase();
+	if (lower.endsWith(".svg")) return "image/svg+xml";
+	if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "image/jpeg";
+	if (lower.endsWith(".webp")) return "image/webp";
+	if (lower.endsWith(".gif")) return "image/gif";
+	if (lower.endsWith(".ico")) return "image/x-icon";
+	return "image/png";
+}
+
 async function scanOfflineCache() {
 	cachedEntries = [];
 	if (!("caches" in window)) {
@@ -300,27 +318,53 @@ async function inspectCacheEntry(entry) {
 	document.getElementById("replaceUploadLabel").classList.remove("disabled");
 
 	const previewEl = document.getElementById("filePreview");
+	const imgBox = document.getElementById("imagePreviewBox");
+	const imgEl = document.getElementById("imagePreviewImg");
 	const metaEl = document.getElementById("fileMeta");
+
+	if (currentPreviewObjectUrl) {
+		URL.revokeObjectURL(currentPreviewObjectUrl);
+		currentPreviewObjectUrl = null;
+	}
 
 	try {
 		const res = await entry.cache.match(entry.request);
 		if (!res) {
+			imgBox.hidden = true;
+			previewEl.hidden = false;
 			previewEl.value = "File missing in cache.";
 			return;
 		}
-		const contentType = res.headers.get("Content-Type") || "unknown";
+
+		const contentType = res.headers.get("Content-Type") || "";
+		const isImage = isImagePathOrType(entry.relPath, contentType);
 		const blob = await res.clone().blob();
 		const sizeKB = (blob.size / 1024).toFixed(1);
-
 		const isPatched = await entry.cache.match(entry.url + BACKUP_SUFFIX);
-		metaEl.textContent = `Cache: ${entry.cacheName} • Type: ${contentType} • Size: ${sizeKB} KB` + (isPatched ? " • [MODIFIED]" : "");
 
-		if (contentType.startsWith("image/") || contentType.startsWith("audio/")) {
-			previewEl.value = `[Binary asset: ${contentType}, ${sizeKB} KB]\nUse "Replace File…" to overwrite this asset in offline PWA cache.`;
+		if (isImage) {
+			const typedBlob = blob.type ? blob : new Blob([blob], { type: guessImageMime(entry.relPath) });
+			currentPreviewObjectUrl = URL.createObjectURL(typedBlob);
+			imgEl.src = currentPreviewObjectUrl;
+			imgBox.hidden = false;
+			previewEl.hidden = true;
+
+			imgEl.onload = () => {
+				metaEl.textContent =
+					`Cache: ${entry.cacheName} • Image: ${imgEl.naturalWidth}×${imgEl.naturalHeight}px • Size: ${sizeKB} KB` +
+					(isPatched ? " • [MODIFIED]" : "");
+			};
 		} else {
+			imgBox.hidden = true;
+			previewEl.hidden = false;
+			metaEl.textContent =
+				`Cache: ${entry.cacheName} • Type: ${contentType || "text/plain"} • Size: ${sizeKB} KB` +
+				(isPatched ? " • [MODIFIED]" : "");
 			previewEl.value = await res.text();
 		}
 	} catch (err) {
+		imgBox.hidden = true;
+		previewEl.hidden = false;
 		previewEl.value = "Error reading cached file: " + err.message;
 	}
 }
@@ -341,11 +385,21 @@ document.getElementById("useInModBtn").addEventListener("click", () => {
 	if (!selectedCacheEntry) return;
 	lastCopiedPath = selectedCacheEntry.relPath;
 	document.getElementById("modTargetInput").value = lastCopiedPath;
+
+	const mod = getSelectedMod();
+	if (mod && isImagePathOrType(lastCopiedPath, "")) {
+		mod.targetPath = lastCopiedPath;
+		mod.mode = "replace";
+		persistMods();
+		loadModIntoEditor();
+		renderModList();
+	}
+
 	document.querySelector('.nav-pill[data-view="modsView"]').click();
 	showBanner("Target set to: " + lastCopiedPath);
 });
 
-// Direct file replacement from Cache Explorer
+// Direct file / image replacement from Cache Explorer
 document.getElementById("replaceFileInput").addEventListener("change", async (e) => {
 	const file = e.target.files[0];
 	e.target.value = "";
@@ -367,7 +421,8 @@ document.getElementById("replaceFileInput").addEventListener("change", async (e)
 	}
 
 	const headers = new Headers(origRes ? origRes.headers : {});
-	if (file.type) headers.set("Content-Type", file.type);
+	const mime = file.type || (isImagePathOrType(selectedCacheEntry.relPath, "") ? guessImageMime(selectedCacheEntry.relPath) : "");
+	if (mime) headers.set("Content-Type", mime);
 
 	const buf = await file.arrayBuffer();
 	await selectedCacheEntry.cache.put(
@@ -398,6 +453,15 @@ function getSelectedMod() {
 	return mods.find((m) => m.id === selectedModId) || null;
 }
 
+function fileToDataUrl(file) {
+	return new Promise((resolve, reject) => {
+		const reader = new FileReader();
+		reader.onload = () => resolve(reader.result);
+		reader.onerror = reject;
+		reader.readAsDataURL(file);
+	});
+}
+
 function saveEditorToMemory() {
 	const mod = getSelectedMod();
 	if (!mod) return;
@@ -405,7 +469,9 @@ function saveEditorToMemory() {
 	mod.targetPath = document.getElementById("modTargetInput").value.trim() || "index.html";
 	mod.mode = document.getElementById("modModeSelect").value;
 	mod.enabled = document.getElementById("modEnabledInput").checked;
-	mod[activeEditorTab] = document.getElementById("codeEditor").value;
+	if (!mod.binaryDataUrl) {
+		mod[activeEditorTab] = document.getElementById("codeEditor").value;
+	}
 }
 
 function renderModList() {
@@ -425,7 +491,7 @@ function renderModList() {
 
 		const meta = document.createElement("div");
 		meta.className = "mod-item-meta";
-		meta.textContent = `${mod.targetPath} (${mod.mode})`;
+		meta.textContent = `${mod.targetPath} (${mod.binaryDataUrl ? "image" : mod.mode})`;
 
 		left.append(title, meta);
 
@@ -454,11 +520,16 @@ function loadModIntoEditor() {
 	const enabledEl = document.getElementById("modEnabledInput");
 	const codeEl = document.getElementById("codeEditor");
 	const tabsEl = document.getElementById("editorTabs");
+	const modImgBox = document.getElementById("modImagePreviewBox");
+	const modImgEl = document.getElementById("modImagePreviewImg");
+	const modImgInfo = document.getElementById("modImageInfo");
 
 	if (!mod) {
 		nameEl.value = "";
 		targetEl.value = "";
 		codeEl.value = "";
+		codeEl.hidden = false;
+		modImgBox.hidden = true;
 		return;
 	}
 
@@ -467,10 +538,22 @@ function loadModIntoEditor() {
 	modeEl.value = mod.mode || "inject";
 	enabledEl.checked = Boolean(mod.enabled);
 
+	if (mod.binaryDataUrl && mod.mode === "replace") {
+		tabsEl.style.display = "none";
+		codeEl.hidden = true;
+		modImgBox.hidden = false;
+		modImgEl.src = mod.binaryDataUrl;
+		modImgInfo.textContent = mod.binaryLabel || "Binary image asset ready for cache replacement";
+		return;
+	}
+
+	modImgBox.hidden = true;
+	codeEl.hidden = false;
+
 	if (mod.mode === "replace") {
 		tabsEl.style.display = "none";
 		activeEditorTab = "js";
-		codeEl.placeholder = "// Paste full replacement file content or click 'Load from File…'";
+		codeEl.placeholder = "// Paste full replacement file content or click 'Load Image / File…'";
 	} else {
 		tabsEl.style.display = "flex";
 		codeEl.placeholder = "// Write JS or CSS to inject/append into target file…";
@@ -480,6 +563,12 @@ function loadModIntoEditor() {
 }
 
 document.getElementById("modModeSelect").addEventListener("change", () => {
+	const mod = getSelectedMod();
+	if (mod && document.getElementById("modModeSelect").value !== "replace") {
+		delete mod.binaryDataUrl;
+		delete mod.binaryMime;
+		delete mod.binaryLabel;
+	}
 	saveEditorToMemory();
 	loadModIntoEditor();
 	renderModList();
@@ -505,7 +594,14 @@ document.getElementById("pastePathBtn").addEventListener("click", async () => {
 
 	if (text) {
 		document.getElementById("modTargetInput").value = text;
-		saveEditorToMemory();
+		const mod = getSelectedMod();
+		if (mod && isImagePathOrType(text, "")) {
+			mod.targetPath = text;
+			mod.mode = "replace";
+			loadModIntoEditor();
+		} else {
+			saveEditorToMemory();
+		}
 		renderModList();
 		showBanner("Pasted path: " + text);
 	} else {
@@ -518,23 +614,45 @@ document.getElementById("loadModFileInput").addEventListener("change", async (e)
 	e.target.value = "";
 	if (!file) return;
 
-	const content = await file.text();
-	document.getElementById("codeEditor").value = content;
-	saveEditorToMemory();
-	persistMods();
-	showBanner(`Loaded "${file.name}" into editor.`);
+	const mod = getSelectedMod();
+	if (!mod) return;
+
+	if (isImagePathOrType(file.name, file.type)) {
+		const dataUrl = await fileToDataUrl(file);
+		mod.mode = "replace";
+		mod.binaryDataUrl = dataUrl;
+		mod.binaryMime = file.type || guessImageMime(file.name);
+		mod.binaryLabel = `${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+		persistMods();
+		loadModIntoEditor();
+		renderModList();
+		showBanner(`Loaded image "${file.name}" for cache replacement.`);
+	} else {
+		delete mod.binaryDataUrl;
+		delete mod.binaryMime;
+		delete mod.binaryLabel;
+		const content = await file.text();
+		document.getElementById("codeEditor").value = content;
+		saveEditorToMemory();
+		persistMods();
+		loadModIntoEditor();
+		renderModList();
+		showBanner(`Loaded "${file.name}" into editor.`);
+	}
 });
 
 document.getElementById("newModBtn").addEventListener("click", () => {
 	saveEditorToMemory();
+	const target = lastCopiedPath || "index.html";
+	const isImg = isImagePathOrType(target, "");
 	const id = "mod-" + Date.now();
 	mods.push({
 		id,
-		name: "Custom Patch " + (mods.length + 1),
-		targetPath: lastCopiedPath || "index.html",
-		mode: "inject",
+		name: (isImg ? "Image Mod " : "Custom Patch ") + (mods.length + 1),
+		targetPath: target,
+		mode: isImg ? "replace" : "inject",
 		enabled: true,
-		js: `console.log("Custom patch loaded!");`,
+		js: isImg ? "" : `console.log("Custom patch loaded!");`,
 		css: ``,
 	});
 	selectedModId = id;
@@ -585,7 +703,7 @@ document.getElementById("applyBtn").addEventListener("click", async () => {
 			badge: "DANGER • ROOT ACCESS",
 			title: "Modify Offline PWA System Files?",
 			message:
-				"Root patching directly alters cached BrowOS HTML/JS/CSS files. If a faulty script breaks the desktop interface, the ONLY way to recover is using ?safemode=1 or performing a full browser Clear Site Data (Reset). Do you want to proceed?",
+				"Root patching directly alters cached BrowOS HTML/JS/CSS/Image files. If a faulty script breaks the desktop interface, the ONLY way to recover is using ?safemode=1 or performing a full browser Clear Site Data (Reset). Do you want to proceed?",
 			proceedText: "Yes, Patch & Reboot",
 		});
 		if (!agreed) return;
@@ -603,7 +721,7 @@ document.getElementById("applyBtn").addEventListener("click", async () => {
 		"Mounting PWA CacheStorage (" + cachedEntries[0].cacheName + ")…",
 		"Verifying clean system backups…",
 		`Applying ${enabledMods.length} enabled module(s)…`,
-		"Flushing modified responses to Service Worker cache…",
+		"Flushing modified assets to Service Worker cache…",
 		"Rebooting BrowOS shell…",
 	];
 
@@ -637,6 +755,17 @@ document.getElementById("applyBtn").addEventListener("click", async () => {
 			await entry.cache.put(backupUrl, origRes.clone());
 		}
 
+		// Binary image replacement takes precedence on that target path
+		const binaryMod = [...pathMods].reverse().find((m) => m.mode === "replace" && m.binaryDataUrl);
+		if (binaryMod) {
+			const dataRes = await fetch(binaryMod.binaryDataUrl);
+			const blob = await dataRes.blob();
+			const headers = new Headers(origRes.headers);
+			headers.set("Content-Type", binaryMod.binaryMime || blob.type || guessImageMime(targetPath));
+			await entry.cache.put(entry.request, new Response(blob, { status: 200, statusText: "OK", headers }));
+			continue;
+		}
+
 		let content = await origRes.text();
 		const isHtml = targetPath.endsWith(".html");
 
@@ -649,7 +778,6 @@ document.getElementById("applyBtn").addEventListener("click", async () => {
 					? `\n${HTML_INJECT_START}\n<script>\n${payload}\n</script>\n${HTML_INJECT_END}\n`
 					: `\n${INJECT_START}\n${payload}\n${INJECT_END}\n`;
 			} else {
-				// inject mode
 				if (isHtml) {
 					const tag = `\n${HTML_INJECT_START}\n<script>\n${payload}\n</script>\n${HTML_INJECT_END}\n`;
 					content = content.includes("</body>") ? content.replace("</body>", tag + "</body>") : content + tag;
@@ -678,7 +806,7 @@ unrootBtn.addEventListener("click", async () => {
 	const ok = await askConfirmation({
 		badge: "RESTORE STOCK",
 		title: "Unroot & Restore Original Files?",
-		message: "All patched files in the offline PWA cache will be reverted to their original clean backups.",
+		message: "All patched files and images in the offline PWA cache will be reverted to their original clean backups.",
 		proceedText: "Restore & Reboot",
 	});
 	if (!ok) return;
@@ -696,7 +824,7 @@ unrootBtn.addEventListener("click", async () => {
 	notifyOS("BrowOS Root", "Stock files restored.");
 	await runBootAnimation("Restoring Stock BrowOS…", [
 		"Locating clean system backups…",
-		"Reverting cached HTML/JS/CSS assets…",
+		"Reverting cached HTML/JS/CSS/Image assets…",
 		"Cleaning root metadata…",
 		"Rebooting BrowOS…",
 	]);
