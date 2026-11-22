@@ -75,8 +75,7 @@ const appCatalog = [
 		category: "apps",
 		builtIn: true,
 		icon: "icons/settings-icon.png",
-		window: "modmanagerWindow",
-		credit: "Made for BrowOS",
+		credit: "Made for BrowOS"
 	},
 
 	{
