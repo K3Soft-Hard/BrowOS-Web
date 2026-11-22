@@ -75,7 +75,7 @@ const appCatalog = [
 		category: "apps",
 		builtIn: true,
 		icon: "icons/settings-icon.png",
-		credit: "Made for BrowOS"
+		credit: "Made for BrowOS",
 	},
 
 	{
