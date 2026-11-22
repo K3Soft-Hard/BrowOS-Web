@@ -79,18 +79,54 @@ function showSnapPreview(zone) {
 	snapPreview.classList.add("show");
 }
 
+function setWindowRectImportant(win, left, top, width, height) {
+	win.style.setProperty("transform", "none", "important");
+	win.style.setProperty("translate", "none", "important");
+	win.style.setProperty("margin", "0", "important");
+	win.style.setProperty("right", "auto", "important");
+	win.style.setProperty("bottom", "auto", "important");
+	win.style.setProperty("position", "fixed", "important");
+
+	if (left !== null && left !== undefined) {
+		win.style.setProperty("left", Math.round(left) + "px", "important");
+	}
+	if (top !== null && top !== undefined) {
+		win.style.setProperty("top", Math.round(top) + "px", "important");
+	}
+	if (width !== null && width !== undefined) {
+		win.style.setProperty("width", Math.round(width) + "px", "important");
+		win.style.setProperty("min-width", "240px", "important");
+		win.style.setProperty("max-width", "100vw", "important");
+	}
+	if (height !== null && height !== undefined) {
+		win.style.setProperty("height", Math.round(height) + "px", "important");
+		win.style.setProperty("min-height", "180px", "important");
+		win.style.setProperty("max-height", "100vh", "important");
+	}
+}
+
+function makeWindowFloatingDefault(win) {
+	win.classList.remove("maximized");
+	delete win.dataset.snapped;
+	delete win.dataset.beforeSnap;
+
+	const isMobile = window.innerWidth <= 820;
+	const targetW = isMobile
+		? Math.max(260, Math.min(460, window.innerWidth - 28))
+		: Math.min(820, window.innerWidth - 60);
+	const targetH = isMobile
+		? Math.max(240, Math.min(460, window.innerHeight - 130))
+		: Math.min(580, window.innerHeight - 130);
+
+	const left = Math.max(8, Math.round((window.innerWidth - targetW) / 2));
+	const top = Math.max(12, Math.round((window.innerHeight - 90 - targetH) / 2));
+
+	setWindowRectImportant(win, left, top, targetW, targetH);
+}
+
 function detachCentering(appWindow) {
 	const rect = appWindow.getBoundingClientRect();
-	const parentRect = (appWindow.offsetParent || document.body).getBoundingClientRect();
-
-	appWindow.style.transform = "none";
-	appWindow.style.translate = "none";
-	appWindow.style.margin = "0";
-	appWindow.style.right = "auto";
-	appWindow.style.bottom = "auto";
-	appWindow.style.left = rect.left - parentRect.left + "px";
-	appWindow.style.top = rect.top - parentRect.top + "px";
-
+	setWindowRectImportant(appWindow, rect.left, rect.top, rect.width, rect.height);
 	return appWindow.getBoundingClientRect();
 }
 
@@ -102,36 +138,33 @@ function snapWindow(appWindow, zone) {
 	}
 
 	if (zone === "max") {
-		unsnapWindow(appWindow);
-
-		if (!appWindow.classList.contains("maximized")) {
-			toggleMaximize(appWindow);
+		if (!appWindow.dataset.beforeSnap) {
+			const r = appWindow.getBoundingClientRect();
+			appWindow.dataset.beforeSnap = JSON.stringify({
+				width: r.width + "px",
+				height: r.height + "px",
+			});
 		}
 
+		appWindow.classList.add("maximized");
+		appWindow.dataset.snapped = "max";
+		setWindowRectImportant(appWindow, 0, 0, window.innerWidth, window.innerHeight - 54);
+		bringToFront(appWindow);
 		return;
 	}
 
-	if (appWindow.classList.contains("maximized")) {
-		toggleMaximize(appWindow);
-	}
+	appWindow.classList.remove("maximized");
 
 	if (!appWindow.dataset.snapped) {
+		const r = appWindow.getBoundingClientRect();
 		appWindow.dataset.beforeSnap = JSON.stringify({
-			width: appWindow.style.width,
-			height: appWindow.style.height,
+			width: r.width + "px",
+			height: r.height + "px",
 		});
 	}
 
 	const rect = snapRect(zone);
-
-	appWindow.style.transform = "none";
-	appWindow.style.translate = "none";
-	appWindow.style.margin = "0";
-	appWindow.style.left = rect.left + "px";
-	appWindow.style.top = rect.top + "px";
-	appWindow.style.width = rect.width + "px";
-	appWindow.style.height = rect.height + "px";
-
+	setWindowRectImportant(appWindow, rect.left, rect.top, rect.width, rect.height);
 	appWindow.dataset.snapped = zone;
 
 	bringToFront(appWindow);
@@ -139,39 +172,253 @@ function snapWindow(appWindow, zone) {
 
 function unsnapWindow(appWindow) {
 	const wasMaximized = appWindow.classList.contains("maximized");
+	appWindow.classList.remove("maximized");
 
-	if (wasMaximized) {
-		if (typeof toggleMaximize === "function") {
-			toggleMaximize(appWindow);
-		} else {
-			appWindow.classList.remove("maximized");
-		}
-	}
+	let targetW = null;
+	let targetH = null;
 
 	if (appWindow.dataset.snapped) {
 		try {
 			const before = JSON.parse(appWindow.dataset.beforeSnap);
-
-			appWindow.style.width = before.width;
-			appWindow.style.height = before.height;
-		} catch (error) {
-			appWindow.style.width = "";
-			appWindow.style.height = "";
-		}
+			targetW = parseInt(before.width, 10) || null;
+			targetH = parseInt(before.height, 10) || null;
+		} catch (error) {}
 
 		delete appWindow.dataset.snapped;
 		delete appWindow.dataset.beforeSnap;
 	}
 
-	// Ensure window has a draggable floating size on mobile/desktop after leaving fullscreen/maximized
 	const currentRect = appWindow.getBoundingClientRect();
-	if (wasMaximized || currentRect.width >= window.innerWidth - 4) {
-		const targetW = Math.min(680, Math.max(280, window.innerWidth - 36));
-		const targetH = Math.min(520, Math.max(240, window.innerHeight - 140));
-		appWindow.style.width = targetW + "px";
-		appWindow.style.height = targetH + "px";
+	if (!targetW || targetW >= window.innerWidth - 10) {
+		targetW = window.innerWidth <= 820
+			? Math.max(260, Math.min(460, window.innerWidth - 28))
+			: Math.min(820, window.innerWidth - 60);
+	}
+	if (!targetH || targetH >= window.innerHeight - 80) {
+		targetH = window.innerWidth <= 820
+			? Math.max(240, Math.min(460, window.innerHeight - 130))
+			: Math.min(580, window.innerHeight - 130);
+	}
+
+	if (wasMaximized || currentRect.width >= window.innerWidth - 10) {
+		setWindowRectImportant(appWindow, currentRect.left, currentRect.top, targetW, targetH);
 	}
 }
+
+// Fullscreen toggle (works both for the app/browser viewport and individual windows)
+function isBrowserFullscreen() {
+	return Boolean(
+		document.fullscreenElement ||
+		document.webkitFullscreenElement ||
+		document.documentElement.classList.contains("browos-pseudo-fullscreen")
+	);
+}
+
+function toggleBrowserFullscreen() {
+	if (document.fullscreenElement || document.webkitFullscreenElement) {
+		if (document.exitFullscreen) {
+			document.exitFullscreen().catch(function () {});
+		} else if (document.webkitExitFullscreen) {
+			document.webkitExitFullscreen();
+		}
+		document.documentElement.classList.remove("browos-pseudo-fullscreen");
+		return;
+	}
+
+	if (document.documentElement.classList.contains("browos-pseudo-fullscreen")) {
+		document.documentElement.classList.remove("browos-pseudo-fullscreen");
+		return;
+	}
+
+	const el = document.documentElement;
+	if (el.requestFullscreen) {
+		el.requestFullscreen().catch(function () {
+			el.classList.add("browos-pseudo-fullscreen");
+		});
+	} else if (el.webkitRequestFullscreen) {
+		try {
+			el.webkitRequestFullscreen();
+		} catch (e) {
+			el.classList.add("browos-pseudo-fullscreen");
+		}
+	} else {
+		el.classList.add("browos-pseudo-fullscreen");
+	}
+}
+
+function toggleWindowFullscreen(appWindow) {
+	if (!appWindow) return;
+	const isMax =
+		appWindow.classList.contains("maximized") ||
+		appWindow.getBoundingClientRect().width >= window.innerWidth - 8;
+
+	if (isMax) {
+		unsnapWindow(appWindow);
+		const r = appWindow.getBoundingClientRect();
+		const left = Math.max(8, Math.round((window.innerWidth - r.width) / 2));
+		const top = Math.max(12, Math.round((window.innerHeight - 90 - r.height) / 2));
+		setWindowRectImportant(appWindow, left, top, r.width, r.height);
+	} else {
+		snapWindow(appWindow, "max");
+	}
+}
+
+// Long-press / Context menu with Fullscreen option (works on webpage AND installed PWA)
+let fullscreenContextMenu = null;
+
+function hideFullscreenContextMenu() {
+	if (fullscreenContextMenu) {
+		fullscreenContextMenu.remove();
+		fullscreenContextMenu = null;
+	}
+}
+
+function showFullscreenContextMenu(x, y, targetWindow) {
+	hideFullscreenContextMenu();
+
+	const menu = document.createElement("div");
+	menu.className = "browos-fs-context-menu";
+	menu.style.cssText = [
+		"position: fixed",
+		"z-index: 999999",
+		"min-width: 190px",
+		"background: rgba(24, 24, 30, 0.96)",
+		"backdrop-filter: blur(14px)",
+		"-webkit-backdrop-filter: blur(14px)",
+		"border: 1px solid rgba(255, 255, 255, 0.14)",
+		"border-radius: 12px",
+		"padding: 6px",
+		"box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5)",
+		"color: #f4f4f6",
+		"font-family: system-ui, -apple-system, sans-serif",
+		"font-size: 14px",
+		"user-select: none",
+	].join(";");
+
+	function addMenuRow(label, onClick) {
+		const item = document.createElement("div");
+		item.textContent = label;
+		item.style.cssText = [
+			"padding: 10px 12px",
+			"border-radius: 8px",
+			"cursor: pointer",
+			"display: flex",
+			"align-items: center",
+			"justify-content: space-between",
+		].join(";");
+
+		item.addEventListener("pointerenter", function () {
+			item.style.background = "rgba(255, 255, 255, 0.12)";
+		});
+		item.addEventListener("pointerleave", function () {
+			item.style.background = "transparent";
+		});
+		item.addEventListener("click", function (e) {
+			e.stopPropagation();
+			hideFullscreenContextMenu();
+			onClick();
+		});
+
+		menu.appendChild(item);
+	}
+
+	const appFsActive = isBrowserFullscreen();
+	addMenuRow(
+		appFsActive ? "Exit Fullscreen (App)" : "Fullscreen (App)",
+		function () {
+			toggleBrowserFullscreen();
+		}
+	);
+
+	if (targetWindow) {
+		const winMax =
+			targetWindow.classList.contains("maximized") ||
+			targetWindow.getBoundingClientRect().width >= window.innerWidth - 8;
+
+		addMenuRow(
+			winMax ? "Restore Window Size" : "Maximize Window",
+			function () {
+				toggleWindowFullscreen(targetWindow);
+			}
+		);
+	}
+
+	document.body.appendChild(menu);
+	fullscreenContextMenu = menu;
+
+	const menuRect = menu.getBoundingClientRect();
+	const posX = Math.min(window.innerWidth - menuRect.width - 10, Math.max(10, x));
+	const posY = Math.min(window.innerHeight - menuRect.height - 10, Math.max(10, y));
+	menu.style.left = posX + "px";
+	menu.style.top = posY + "px";
+}
+
+document.addEventListener("pointerdown", function (e) {
+	if (fullscreenContextMenu && !fullscreenContextMenu.contains(e.target)) {
+		hideFullscreenContextMenu();
+	}
+});
+
+// Long-press on desktop / background (550ms) to open Fullscreen menu
+(function setupGlobalLongPress() {
+	let lpTimer = null;
+	let lpStartX = 0;
+	let lpStartY = 0;
+
+	document.addEventListener(
+		"touchstart",
+		function (e) {
+			if (e.touches.length !== 1) return;
+			const t = e.touches[0];
+			lpStartX = t.clientX;
+			lpStartY = t.clientY;
+
+			// Do not override app icons or inputs
+			if (e.target.closest("input, textarea, button, .desktop-icon, .desktop-folder, .taskbar, .start-menu, .apps-panel")) {
+				return;
+			}
+
+			const win = e.target.closest(".app-window, .explorer-window");
+
+			clearTimeout(lpTimer);
+			lpTimer = setTimeout(function () {
+				showFullscreenContextMenu(lpStartX, lpStartY, win);
+			}, 550);
+		},
+		{ passive: true }
+	);
+
+	document.addEventListener(
+		"touchmove",
+		function (e) {
+			if (!lpTimer || e.touches.length === 0) return;
+			const t = e.touches[0];
+			if (Math.abs(t.clientX - lpStartX) > 10 || Math.abs(t.clientY - lpStartY) > 10) {
+				clearTimeout(lpTimer);
+				lpTimer = null;
+			}
+		},
+		{ passive: true }
+	);
+
+	document.addEventListener("touchend", function () {
+		clearTimeout(lpTimer);
+		lpTimer = null;
+	});
+
+	document.addEventListener("touchcancel", function () {
+		clearTimeout(lpTimer);
+		lpTimer = null;
+	});
+
+	document.addEventListener("contextmenu", function (e) {
+		if (e.target.closest(".window-header")) {
+			e.preventDefault();
+			const win = e.target.closest(".app-window, .explorer-window");
+			showFullscreenContextMenu(e.clientX, e.clientY, win);
+		}
+	});
+})();
 
 function setupWindow(appWindow) {
 	const header = appWindow.querySelector(".window-header");
@@ -183,6 +430,22 @@ function setupWindow(appWindow) {
 	if (!header) {
 		return;
 	}
+
+	// Ensure windows start non-fullscreen (floating) by default on mobile & PWA
+	const observer = new MutationObserver(function () {
+		const isVisible =
+			appWindow.classList.contains("show") ||
+			appWindow.classList.contains("open") ||
+			(appWindow.style.display && appWindow.style.display !== "none");
+
+		if (isVisible && !appWindow.dataset.initializedFloating) {
+			appWindow.dataset.initializedFloating = "true";
+			makeWindowFloatingDefault(appWindow);
+		} else if (!isVisible) {
+			delete appWindow.dataset.initializedFloating;
+		}
+	});
+	observer.observe(appWindow, { attributes: true, attributeFilter: ["class", "style"] });
 
 	header.style.touchAction = "none";
 	header.style.userSelect = "none";
@@ -224,7 +487,7 @@ function setupWindow(appWindow) {
 		bringToFront(appWindow);
 
 		const rect = appWindow.getBoundingClientRect();
-		const isFullWidth = rect.width >= window.innerWidth - 4;
+		const isFullWidth = rect.width >= window.innerWidth - 8;
 
 		needsUnmaximize =
 			appWindow.classList.contains("maximized") ||
@@ -252,6 +515,10 @@ function setupWindow(appWindow) {
 			return;
 		}
 
+		if (Math.abs(clientX - startX) > 6 || Math.abs(clientY - startY) > 6) {
+			hideFullscreenContextMenu();
+		}
+
 		if (needsUnmaximize) {
 			if (Math.abs(clientX - startX) < 6 && Math.abs(clientY - startY) < 6) {
 				return;
@@ -259,37 +526,20 @@ function setupWindow(appWindow) {
 
 			needsUnmaximize = false;
 
-			if (document.fullscreenElement) {
-				document.exitFullscreen().catch(function () {});
-			}
-
 			unsnapWindow(appWindow);
 
-			appWindow.style.transform = "none";
-			appWindow.style.translate = "none";
-			appWindow.style.margin = "0";
-			appWindow.style.right = "auto";
-			appWindow.style.bottom = "auto";
-
-			const widthNow = appWindow.getBoundingClientRect().width || Math.min(680, window.innerWidth - 36);
-			// Place the title bar directly centered under the finger
+			const widthNow = appWindow.getBoundingClientRect().width;
 			offsetX = Math.round(widthNow / 2);
 			offsetY = 20;
 		}
 
-		const parentRect = (appWindow.offsetParent || document.body).getBoundingClientRect();
-
 		const maxLeft = Math.max(0, window.innerWidth - 60);
 		const maxTop = Math.max(0, window.innerHeight - 90);
 
-		const targetViewportLeft = Math.min(
-			maxLeft,
-			Math.max(-appWindow.offsetWidth + 60, clientX - offsetX)
-		);
-		const targetViewportTop = Math.min(maxTop, Math.max(0, clientY - offsetY));
+		const nextLeft = Math.min(maxLeft, Math.max(-appWindow.offsetWidth + 60, clientX - offsetX));
+		const nextTop = Math.min(maxTop, Math.max(0, clientY - offsetY));
 
-		appWindow.style.left = targetViewportLeft - parentRect.left + "px";
-		appWindow.style.top = targetViewportTop - parentRect.top + "px";
+		setWindowRectImportant(appWindow, nextLeft, nextTop, null, null);
 
 		snapZone = snapZoneAt(clientX, clientY);
 		showSnapPreview(snapZone);
@@ -394,7 +644,6 @@ function makeResizable(windowElement) {
 
 		function startResizeAt(clientX, clientY) {
 			const rect = detachCentering(windowElement);
-			const parentRect = (windowElement.offsetParent || document.body).getBoundingClientRect();
 
 			delete windowElement.dataset.snapped;
 			delete windowElement.dataset.beforeSnap;
@@ -405,10 +654,10 @@ function makeResizable(windowElement) {
 
 			const startWidth = rect.width;
 			const startHeight = rect.height;
-			const startLeft = rect.left - parentRect.left;
-			const startTop = rect.top - parentRect.top;
-			const minWidth = Math.min(300, window.innerWidth - 20);
-			const minHeight = 200;
+			const startLeft = rect.left;
+			const startTop = rect.top;
+			const minWidth = Math.min(260, window.innerWidth - 20);
+			const minHeight = 180;
 
 			function applyResize(curX, curY) {
 				const deltaX = curX - clientX;
@@ -434,10 +683,7 @@ function makeResizable(windowElement) {
 					newTop = startTop + (startHeight - newHeight);
 				}
 
-				windowElement.style.width = newWidth + "px";
-				windowElement.style.height = newHeight + "px";
-				windowElement.style.left = newLeft + "px";
-				windowElement.style.top = newTop + "px";
+				setWindowRectImportant(windowElement, newLeft, newTop, newWidth, newHeight);
 			}
 
 			function onMouseMove(e) {
