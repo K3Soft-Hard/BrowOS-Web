@@ -79,6 +79,21 @@ function showSnapPreview(zone) {
 	snapPreview.classList.add("show");
 }
 
+function detachCentering(appWindow) {
+	const rect = appWindow.getBoundingClientRect();
+	const parentRect = (appWindow.offsetParent || document.body).getBoundingClientRect();
+
+	appWindow.style.transform = "none";
+	appWindow.style.translate = "none";
+	appWindow.style.margin = "0";
+	appWindow.style.right = "auto";
+	appWindow.style.bottom = "auto";
+	appWindow.style.left = rect.left - parentRect.left + "px";
+	appWindow.style.top = rect.top - parentRect.top + "px";
+
+	return appWindow.getBoundingClientRect();
+}
+
 function snapWindow(appWindow, zone) {
 	if (zone === "restore") {
 		unsnapWindow(appWindow);
@@ -110,6 +125,8 @@ function snapWindow(appWindow, zone) {
 	const rect = snapRect(zone);
 
 	appWindow.style.transform = "none";
+	appWindow.style.translate = "none";
+	appWindow.style.margin = "0";
 	appWindow.style.left = rect.left + "px";
 	appWindow.style.top = rect.top + "px";
 	appWindow.style.width = rect.width + "px";
@@ -192,14 +209,10 @@ function setupWindow(appWindow) {
 
 		bringToFront(appWindow);
 
-		const rect = appWindow.getBoundingClientRect();
+		const rect = detachCentering(appWindow);
 
 		offsetX = clientX - rect.left;
 		offsetY = clientY - rect.top;
-
-		appWindow.style.transform = "none";
-		appWindow.style.left = rect.left + "px";
-		appWindow.style.top = rect.top + "px";
 
 		appWindow.querySelectorAll("iframe").forEach(function (frame) {
 			frame.style.pointerEvents = "none";
@@ -224,19 +237,25 @@ function setupWindow(appWindow) {
 			const grabbedAt = widthBefore > 0 ? offsetX / widthBefore : 0.5;
 
 			unsnapWindow(appWindow);
+			detachCentering(appWindow);
 
 			const widthNow = appWindow.getBoundingClientRect().width;
 			offsetX = Math.max(30, Math.min(widthNow - 30, grabbedAt * widthNow));
 		}
 
+		const parentRect = (appWindow.offsetParent || document.body).getBoundingClientRect();
+
 		const maxLeft = Math.max(0, window.innerWidth - 60);
 		const maxTop = Math.max(0, window.innerHeight - 90);
 
-		const nextLeft = Math.min(maxLeft, Math.max(-appWindow.offsetWidth + 60, clientX - offsetX));
-		const nextTop = Math.min(maxTop, Math.max(0, clientY - offsetY));
+		const targetViewportLeft = Math.min(
+			maxLeft,
+			Math.max(-appWindow.offsetWidth + 60, clientX - offsetX)
+		);
+		const targetViewportTop = Math.min(maxTop, Math.max(0, clientY - offsetY));
 
-		appWindow.style.left = nextLeft + "px";
-		appWindow.style.top = nextTop + "px";
+		appWindow.style.left = targetViewportLeft - parentRect.left + "px";
+		appWindow.style.top = targetViewportTop - parentRect.top + "px";
 
 		snapZone = snapZoneAt(clientX, clientY);
 		showSnapPreview(snapZone);
@@ -261,7 +280,7 @@ function setupWindow(appWindow) {
 		snapZone = null;
 	}
 
-	// Mouse / Pointer events
+	// Mouse / Pen events
 	header.addEventListener("pointerdown", function (event) {
 		if (event.pointerType === "touch") return;
 		if (event.button !== undefined && event.button !== 0) return;
@@ -288,7 +307,7 @@ function setupWindow(appWindow) {
 		finishDrag(true);
 	});
 
-	// Native Touch events (bulletproof for Android PWA standalone mode)
+	// Touch events (Android PWA & mobile)
 	header.addEventListener(
 		"touchstart",
 		function (event) {
@@ -339,14 +358,11 @@ function makeResizable(windowElement) {
 		windowElement.appendChild(handle);
 
 		function startResizeAt(clientX, clientY) {
-			const rect = windowElement.getBoundingClientRect();
+			const rect = detachCentering(windowElement);
+			const parentRect = (windowElement.offsetParent || document.body).getBoundingClientRect();
 
 			delete windowElement.dataset.snapped;
 			delete windowElement.dataset.beforeSnap;
-
-			windowElement.style.transform = "none";
-			windowElement.style.left = rect.left + "px";
-			windowElement.style.top = rect.top + "px";
 
 			windowElement.querySelectorAll("iframe").forEach(function (frame) {
 				frame.style.pointerEvents = "none";
@@ -354,8 +370,8 @@ function makeResizable(windowElement) {
 
 			const startWidth = rect.width;
 			const startHeight = rect.height;
-			const startLeft = rect.left;
-			const startTop = rect.top;
+			const startLeft = rect.left - parentRect.left;
+			const startTop = rect.top - parentRect.top;
 			const minWidth = Math.min(300, window.innerWidth - 20);
 			const minHeight = 200;
 
