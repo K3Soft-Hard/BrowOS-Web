@@ -4,7 +4,7 @@
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title>BrowOS Root &amp; Cache Explorer</title>
-	<link rel="stylesheet" href="./style.css">
+	<link rel="stylesheet" href="style.css">
 	<script src="../../sdk/browos-sdk.js"></script>
 </head>
 <body>
@@ -79,7 +79,7 @@
 					<span>Cached Files (<span id="fileCount">0</span>)</span>
 					<button class="btn small secondary" id="refreshCacheBtn">↻</button>
 				</div>
-				<input type="text" class="search-box" id="treeSearch" placeholder="Filter path (e.g. js/windows.js)…" spellcheck="false">
+				<input type="text" class="search-box" id="treeSearch" placeholder="Filter path (e.g. icons/ or js/)…" spellcheck="false">
 				<div class="file-tree" id="fileTree"></div>
 				<div class="sidebar-footer">
 					<div class="info-line"><span>Active Cache:</span> <strong id="cacheName">—</strong></div>
@@ -96,7 +96,7 @@
 					<div class="inspector-actions">
 						<button class="btn small secondary" id="copyPathBtn" disabled>Copy Path</button>
 						<button class="btn small secondary" id="useInModBtn" disabled>Target in Mod</button>
-						<label class="btn small primary upload-label" id="replaceUploadLabel">
+						<label class="btn small primary upload-label disabled" id="replaceUploadLabel">
 							Replace File…
 							<input type="file" id="replaceFileInput" hidden disabled>
 						</label>
@@ -104,7 +104,10 @@
 				</div>
 
 				<div class="file-meta" id="fileMeta">No file selected</div>
-				<textarea id="filePreview" readonly spellcheck="false" placeholder="Click any cached file on the left to inspect its offline PWA contents or copy its path…"></textarea>
+				<div class="image-preview-box" id="imagePreviewBox" hidden>
+					<img id="imagePreviewImg" alt="Cached asset preview">
+				</div>
+				<textarea id="filePreview" readonly spellcheck="false" placeholder="Click any cached file or image on the left to inspect its offline PWA contents or copy its path…"></textarea>
 			</section>
 		</main>
 
@@ -134,7 +137,7 @@
 				<div class="target-bar">
 					<label class="target-field">
 						<span>Target File Path:</span>
-						<input type="text" id="modTargetInput" placeholder="e.g. index.html or js/windows.js" spellcheck="false">
+						<input type="text" id="modTargetInput" placeholder="e.g. index.html or icons/settings-icon.png" spellcheck="false">
 					</label>
 					<button class="btn small secondary" id="pastePathBtn">Paste Path</button>
 					<select id="modModeSelect">
@@ -149,13 +152,18 @@
 					<button class="tab" data-tab="css">CSS</button>
 				</div>
 
-				<textarea id="codeEditor" spellcheck="false" placeholder="// Write code or paste file contents here…"></textarea>
+				<div class="mod-image-preview" id="modImagePreviewBox" hidden>
+					<img id="modImagePreviewImg" alt="Replacement image preview">
+					<span id="modImageInfo"></span>
+				</div>
+
+				<textarea id="codeEditor" spellcheck="false" placeholder="// Write code, paste file contents, or load an image/file below…"></textarea>
 
 				<div class="editor-footer">
-					<span id="editorHint">Target any cached file path from Cache Explorer.</span>
+					<span id="editorHint">Target any cached file or image path from Cache Explorer.</span>
 					<div class="footer-btns">
 						<label class="btn small secondary upload-label">
-							Load from File…
+							Load Image / File…
 							<input type="file" id="loadModFileInput" hidden>
 						</label>
 						<button class="btn small primary" id="saveModBtn">Save Module</button>
