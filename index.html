@@ -1107,49 +1107,6 @@
 	<canvas id="screensaverCanvas"></canvas>
 	<div class="screensaver-clock" id="screensaverClock" hidden></div>
 </div>
-
-<script>
-	// Suppress Android Google Password Manager & iOS Keychain autofill bar on OS UI inputs
-(function suppressOsAutofill() {
-	function patchInput(el) {
-		if (!el || el.dataset.autofillPatched) return;
-		el.dataset.autofillPatched = "1";
-
-		// If it's a numeric PIN field, avoid triggering saved-password manager
-		if (el.type === "password" && el.inputMode === "numeric") {
-			el.setAttribute("autocomplete", "one-time-code");
-			el.setAttribute("data-lpignore", "true");
-			el.setAttribute("data-1p-ignore", "true");
-			return;
-		}
-
-		// For search bars, file names, terminals, and text inputs
-		if (el.tagName === "INPUT" && (el.type === "text" || el.type === "search" || !el.type)) {
-			if (!el.getAttribute("autocomplete")) {
-				el.setAttribute("autocomplete", "off");
-			}
-			el.setAttribute("autocorrect", "off");
-			el.setAttribute("autocapitalize", "off");
-			el.setAttribute("spellcheck", "false");
-			el.setAttribute("data-lpignore", "true");
-			el.setAttribute("data-1p-ignore", "true");
-			el.setAttribute("data-form-type", "other");
-		}
-	}
-
-	document.querySelectorAll("input, textarea").forEach(patchInput);
-
-	new MutationObserver((mutations) => {
-		for (const m of mutations) {
-			for (const node of m.addedNodes) {
-				if (node.nodeType !== 1) continue;
-				if (node.matches && node.matches("input, textarea")) patchInput(node);
-				if (node.querySelectorAll) node.querySelectorAll("input, textarea").forEach(patchInput);
-			}
-		}
-	}).observe(document.documentElement, { childList: true, subtree: true });
-})();
-</script>
 	
 <script src="js/start-menu.js"></script>
 <script src="js/clock.js"></script>
