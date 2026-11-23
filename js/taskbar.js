@@ -103,3 +103,28 @@ function closeApp(appWindow) {
 		button.remove();
 	}
 }
+
+(function initTaskbarAutoHide() {
+	const hideBtn = document.getElementById("taskbarHideButton");
+	const restoreBtn = document.getElementById("taskbarRestoreBox");
+	if (!hideBtn || !restoreBtn) return;
+
+	function setTaskbarHidden(hidden) {
+		document.body.classList.toggle("taskbar-hidden", hidden);
+		localStorage.setItem("browos-taskbar-hidden", hidden ? "1" : "0");
+	}
+
+	if (localStorage.getItem("browos-taskbar-hidden") === "1") {
+		setTaskbarHidden(true);
+	}
+
+	hideBtn.addEventListener("click", (e) => {
+		e.stopPropagation();
+		setTaskbarHidden(true);
+	});
+
+	restoreBtn.addEventListener("click", (e) => {
+		e.stopPropagation();
+		setTaskbarHidden(false);
+	});
+})();
