@@ -35,6 +35,27 @@
 			transform-origin: top left;
 		}
 
+		/* Window title bar & control buttons sizing override */
+		.window-header {
+			height: var(--window-bar-height, 46px) !important;
+			min-height: var(--window-bar-height, 46px) !important;
+		}
+
+		.window-controls button {
+			width: var(--window-btn-width, 46px) !important;
+			height: 100% !important;
+			font-size: var(--window-btn-font, 18px) !important;
+		}
+
+		.window-title {
+			font-size: var(--window-title-font, 13px) !important;
+		}
+
+		.window-title img {
+			width: var(--window-icon-size, 20px) !important;
+			height: var(--window-icon-size, 20px) !important;
+		}
+
 		/* Enhanced blur behind taskbar */
 		.taskbar-blur,
 		.taskbar {
