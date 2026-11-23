@@ -72,6 +72,140 @@
 	<link rel="stylesheet" href="css/switcher.css">
 	<link rel="stylesheet" href="css/a11y.css">
 	<link rel="stylesheet" href="css/settings-extra.css">
+
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+
+	<style>
+		html, body {
+			margin: 0 !important;
+			padding: 0 !important;
+			width: 100%;
+			height: 100%;
+			overflow: hidden !important;
+			position: fixed !important;
+			inset: 0 !important;
+			box-sizing: border-box !important;
+			background: #000;
+		}
+
+		.desktop-shell {
+			position: absolute;
+			top: 0;
+			left: 0;
+			width: 100%;
+			height: 100%;
+			transform-origin: top left;
+		}
+
+		/* Enhanced blur behind taskbar */
+		.taskbar-blur,
+		.taskbar {
+			backdrop-filter: blur(22px) saturate(160%) !important;
+			-webkit-backdrop-filter: blur(22px) saturate(160%) !important;
+		}
+
+		.taskbar,
+		.taskbar-blur {
+			transition: transform 0.24s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.2s ease !important;
+		}
+
+		body.taskbar-hidden .taskbar,
+		body.taskbar-hidden .taskbar-blur {
+			transform: translateY(calc(100% + 20px)) !important;
+			opacity: 0 !important;
+			pointer-events: none !important;
+		}
+
+		/* Small bottom box with arrow up to restore taskbar */
+		.taskbar-restore-box {
+			position: fixed;
+			bottom: 6px;
+			left: 50%;
+			transform: translateX(-50%) translateY(20px);
+			z-index: 9998;
+			width: 54px;
+			height: 22px;
+			border-radius: 8px;
+			border: 1px solid rgba(255, 255, 255, 0.2);
+			background: rgba(18, 18, 24, 0.72);
+			backdrop-filter: blur(16px);
+			-webkit-backdrop-filter: blur(16px);
+			color: #ffffff;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			cursor: pointer;
+			opacity: 0;
+			pointer-events: none;
+			transition: opacity 0.2s ease, transform 0.22s ease, background 0.15s ease;
+			box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+		}
+
+		.taskbar-restore-box:hover {
+			background: rgba(33, 150, 243, 0.45);
+		}
+
+		body.taskbar-hidden .taskbar-restore-box {
+			opacity: 1;
+			pointer-events: auto;
+			transform: translateX(-50%) translateY(0);
+		}
+
+		.taskbar-hide-btn {
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			width: 26px;
+			height: 26px;
+			border-radius: 6px;
+			border: 1px solid rgba(255, 255, 255, 0.12);
+			background: rgba(255, 255, 255, 0.06);
+			color: inherit;
+			cursor: pointer;
+			margin-left: 4px;
+			flex-shrink: 0;
+		}
+
+		.taskbar-hide-btn:hover {
+			background: rgba(255, 255, 255, 0.16);
+		}
+	</style>
+
+	<script>
+		function fitBrowOSViewport() {
+			const shell = document.querySelector(".desktop-shell");
+			if (!shell) return;
+
+			// Reset any legacy html zoom
+			document.documentElement.style.zoom = "1";
+
+			const vw = window.innerWidth;
+			const vh = window.innerHeight;
+			const isPortrait = vh > vw;
+
+			// On portrait tablets/phones, keep a clean 760px virtual width so nothing overflows or shrinks to 1/4
+			const minWidth = isPortrait ? 760 : 960;
+
+			if (vw < minWidth) {
+				const scale = vw / minWidth;
+				shell.style.width = minWidth + "px";
+				shell.style.height = Math.ceil(vh / scale) + "px";
+				shell.style.transform = `scale(${scale})`;
+			} else {
+				shell.style.width = "100%";
+				shell.style.height = "100%";
+				shell.style.transform = "none";
+			}
+		}
+
+		window.addEventListener("DOMContentLoaded", fitBrowOSViewport);
+		window.addEventListener("load", fitBrowOSViewport);
+		window.addEventListener("resize", fitBrowOSViewport);
+		window.addEventListener("orientationchange", () => setTimeout(fitBrowOSViewport, 120));
+		document.addEventListener("fullscreenchange", () => setTimeout(fitBrowOSViewport, 120));
+	</script>
+
+	
 </head>
 
 <body>
@@ -990,6 +1124,28 @@
 				<div class="clock" id="clock">00:00</div>
 				<div class="date" id="date">01/01/2026</div>
 			</div>
+
+			<div class="clock-stack">
+				<div class="clock" id="clock">00:00</div>
+				<div class="date" id="date">01/01/2026</div>
+			</div>
+
+			<button class="taskbar-hide-btn" id="taskbarHideButton" title="Hide taskbar" aria-label="Hide taskbar">
+				<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+					<polyline points="6 9 12 15 18 9"></polyline>
+				</svg>
+			</button>
+		</div>
+	</div>
+
+	<!-- Small bottom box to bring taskbar back -->
+	<button class="taskbar-restore-box" id="taskbarRestoreBox" title="Show taskbar" aria-label="Show taskbar">
+		<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+			<polyline points="18 15 12 9 6 15"></polyline>
+		</svg>
+	</button>
+
+			
 		</div>
 	</div>
 
