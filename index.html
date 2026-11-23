@@ -13,163 +13,6 @@
 	<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 	<link rel="apple-touch-icon" href="./icons/browos-logo.png">
 
-	<style>
-		html, body {
-			margin: 0 !important;
-			padding: 0 !important;
-			width: 100%;
-			height: 100%;
-			overflow: hidden !important;
-			position: fixed !important;
-			inset: 0 !important;
-			box-sizing: border-box !important;
-			background: #000;
-		}
-
-		.desktop-shell {
-			position: absolute;
-			top: 0;
-			left: 0;
-			width: 100%;
-			height: 100%;
-			transform-origin: top left;
-		}
-
-		/* Window title bar & control buttons sizing override */
-		.window-header {
-			height: var(--window-bar-height, 46px) !important;
-			min-height: var(--window-bar-height, 46px) !important;
-		}
-
-		.window-controls button {
-			width: var(--window-btn-width, 46px) !important;
-			height: 100% !important;
-			font-size: var(--window-btn-font, 18px) !important;
-		}
-
-		.window-title {
-			font-size: var(--window-title-font, 13px) !important;
-		}
-
-		.window-title img {
-			width: var(--window-icon-size, 20px) !important;
-			height: var(--window-icon-size, 20px) !important;
-		}
-
-		/* Enhanced blur behind taskbar */
-		.taskbar-blur,
-		.taskbar {
-			backdrop-filter: blur(22px) saturate(160%) !important;
-			-webkit-backdrop-filter: blur(22px) saturate(160%) !important;
-		}
-
-		.taskbar,
-		.taskbar-blur {
-			transition: transform 0.24s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.2s ease !important;
-		}
-
-		body.taskbar-hidden .taskbar,
-		body.taskbar-hidden .taskbar-blur {
-			transform: translateY(calc(100% + 20px)) !important;
-			opacity: 0 !important;
-			pointer-events: none !important;
-		}
-
-		body.taskbar-hide-disabled .taskbar-hide-btn,
-		body.taskbar-hide-disabled .taskbar-restore-box {
-			display: none !important;
-		}
-
-		/* Small bottom box with arrow up to restore taskbar */
-		.taskbar-restore-box {
-			position: fixed;
-			bottom: 6px;
-			left: 50%;
-			transform: translateX(-50%) translateY(20px);
-			z-index: 9998;
-			width: 54px;
-			height: 22px;
-			border-radius: 8px;
-			border: 1px solid rgba(255, 255, 255, 0.2);
-			background: rgba(18, 18, 24, 0.72);
-			backdrop-filter: blur(16px);
-			-webkit-backdrop-filter: blur(16px);
-			color: #ffffff;
-			display: flex;
-			align-items: center;
-			justify-content: center;
-			cursor: pointer;
-			opacity: 0;
-			pointer-events: none;
-			transition: opacity 0.2s ease, transform 0.22s ease, background 0.15s ease;
-			box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
-		}
-
-		.taskbar-restore-box:hover {
-			background: rgba(33, 150, 243, 0.45);
-		}
-
-		body.taskbar-hidden .taskbar-restore-box {
-			opacity: 1;
-			pointer-events: auto;
-			transform: translateX(-50%) translateY(0);
-		}
-
-		.taskbar-hide-btn {
-			display: inline-flex;
-			align-items: center;
-			justify-content: center;
-			width: 26px;
-			height: 26px;
-			border-radius: 6px;
-			border: 1px solid rgba(255, 255, 255, 0.12);
-			background: rgba(255, 255, 255, 0.06);
-			color: inherit;
-			cursor: pointer;
-			margin-left: 4px;
-			flex-shrink: 0;
-		}
-
-		.taskbar-hide-btn:hover {
-			background: rgba(255, 255, 255, 0.16);
-		}
-	</style>
-
-	<script>
-		function fitBrowOSViewport() {
-			const shell = document.querySelector(".desktop-shell");
-			if (!shell) return;
-
-			document.documentElement.style.zoom = "1";
-
-			const vw = window.innerWidth;
-			const vh = window.innerHeight;
-			const isPortrait = vh > vw;
-			const minWidth = isPortrait ? 760 : 960;
-
-			if (vw < minWidth) {
-				const scale = vw / minWidth;
-				shell.style.width = minWidth + "px";
-				shell.style.height = Math.ceil(vh / scale) + "px";
-				shell.style.transform = `scale(${scale})`;
-			} else {
-				shell.style.width = "100%";
-				shell.style.height = "100%";
-				shell.style.transform = "none";
-			}
-
-			if (typeof syncAllMaximizedWindows === "function") {
-				syncAllMaximizedWindows();
-			}
-		}
-
-		window.addEventListener("DOMContentLoaded", fitBrowOSViewport);
-		window.addEventListener("load", fitBrowOSViewport);
-		window.addEventListener("resize", fitBrowOSViewport);
-		window.addEventListener("orientationchange", () => setTimeout(fitBrowOSViewport, 120));
-		document.addEventListener("fullscreenchange", () => setTimeout(fitBrowOSViewport, 120));
-	</script>
-
 	<link rel="stylesheet" href="css/base.css">
 	<link rel="stylesheet" href="css/taskbar.css">
 	<link rel="stylesheet" href="css/files.css">
@@ -193,6 +36,107 @@
 	<link rel="stylesheet" href="css/switcher.css">
 	<link rel="stylesheet" href="css/a11y.css">
 	<link rel="stylesheet" href="css/settings-extra.css">
+
+	<style>
+		html, body {
+			margin: 0 !important;
+			padding: 0 !important;
+			width: 100% !important;
+			height: 100% !important;
+			overflow: hidden !important;
+			position: fixed !important;
+			inset: 0 !important;
+			box-sizing: border-box !important;
+			background: #000;
+		}
+
+		.desktop-shell {
+			position: fixed !important;
+			top: 0 !important;
+			left: 0 !important;
+			right: auto !important;
+			bottom: auto !important;
+			transform-origin: top left !important;
+		}
+
+		/* Enhanced blur behind taskbar */
+		.taskbar-blur,
+		.taskbar {
+			backdrop-filter: blur(22px) saturate(160%) !important;
+			-webkit-backdrop-filter: blur(22px) saturate(160%) !important;
+		}
+
+		.taskbar,
+		.taskbar-blur {
+			transition: transform 0.24s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.2s ease !important;
+		}
+
+		html[data-taskbar-hidden="1"] .taskbar,
+		html[data-taskbar-hidden="1"] .taskbar-blur {
+			transform: translateY(calc(100% + 24px)) !important;
+			opacity: 0 !important;
+			pointer-events: none !important;
+		}
+
+		html[data-taskbar-hide-disabled="1"] .taskbar-hide-btn,
+		html[data-taskbar-hide-disabled="1"] .taskbar-restore-box {
+			display: none !important;
+		}
+
+		/* Small bottom box with arrow up to restore taskbar */
+		.taskbar-restore-box {
+			position: fixed;
+			bottom: 6px;
+			left: 50%;
+			transform: translateX(-50%) translateY(24px);
+			z-index: 99999;
+			width: 54px;
+			height: 22px;
+			border-radius: 8px;
+			border: 1px solid rgba(255, 255, 255, 0.22);
+			background: rgba(18, 18, 24, 0.78);
+			backdrop-filter: blur(16px);
+			-webkit-backdrop-filter: blur(16px);
+			color: #ffffff;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			cursor: pointer;
+			opacity: 0;
+			pointer-events: none;
+			transition: opacity 0.2s ease, transform 0.22s ease, background 0.15s ease;
+			box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+		}
+
+		.taskbar-restore-box:hover {
+			background: rgba(33, 150, 243, 0.45);
+		}
+
+		html[data-taskbar-hidden="1"] .taskbar-restore-box {
+			opacity: 1 !important;
+			pointer-events: auto !important;
+			transform: translateX(-50%) translateY(0) !important;
+		}
+
+		.taskbar-hide-btn {
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			width: 26px;
+			height: 26px;
+			border-radius: 6px;
+			border: 1px solid rgba(255, 255, 255, 0.14);
+			background: rgba(255, 255, 255, 0.06);
+			color: inherit;
+			cursor: pointer;
+			margin-left: 4px;
+			flex-shrink: 0;
+		}
+
+		.taskbar-hide-btn:hover {
+			background: rgba(255, 255, 255, 0.16);
+		}
+	</style>
 </head>
 
 <body>
@@ -1085,7 +1029,7 @@
 		</div>
 	</div>
 
-	<!-- BLUR BEHIND THE TASKBAR (only when a window is maximized) -->
+	<!-- BLUR BEHIND THE TASKBAR -->
 	<div class="taskbar-blur"></div>
 
 	<!-- Taskbar -->
@@ -1318,5 +1262,146 @@
 <script src="js/browstore.js"></script>
 <script src="js/task-manager.js"></script>
 <script src="js/update.js"></script>
+
+<script>
+	(function () {
+		function syncMaximizedWindowsNow() {
+			const shell = document.querySelector(".desktop-shell");
+			const taskbar = document.querySelector(".taskbar");
+			const taskbarHidden = document.documentElement.dataset.taskbarHidden === "1";
+			const w = shell ? shell.offsetWidth : window.innerWidth;
+			const h = shell ? shell.offsetHeight : window.innerHeight;
+			const tbSpace = !taskbarHidden && taskbar ? taskbar.offsetHeight + 12 : 0;
+
+			document.querySelectorAll(".app-window.maximized").forEach(function (win) {
+				win.style.top = "0px";
+				win.style.left = "0px";
+				win.style.width = w + "px";
+				win.style.height = Math.max(240, h - tbSpace) + "px";
+				win.style.transform = "none";
+			});
+		}
+
+		function fitBrowOSViewportNow() {
+			const shell = document.querySelector(".desktop-shell");
+			if (!shell) return;
+			document.documentElement.style.zoom = "1";
+
+			const vw = window.innerWidth;
+			const vh = window.innerHeight;
+			const isPortrait = vh > vw;
+			const minWidth = isPortrait ? 760 : 960;
+
+			if (vw < minWidth) {
+				const scale = vw / minWidth;
+				shell.style.width = minWidth + "px";
+				shell.style.height = Math.ceil(vh / scale) + "px";
+				shell.style.transform = "scale(" + scale + ")";
+			} else {
+				shell.style.width = "100%";
+				shell.style.height = "100%";
+				shell.style.transform = "none";
+			}
+
+			syncMaximizedWindowsNow();
+		}
+
+		fitBrowOSViewportNow();
+		window.addEventListener("resize", fitBrowOSViewportNow);
+		window.addEventListener("orientationchange", function () { setTimeout(fitBrowOSViewportNow, 140); });
+		document.addEventListener("fullscreenchange", function () { setTimeout(fitBrowOSViewportNow, 140); });
+
+		// Guarantee Window bar size & Taskbar hide settings always bind
+		const presets = {
+			compact: { bar: "34px", btn: "36px", btnFont: "15px", titleFont: "12px", icon: "16px" },
+			normal: { bar: "46px", btn: "46px", btnFont: "18px", titleFont: "13px", icon: "20px" },
+			large: { bar: "56px", btn: "56px", btnFont: "21px", titleFont: "14.5px", icon: "23px" },
+			xlarge: { bar: "66px", btn: "66px", btnFont: "24px", titleFont: "16px", icon: "26px" },
+		};
+
+		function setBarSize(key) {
+			const p = presets[key] || presets.normal;
+			let tag = document.getElementById("bosWindowBarOverride");
+			if (!tag) {
+				tag = document.createElement("style");
+				tag.id = "bosWindowBarOverride";
+				document.body.appendChild(tag);
+			}
+			tag.textContent =
+				".app-window .window-header{height:" + p.bar + "!important;min-height:" + p.bar + "!important;}" +
+				".app-window .window-controls button{width:" + p.btn + "!important;height:100%!important;font-size:" + p.btnFont + "!important;}" +
+				".app-window .window-title{font-size:" + p.titleFont + "!important;}" +
+				".app-window .window-title img{width:" + p.icon + "!important;height:" + p.icon + "!important;}";
+		}
+
+		const barSel = document.getElementById("windowBarSizeSelect");
+		const savedBar = localStorage.getItem("browos-window-bar-size") || "normal";
+		setBarSize(savedBar);
+		if (barSel) {
+			barSel.value = savedBar;
+			barSel.onchange = function () {
+				localStorage.setItem("browos-window-bar-size", barSel.value);
+				setBarSize(barSel.value);
+			};
+		}
+
+		const hideToggle = document.getElementById("taskbarHideFeatureToggle");
+		const hideBtn = document.getElementById("taskbarHideButton");
+		const restoreBtn = document.getElementById("taskbarRestoreBox");
+
+		function setTbHidden(hidden) {
+			if (hidden) {
+				document.documentElement.dataset.taskbarHidden = "1";
+			} else {
+				delete document.documentElement.dataset.taskbarHidden;
+			}
+			localStorage.setItem("browos-taskbar-hidden", hidden ? "1" : "0");
+			syncMaximizedWindowsNow();
+		}
+
+		function setTbFeature(enabled) {
+			if (enabled) {
+				delete document.documentElement.dataset.taskbarHideDisabled;
+			} else {
+				document.documentElement.dataset.taskbarHideDisabled = "1";
+				setTbHidden(false);
+			}
+		}
+
+		const featureOn = localStorage.getItem("browos-taskbar-hide-enabled") !== "off";
+		setTbFeature(featureOn);
+		if (featureOn && localStorage.getItem("browos-taskbar-hidden") === "1") {
+			setTbHidden(true);
+		}
+
+		if (hideToggle) {
+			hideToggle.checked = featureOn;
+			hideToggle.onchange = function () {
+				const on = hideToggle.checked;
+				localStorage.setItem("browos-taskbar-hide-enabled", on ? "on" : "off");
+				setTbFeature(on);
+			};
+		}
+		if (hideBtn) {
+			hideBtn.onclick = function (e) {
+				e.stopPropagation();
+				setTbHidden(true);
+			};
+		}
+		if (restoreBtn) {
+			restoreBtn.onclick = function (e) {
+				e.stopPropagation();
+				setTbHidden(false);
+			};
+		}
+
+		// Ensure maximize click always syncs full portrait dimensions
+		document.addEventListener("click", function (e) {
+			if (e.target.closest(".window-maximize")) {
+				setTimeout(syncMaximizedWindowsNow, 0);
+			}
+		}, true);
+	})();
+</script>
 </body>
 </html>
