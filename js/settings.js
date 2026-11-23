@@ -180,6 +180,113 @@ clockToggle.addEventListener("change", function () {
 	updateClockVisibility();
 });
 
+// Window bar & buttons size (Personalization)
+
+const windowBarSizeSelect = document.getElementById("windowBarSizeSelect");
+
+const WINDOW_BAR_PRESETS = {
+	compact: { bar: "34px", btn: "36px", btnFont: "15px", titleFont: "12px", icon: "16px" },
+	normal: { bar: "46px", btn: "46px", btnFont: "18px", titleFont: "13px", icon: "20px" },
+	large: { bar: "56px", btn: "56px", btnFont: "21px", titleFont: "14.5px", icon: "23px" },
+	xlarge: { bar: "66px", btn: "66px", btnFont: "24px", titleFont: "16px", icon: "26px" },
+};
+
+function applyWindowBarSize(presetKey) {
+	const preset = WINDOW_BAR_PRESETS[presetKey] || WINDOW_BAR_PRESETS.normal;
+	let styleTag = document.getElementById("bosWindowBarOverride");
+	if (!styleTag) {
+		styleTag = document.createElement("style");
+		styleTag.id = "bosWindowBarOverride";
+		document.body.appendChild(styleTag);
+	}
+	styleTag.textContent = `
+		.app-window .window-header {
+			height: ${preset.bar} !important;
+			min-height: ${preset.bar} !important;
+		}
+		.app-window .window-controls button {
+			width: ${preset.btn} !important;
+			height: 100% !important;
+			font-size: ${preset.btnFont} !important;
+		}
+		.app-window .window-title {
+			font-size: ${preset.titleFont} !important;
+		}
+		.app-window .window-title img {
+			width: ${preset.icon} !important;
+			height: ${preset.icon} !important;
+		}
+	`;
+}
+
+const savedWindowBarSize = localStorage.getItem("browos-window-bar-size") || "normal";
+applyWindowBarSize(savedWindowBarSize);
+
+if (windowBarSizeSelect) {
+	windowBarSizeSelect.value = savedWindowBarSize;
+	windowBarSizeSelect.addEventListener("change", function () {
+		localStorage.setItem("browos-window-bar-size", windowBarSizeSelect.value);
+		applyWindowBarSize(windowBarSizeSelect.value);
+	});
+}
+
+// Taskbar hide button & auto-hide controls (Taskbar settings)
+
+const taskbarHideFeatureToggle = document.getElementById("taskbarHideFeatureToggle");
+const taskbarHideButton = document.getElementById("taskbarHideButton");
+const taskbarRestoreBox = document.getElementById("taskbarRestoreBox");
+
+function setTaskbarHidden(hidden) {
+	if (hidden) {
+		document.documentElement.dataset.taskbarHidden = "1";
+	} else {
+		delete document.documentElement.dataset.taskbarHidden;
+	}
+	localStorage.setItem("browos-taskbar-hidden", hidden ? "1" : "0");
+	if (typeof syncAllMaximizedWindows === "function") {
+		syncAllMaximizedWindows();
+	}
+}
+
+function applyTaskbarHideFeature(enabled) {
+	if (enabled) {
+		delete document.documentElement.dataset.taskbarHideDisabled;
+	} else {
+		document.documentElement.dataset.taskbarHideDisabled = "1";
+		setTaskbarHidden(false);
+	}
+}
+
+const taskbarHideFeatureEnabled = localStorage.getItem("browos-taskbar-hide-enabled") !== "off";
+applyTaskbarHideFeature(taskbarHideFeatureEnabled);
+
+if (taskbarHideFeatureEnabled && localStorage.getItem("browos-taskbar-hidden") === "1") {
+	setTaskbarHidden(true);
+}
+
+if (taskbarHideFeatureToggle) {
+	taskbarHideFeatureToggle.checked = taskbarHideFeatureEnabled;
+	taskbarHideFeatureToggle.addEventListener("change", function () {
+		const enabled = taskbarHideFeatureToggle.checked;
+		localStorage.setItem("browos-taskbar-hide-enabled", enabled ? "on" : "off");
+		applyTaskbarHideFeature(enabled);
+	});
+}
+
+if (taskbarHideButton) {
+	taskbarHideButton.addEventListener("click", function (event) {
+		event.stopPropagation();
+		setTaskbarHidden(true);
+	});
+}
+
+if (taskbarRestoreBox) {
+	taskbarRestoreBox.addEventListener("click", function (event) {
+		event.stopPropagation();
+		setTaskbarHidden(false);
+	});
+}
+
 // Reset settings
 
 const resetSettingsButton = document.getElementById("resetSettingsButton");
@@ -204,6 +311,9 @@ resetSettingsButton.addEventListener("click", function () {
 	localStorage.removeItem("browos-desktop-text");
 	localStorage.removeItem("browos-taskbar-auto");
 	localStorage.removeItem("browos-taskbar-width");
+	localStorage.removeItem("browos-taskbar-hide-enabled");
+	localStorage.removeItem("browos-taskbar-hidden");
+	localStorage.removeItem("browos-window-bar-size");
 	localStorage.removeItem("browos-cursor");
 	localStorage.removeItem("browos-custom-cursor");
 	localStorage.removeItem("browos-cursor-size");
