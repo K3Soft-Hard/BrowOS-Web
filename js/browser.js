@@ -1,4 +1,4 @@
-// BrowOS Browser — Clean Native UI, Tab Bar (Always Visible in Iframe Mode), Custom Search Engines & Settings
+// BrowOS Browser — Non-destructive In-App Iframe Tabs, Custom Search Engines & Clean Settings
 
 (function () {
 	const browserWindow = document.getElementById("browserWindow");
@@ -64,11 +64,41 @@
 		localStorage.setItem(STORAGE_KEYS.customEngines, JSON.stringify(customEngines));
 	}
 
-	// --- Clean Minimal Styles ---
+	// Prevent mobile Google Password Manager / iOS Keychain bar on search & URL inputs
+	function preventPasswordBar(inputEl) {
+		if (!inputEl) return;
+		inputEl.setAttribute("readonly", "readonly");
+		inputEl.setAttribute("autocomplete", "off");
+		inputEl.setAttribute("autocorrect", "off");
+		inputEl.setAttribute("autocapitalize", "off");
+		inputEl.setAttribute("spellcheck", "false");
+		inputEl.setAttribute("name", "bos_q_" + Math.random().toString(36).slice(2, 7));
+
+		const unlock = () => inputEl.removeAttribute("readonly");
+		inputEl.addEventListener("pointerdown", unlock);
+		inputEl.addEventListener("focus", () => setTimeout(unlock, 15));
+	}
+
+	preventPasswordBar(browserInput);
+
+	// Prevent iframes from capturing pointer events while dragging any BrowOS window
+	document.addEventListener("pointerdown", (e) => {
+		if (e.target.closest(".window-header")) {
+			document.body.classList.add("bos-dragging");
+		}
+	}, true);
+
+	["pointerup", "pointercancel"].forEach((evt) => {
+		document.addEventListener(evt, () => {
+			document.body.classList.remove("bos-dragging");
+		}, true);
+	});
+
+	// --- Styles (Isolated to bos-* classes, never alters #browserWindow box model) ---
 	const styleEl = document.createElement("style");
 	styleEl.textContent = `
-		#browserWindow {
-			position: relative;
+		body.bos-dragging iframe {
+			pointer-events: none !important;
 		}
 		#browserWindow .bos-mode-link {
 			background: none;
@@ -108,9 +138,6 @@
 		#browserWindow .bos-corner-settings:hover {
 			background: rgba(255, 255, 255, 0.14);
 		}
-		#browserWindow.bos-in-iframe .bos-corner-settings {
-			display: none;
-		}
 		#browserEngines button {
 			display: inline-flex;
 			align-items: center;
@@ -126,29 +153,13 @@
 			color: #ef4444;
 		}
 
-		/* Workspace Container */
-		#bosWorkspace {
-			display: flex;
-			flex-direction: column;
-			flex: 1;
-			min-height: 0;
-			width: 100%;
-			height: calc(100% - 36px);
-		}
-		#bosWorkspace.tabs-bottom .bos-tab-strip {
-			order: 3;
-			border-top: 1px solid rgba(255, 255, 255, 0.12);
-			border-bottom: none;
-		}
-		#bosWorkspace.tabs-bottom .bos-nav-bar {
-			order: 1;
-		}
-		#bosWorkspace.tabs-bottom .bos-content-area {
-			order: 2;
-		}
-
-		/* Tab Bar (visible whenever openMode === "iframe") */
-		.bos-tab-strip {
+		/* Top/Bottom Tab Bar Docked Inside Window Below Header */
+		#bosTabStrip {
+			position: absolute;
+			left: 0;
+			right: 0;
+			top: 36px;
+			z-index: 20;
 			display: none;
 			align-items: center;
 			gap: 4px;
@@ -156,12 +167,20 @@
 			background: #0c0c10;
 			border-bottom: 1px solid #22222b;
 			overflow-x: auto;
-			flex-shrink: 0;
 		}
-		#browserWindow.bos-iframe-mode .bos-tab-strip {
+		#browserWindow.bos-iframe-mode #bosTabStrip {
 			display: flex;
 		}
-		.bos-tab-strip.style-pills .bos-tab {
+		#browserWindow.bos-iframe-mode.bos-tabs-bottom #bosTabStrip {
+			top: auto;
+			bottom: 0;
+			border-bottom: none;
+			border-top: 1px solid #22222b;
+		}
+		#browserWindow.bos-iframe-mode:not(.bos-tabs-bottom) .bos-corner-settings {
+			top: 80px;
+		}
+		#bosTabStrip.style-pills .bos-tab {
 			border-radius: 999px;
 			padding: 4px 11px;
 		}
@@ -221,18 +240,33 @@
 			background: #22222c;
 		}
 
-		/* Navigation Bar (shown when an external URL tab is active) */
-		.bos-nav-bar {
+		/* Overlay Container Only When Viewing an Active Iframe URL */
+		#bosIframeOverlay {
+			position: absolute;
+			left: 0;
+			right: 0;
+			top: 72px;
+			bottom: 0;
+			z-index: 18;
 			display: none;
+			flex-direction: column;
+			background: #0e0e13;
+		}
+		#browserWindow.bos-in-iframe #bosIframeOverlay {
+			display: flex;
+		}
+		#browserWindow.bos-in-iframe.bos-tabs-bottom #bosIframeOverlay {
+			top: 36px;
+			bottom: 36px;
+		}
+		.bos-nav-bar {
+			display: flex;
 			align-items: center;
 			gap: 5px;
 			padding: 5px 8px;
 			background: #101015;
 			border-bottom: 1px solid #22222b;
 			flex-shrink: 0;
-		}
-		#browserWindow.bos-in-iframe .bos-nav-bar {
-			display: flex;
 		}
 		.bos-nav-btn {
 			padding: 5px 8px;
@@ -261,36 +295,11 @@
 		.bos-url-input:focus {
 			border-color: #3b82f6;
 		}
-
-		/* Content Area */
-		.bos-content-area {
-			position: relative;
-			flex: 1;
-			min-height: 0;
-			display: flex;
-			flex-direction: column;
-		}
-		.bos-start-screen {
-			display: flex;
-			flex-direction: column;
-			align-items: center;
-			justify-content: center;
-			flex: 1;
-			width: 100%;
-			height: 100%;
-		}
-		#browserWindow.bos-in-iframe .bos-start-screen {
-			display: none;
-		}
 		.bos-frame-stage {
-			display: none;
 			position: relative;
 			flex: 1;
 			min-height: 0;
 			background: #ffffff;
-		}
-		#browserWindow.bos-in-iframe .bos-frame-stage {
-			display: block;
 		}
 		.bos-frame-stage iframe {
 			position: absolute;
@@ -396,33 +405,7 @@
 	`;
 	document.head.appendChild(styleEl);
 
-	// --- Wrap Existing Start Screen into Workspace ---
-	const windowHeader = browserWindow.querySelector(".window-header");
-	const startChildren = Array.from(browserWindow.children).filter((el) => el !== windowHeader);
-
-	const workspace = document.createElement("div");
-	workspace.id = "bosWorkspace";
-	workspace.innerHTML = `
-		<div class="bos-tab-strip" id="bosTabStrip"></div>
-		<div class="bos-nav-bar">
-			<button type="button" class="bos-nav-btn" id="bosHomeBtn" title="Home">⌂</button>
-			<button type="button" class="bos-nav-btn" id="bosBackBtn" title="Back">←</button>
-			<button type="button" class="bos-nav-btn" id="bosReloadBtn" title="Reload">↻</button>
-			<input type="text" class="bos-url-input" id="bosAddressInput" placeholder="Search or enter address" spellcheck="false">
-			<button type="button" class="bos-nav-btn" id="bosPopoutBtn" title="Open in new tab">↗</button>
-			<button type="button" class="bos-nav-btn" id="bosIframeSettingsBtn" title="Settings">⚙</button>
-		</div>
-		<div class="bos-content-area">
-			<div class="bos-start-screen" id="bosStartScreen"></div>
-			<div class="bos-frame-stage" id="bosFrameStage"></div>
-		</div>
-	`;
-	browserWindow.appendChild(workspace);
-
-	const startScreen = document.getElementById("bosStartScreen");
-	startChildren.forEach((child) => startScreen.appendChild(child));
-
-	// Corner Settings Icon Button
+	// --- Attach Corner Settings Button & Clickable "Opens in new tab" Link ---
 	const cornerSettingsBtn = document.createElement("button");
 	cornerSettingsBtn.type = "button";
 	cornerSettingsBtn.className = "bos-corner-settings";
@@ -430,9 +413,8 @@
 	cornerSettingsBtn.textContent = "⚙";
 	browserWindow.appendChild(cornerSettingsBtn);
 
-	// Replace "Opens in new tab" text directly with clickable text toggle
 	let modeToggleBtn = null;
-	const walker = document.createTreeWalker(startScreen, NodeFilter.SHOW_ELEMENT);
+	const walker = document.createTreeWalker(browserWindow, NodeFilter.SHOW_ELEMENT);
 	while (walker.nextNode()) {
 		const el = walker.currentNode;
 		if (el.children.length === 0 && /opens in new tab/i.test(el.textContent.trim())) {
@@ -453,10 +435,29 @@
 		enginesContainer.insertAdjacentElement("afterend", modeToggleBtn);
 	}
 
-	// --- Tabs State (Supports both Home tabs & URL iframe tabs) ---
-	const tabStripEl = document.getElementById("bosTabStrip");
+	// --- Tab Strip & Iframe Overlay (Non-Destructive Siblings) ---
+	const tabStripEl = document.createElement("div");
+	tabStripEl.id = "bosTabStrip";
+	browserWindow.appendChild(tabStripEl);
+
+	const iframeOverlay = document.createElement("div");
+	iframeOverlay.id = "bosIframeOverlay";
+	iframeOverlay.innerHTML = `
+		<div class="bos-nav-bar">
+			<button type="button" class="bos-nav-btn" id="bosHomeBtn" title="Home">⌂</button>
+			<button type="button" class="bos-nav-btn" id="bosBackBtn" title="Back">←</button>
+			<button type="button" class="bos-nav-btn" id="bosReloadBtn" title="Reload">↻</button>
+			<input type="text" class="bos-url-input" id="bosAddressInput" placeholder="Search or enter address">
+			<button type="button" class="bos-nav-btn" id="bosPopoutBtn" title="Open in new tab">↗</button>
+			<button type="button" class="bos-nav-btn" id="bosIframeSettingsBtn" title="Settings">⚙</button>
+		</div>
+		<div class="bos-frame-stage" id="bosFrameStage"></div>
+	`;
+	browserWindow.appendChild(iframeOverlay);
+
 	const frameStageEl = document.getElementById("bosFrameStage");
 	const addressInputEl = document.getElementById("bosAddressInput");
+	preventPasswordBar(addressInputEl);
 
 	let tabs = [
 		{ id: "tab-home-1", type: "home", title: "New Tab", url: "", iframe: null },
@@ -467,6 +468,7 @@
 		const isIframeMode = settings.openMode === "iframe";
 		modeToggleBtn.textContent = isIframeMode ? "Opens in iframe ▾" : "Opens in new tab ▾";
 		browserWindow.classList.toggle("bos-iframe-mode", isIframeMode);
+		browserWindow.classList.toggle("bos-tabs-bottom", settings.tabBarPosition === "bottom");
 
 		const activeTab = tabs.find((t) => t.id === activeTabId);
 		const showingFrame = isIframeMode && activeTab && activeTab.type === "url";
@@ -481,12 +483,9 @@
 		settings.openMode = settings.openMode === "tab" ? "iframe" : "tab";
 		saveSettings();
 		syncModeUI();
-		if (!browserWindow.classList.contains("bos-in-iframe")) {
-			browserInput.focus();
-		}
 	});
 
-	// --- Render Search Engines ---
+	// --- Search Engines ---
 	function renderEngines() {
 		const all = getAllEngines();
 		if (!all[searchEngine]) {
@@ -528,7 +527,6 @@
 				searchEngine = key;
 				localStorage.setItem(STORAGE_KEYS.engine, searchEngine);
 				renderEngines();
-				browserInput.focus();
 			});
 
 			enginesContainer.appendChild(btn);
@@ -542,7 +540,7 @@
 		enginesContainer.appendChild(addBtn);
 	}
 
-	// --- URL & Search Resolver ---
+	// --- URL & Query Resolver ---
 	function webAddress(text) {
 		if (/\s/.test(text)) return null;
 		let value = text;
@@ -578,12 +576,7 @@
 		return engine.url + encoded;
 	}
 
-	// --- Tab Bar & Navigation ---
-	function applyTabBarAppearance() {
-		workspace.classList.toggle("tabs-bottom", settings.tabBarPosition === "bottom");
-		tabStripEl.classList.toggle("style-pills", settings.tabBarStyle === "pills");
-	}
-
+	// --- Tabs Management ---
 	function formatTabLabel(tab) {
 		if (tab.type === "home") return "New Tab";
 		if (settings.showTabUrls) return tab.url.replace(/^https?:\/\//i, "");
@@ -591,7 +584,7 @@
 	}
 
 	function renderTabs() {
-		applyTabBarAppearance();
+		tabStripEl.classList.toggle("style-pills", settings.tabBarStyle === "pills");
 		tabStripEl.innerHTML = "";
 
 		tabs.forEach((tab) => {
@@ -636,7 +629,6 @@
 				};
 				tabs.push(homeTab);
 				switchTab(homeTab.id);
-				browserInput.focus();
 			}
 		});
 		tabStripEl.appendChild(newBtn);
@@ -717,8 +709,7 @@
 		tabs.splice(idx, 1);
 
 		if (tabs.length === 0) {
-			const homeTab = { id: "tab-" + Date.now(), type: "home", title: "New Tab", url: "", iframe: null };
-			tabs.push(homeTab);
+			tabs.push({ id: "tab-" + Date.now(), type: "home", title: "New Tab", url: "", iframe: null });
 		}
 		const next = tabs[Math.min(idx, tabs.length - 1)];
 		switchTab(next.id);
@@ -735,7 +726,6 @@
 			current.title = "New Tab";
 			current.url = "";
 			switchTab(current.id);
-			browserInput.focus();
 		}
 	});
 
@@ -769,7 +759,7 @@
 		}
 	});
 
-	// --- Clean Settings Modal (No Descriptions) ---
+	// --- Settings Modal ---
 	const settingsModal = document.createElement("div");
 	settingsModal.id = "bosSettingsModal";
 	settingsModal.innerHTML = `
@@ -854,6 +844,10 @@
 	const setCustomHome = document.getElementById("bosSetCustomHome");
 	const customHomeRow = document.getElementById("bosCustomHomeRow");
 
+	preventPasswordBar(setCustomHome);
+	preventPasswordBar(document.getElementById("bosNewEngineName"));
+	preventPasswordBar(document.getElementById("bosNewEngineUrl"));
+
 	function renderSettingsEnginesList() {
 		const list = document.getElementById("bosSettingsEngineList");
 		list.innerHTML = "";
@@ -921,7 +915,7 @@
 	setTabPos.addEventListener("change", () => {
 		settings.tabBarPosition = setTabPos.value;
 		saveSettings();
-		renderTabs();
+		syncModeUI();
 	});
 	setTabStyle.addEventListener("change", () => {
 		settings.tabBarStyle = setTabStyle.value;
@@ -998,15 +992,6 @@
 		if (event.key === "Enter") {
 			openBrowserSearch();
 		}
-	});
-
-	new MutationObserver(function () {
-		if (browserWindow.classList.contains("show") && !browserWindow.classList.contains("bos-in-iframe")) {
-			browserInput.focus();
-		}
-	}).observe(browserWindow, {
-		attributes: true,
-		attributeFilter: ["class"],
 	});
 
 	// Init
