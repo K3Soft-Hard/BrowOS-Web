@@ -91,6 +91,18 @@ const appCatalog = [
 	},
 
 	{
+		id: "modmanager",
+		name: "Root & Mods",
+		category: "apps",
+		builtIn: true,
+		icon: "icons/settings-icon.png",
+		page: "apps/modmanager/index.html",
+		size: [920, 620],
+		credit: "Made for BrowOS",
+	},
+
+	
+	{
 		id: "paint",
 		name: "Paint",
 		category: "apps",
@@ -128,6 +140,17 @@ const appCatalog = [
 		credit: "Made for BrowOS",
 		dataDatabases: ["browos-files"],
 	},
+
+	{
+		id: "ytube",
+		name: "ViewTube",
+		category: "apps",
+		icon: "icons/video-icon.png",
+		url: "apps/ytube/index.html",
+		size: [980, 660],
+		credit: "Made for BrowOS",
+	},
+
 
 	{
 		id: "calendar",

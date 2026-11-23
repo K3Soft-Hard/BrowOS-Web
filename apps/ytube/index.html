@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>ViewTube — BrowOS</title>
+	<script src="../../sdk/browos-sdk.js"></script>
+	<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+	<div class="app-shell">
+		<!-- Top Search & Direct ID Bar -->
+		<header class="topbar">
+			<div class="brand" id="homeBtn" title="Reset view">
+				<svg class="brand-icon" viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+					<path d="M21.58 7.19a2.75 2.75 0 0 0-1.94-1.94C17.93 4.8 12 4.8 12 4.8s-5.93 0-7.64.45a2.75 2.75 0 0 0-1.94 1.94A28.7 28.7 0 0 0 2 12a28.7 28.7 0 0 0 .42 4.81 2.75 2.75 0 0 0 1.94 1.94c1.71.45 7.64.45 7.64.45s5.93 0 7.64-.45a2.75 2.75 0 0 0 1.94-1.94A28.7 28.7 0 0 0 22 12a28.7 28.7 0 0 0-.42-4.81ZM10 15.15V8.85L15.45 12 10 15.15Z"/>
+				</svg>
+				<span class="brand-name">ViewTube</span>
+			</div>
+
+			<form class="search-form" id="searchForm" autocomplete="off">
+				<div class="input-wrapper">
+					<input
+						type="text"
+						id="queryInput"
+						placeholder="Search videos or paste YouTube URL / 11-char ID..."
+						aria-label="Search videos or paste YouTube URL or Video ID"
+					/>
+					<button type="button" class="clear-input-btn" id="clearInputBtn" title="Clear input" hidden>&times;</button>
+				</div>
+				<button type="submit" class="btn primary-btn" id="submitBtn">Search / Play</button>
+			</form>
+
+			<div class="topbar-actions">
+				<button type="button" class="btn icon-btn" id="settingsToggleBtn" title="API & Storage Settings">
+					<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+						<circle cx="12" cy="12" r="3"></circle>
+						<path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.26.6.85 1 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+					</svg>
+				</button>
+			</div>
+		</header>
+
+		<!-- Main Workspace -->
+		<div class="workspace">
+			<!-- Left Column: Player + Search Results -->
+			<main class="main-stage">
+				<!-- Video Player Panel -->
+				<section class="player-section" id="playerSection" hidden>
+					<div class="player-aspect">
+						<iframe
+							id="ytPlayer"
+							title="YouTube video player"
+							frameborder="0"
+							allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+							referrerpolicy="strict-origin-when-cross-origin"
+							allowfullscreen
+						></iframe>
+					</div>
+
+					<div class="now-playing-bar">
+						<div class="now-playing-meta">
+							<h1 class="video-title" id="nowPlayingTitle">Loading video...</h1>
+							<div class="video-submeta">
+								<span id="nowPlayingChannel">YouTube</span>
+								<span class="sep">&bull;</span>
+								<code class="id-badge" id="nowPlayingId">-----------</code>
+							</div>
+						</div>
+
+						<div class="now-playing-controls">
+							<button type="button" class="btn secondary-btn" id="bookmarkBtn" title="Save to Pinned">
+								Save
+							</button>
+							<button type="button" class="btn secondary-btn" id="copyLinkBtn" title="Copy YouTube link">
+								Copy Link
+							</button>
+							<button type="button" class="btn secondary-btn" id="closePlayerBtn" title="Close player">
+								Close
+							</button>
+						</div>
+					</div>
+				</section>
+
+				<!-- Status / Notice Banner -->
+				<div class="status-banner" id="statusBanner" hidden></div>
+
+				<!-- Search Results / Discovery Feed -->
+				<section class="results-section">
+					<div class="section-header">
+						<h2 id="resultsHeading">Search Results</h2>
+						<span class="source-pill" id="apiSourceBadge">Ready</span>
+					</div>
+
+					<div class="recent-searches" id="recentSearchesBar" hidden></div>
+
+					<div class="results-grid" id="resultsGrid">
+						<div class="empty-state">
+							<p><strong>Search by keywords</strong> or paste any <strong>YouTube URL / 11-character Video ID</strong> above.</p>
+							<p class="muted">Example ID: <code>dQw4w9WgXcQ</code> &bull; Example URL: <code>https://youtu.be/aqz-KE-bpKQ</code></p>
+						</div>
+					</div>
+				</section>
+			</main>
+
+			<!-- Right Sidebar: Local History & Saved Videos -->
+			<aside class="sidebar">
+				<div class="sidebar-tabs">
+					<button type="button" class="tab-btn active" data-tab="history" id="tabHistory">
+						History (<span id="historyCount">0</span>)
+					</button>
+					<button type="button" class="tab-btn" data-tab="saved" id="tabSaved">
+						Saved (<span id="savedCount">0</span>)
+					</button>
+				</div>
+
+				<div class="sidebar-toolbar">
+					<input
+						type="text"
+						id="sidebarFilter"
+						placeholder="Filter list..."
+						aria-label="Filter history or saved videos"
+					/>
+					<button type="button" class="btn danger-ghost-btn" id="clearListBtn" title="Clear current list">
+						Clear
+					</button>
+				</div>
+
+				<div class="sidebar-list" id="sidebarList"></div>
+
+				<div class="sidebar-footer">
+					<button type="button" class="btn secondary-btn full-width" id="exportFilesBtn" title="Save JSON backup to BrowOS Files">
+						Backup to BrowOS Files
+					</button>
+				</div>
+			</aside>
+		</div>
+
+		<!-- Settings Modal -->
+		<div class="modal-backdrop" id="settingsModal" hidden>
+			<div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+				<div class="modal-header">
+					<h3 id="settingsTitle">ViewTube Settings</h3>
+					<button type="button" class="btn icon-btn" id="closeSettingsBtn">&times;</button>
+				</div>
+
+				<div class="modal-body">
+					<label class="field-label" for="customInstanceInput">
+						Custom Invidious / Piped API Base URL (Optional)
+					</label>
+					<input
+						type="url"
+						id="customInstanceInput"
+						placeholder="https://yewtu.be or https://pipedapi.kavin.rocks"
+					/>
+					<p class="field-hint">
+						Leave blank to automatically rotate through public Invidious &amp; Piped instances for search.
+					</p>
+
+					<label class="field-label" for="ytApiKeyInput">
+						YouTube Data API v3 Key (Optional)
+					</label>
+					<input
+						type="password"
+						id="ytApiKeyInput"
+						placeholder="AIzaSy..."
+					/>
+					<p class="field-hint">
+						Stored only in your local browser storage. If provided, search uses the official YouTube API first.
+					</p>
+
+					<div class="field-row">
+						<label class="checkbox-label">
+							<input type="checkbox" id="autoplayCheckbox" checked />
+							<span>Autoplay when selecting a video</span>
+						</label>
+					</div>
+
+					<div class="field-row">
+						<label class="checkbox-label">
+							<input type="checkbox" id="nocookieCheckbox" checked />
+							<span>Use privacy-enhanced domain (youtube-nocookie.com)</span>
+						</label>
+					</div>
+				</div>
+
+				<div class="modal-footer">
+					<button type="button" class="btn secondary-btn" id="exportJsonDownloadBtn">Download JSON</button>
+					<label class="btn secondary-btn file-upload-label">
+						Import JSON
+						<input type="file" id="importJsonInput" accept=".json,application/json" hidden />
+					</label>
+					<button type="button" class="btn primary-btn" id="saveSettingsBtn">Save Settings</button>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<script src="app.js"></script>
+</body>
+</html>
