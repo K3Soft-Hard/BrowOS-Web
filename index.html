@@ -5,75 +5,13 @@
 	<meta charset="UTF-8">
 	<title>BrowOS</title>
 
-	<style>
-  html, body {
-    margin: 0 !important;
-    padding: 0 !important;
-    width: 100dvw !important;
-    height: 100dvh !important;
-    overflow: hidden !important;
-    position: fixed !important;
-    inset: 0 !important;
-    box-sizing: border-box !important;
-  }
-</style>
-
-<script>
-  function fitBrowOSViewport() {
-    const minDesktopWidth = 900; // Target virtual desktop width
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
-
-    if (vw < minDesktopWidth) {
-      const scale = vw / minDesktopWidth;
-      document.documentElement.style.zoom = scale;
-      document.body.style.width = (vw / scale) + "px";
-      document.body.style.height = (vh / scale) + "px";
-    } else {
-      document.documentElement.style.zoom = "1";
-      document.body.style.width = "100dvw";
-      document.body.style.height = "100dvh";
-    }
-  }
-
-  window.addEventListener("load", fitBrowOSViewport);
-  window.addEventListener("resize", fitBrowOSViewport);
-  document.addEventListener("fullscreenchange", () => setTimeout(fitBrowOSViewport, 100));
-</script>
-
 	<link rel="manifest" href="./manifest.webmanifest">
 	<meta name="theme-color" content="#000000">
 	<meta name="mobile-web-app-capable" content="yes">
-	<meta name="viewport" content="width=1280, user-scalable=yes">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 	<meta name="apple-mobile-web-app-capable" content="yes">
 	<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 	<link rel="apple-touch-icon" href="./icons/browos-logo.png">
-
-	<link rel="stylesheet" href="css/base.css">
-	<link rel="stylesheet" href="css/taskbar.css">
-	<link rel="stylesheet" href="css/files.css">
-	<link rel="stylesheet" href="css/desktop.css">
-	<link rel="stylesheet" href="css/windows.css">
-	<link rel="stylesheet" href="css/settings.css">
-	<link rel="stylesheet" href="css/clock-app.css">
-	<link rel="stylesheet" href="css/apps-panel.css">
-	<link rel="stylesheet" href="css/menus.css">
-	<link rel="stylesheet" href="css/appearance.css">
-	<link rel="stylesheet" href="css/cursor.css">
-	<link rel="stylesheet" href="css/dropdowns.css">
-	<link rel="stylesheet" href="css/task-manager.css">
-	<link rel="stylesheet" href="css/browser.css">
-	<link rel="stylesheet" href="css/update.css">
-	<link rel="stylesheet" href="css/browstore.css">
-	<link rel="stylesheet" href="css/tray.css">
-	<link rel="stylesheet" href="css/widgets.css">
-	<link rel="stylesheet" href="css/lock.css">
-	<link rel="stylesheet" href="css/start-search.css">
-	<link rel="stylesheet" href="css/switcher.css">
-	<link rel="stylesheet" href="css/a11y.css">
-	<link rel="stylesheet" href="css/settings-extra.css">
-
-		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 
 	<style>
 		html, body {
@@ -211,10 +149,29 @@
 		document.addEventListener("fullscreenchange", () => setTimeout(fitBrowOSViewport, 120));
 	</script>
 
-	<link rel="manifest" href="./manifest.webmanifest">
-	<meta name="theme-color" content="#000000">
-	<meta name="mobile-web-app-capable" content="yes">
-	
+	<link rel="stylesheet" href="css/base.css">
+	<link rel="stylesheet" href="css/taskbar.css">
+	<link rel="stylesheet" href="css/files.css">
+	<link rel="stylesheet" href="css/desktop.css">
+	<link rel="stylesheet" href="css/windows.css">
+	<link rel="stylesheet" href="css/settings.css">
+	<link rel="stylesheet" href="css/clock-app.css">
+	<link rel="stylesheet" href="css/apps-panel.css">
+	<link rel="stylesheet" href="css/menus.css">
+	<link rel="stylesheet" href="css/appearance.css">
+	<link rel="stylesheet" href="css/cursor.css">
+	<link rel="stylesheet" href="css/dropdowns.css">
+	<link rel="stylesheet" href="css/task-manager.css">
+	<link rel="stylesheet" href="css/browser.css">
+	<link rel="stylesheet" href="css/update.css">
+	<link rel="stylesheet" href="css/browstore.css">
+	<link rel="stylesheet" href="css/tray.css">
+	<link rel="stylesheet" href="css/widgets.css">
+	<link rel="stylesheet" href="css/lock.css">
+	<link rel="stylesheet" href="css/start-search.css">
+	<link rel="stylesheet" href="css/switcher.css">
+	<link rel="stylesheet" href="css/a11y.css">
+	<link rel="stylesheet" href="css/settings-extra.css">
 </head>
 
 <body>
@@ -611,9 +568,6 @@
 							<span class="slider"></span>
 						</label>
 					</div>
-				</div>
-
-					
 				</div>
 
 				<!-- Security -->
@@ -1171,10 +1125,6 @@
 			<polyline points="18 15 12 9 6 15"></polyline>
 		</svg>
 	</button>
-
-			
-		</div>
-	</div>
 
 	<!-- Notification center -->
 	<div class="flyout notification-center" id="notificationCenter">
