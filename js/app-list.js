@@ -70,17 +70,6 @@ const appCatalog = [
 	},
 
 	{
-		id: "modmanager",
-		name: "Root & Mods",
-		category: "apps",
-		builtIn: true,
-		icon: "icons/settings-icon.png",
-		page: "apps/modmanager/index.html",
-		size: [920, 620],
-		credit: "Made for BrowOS",
-	},
-
-	{
 		id: "clock",
 		name: "Clock",
 		category: "apps",
@@ -145,12 +134,12 @@ const appCatalog = [
 		id: "ytube",
 		name: "ViewTube",
 		category: "apps",
+		builtIn: true,
 		icon: "icons/video-icon.png",
-		url: "apps/ytube/index.html",
+		page: "apps/ytube/index.html",
 		size: [980, 660],
 		credit: "Made for BrowOS",
 	},
-
 
 	{
 		id: "calendar",
