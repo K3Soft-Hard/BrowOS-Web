@@ -1,13 +1,13 @@
 // Maximize
 
 function syncMaximizedGeometry(appWindow) {
-	if (!appWindow.classList.contains("maximized")) {
+	if (!appWindow || !appWindow.classList.contains("maximized")) {
 		return;
 	}
 
 	const shell = document.querySelector(".desktop-shell");
 	const taskbar = document.querySelector(".taskbar");
-	const taskbarHidden = document.body.classList.contains("taskbar-hidden");
+	const taskbarHidden = document.documentElement.dataset.taskbarHidden === "1";
 
 	const shellWidth = shell ? shell.offsetWidth : window.innerWidth;
 	const shellHeight = shell ? shell.offsetHeight : window.innerHeight;
@@ -20,6 +20,10 @@ function syncMaximizedGeometry(appWindow) {
 	appWindow.style.transform = "none";
 }
 
+function syncAllMaximizedWindows() {
+	document.querySelectorAll(".app-window.maximized").forEach(syncMaximizedGeometry);
+}
+
 function toggleMaximize(appWindow) {
 	const maximizeButton = appWindow.querySelector(".window-maximize");
 
@@ -29,14 +33,12 @@ function toggleMaximize(appWindow) {
 			maximizeButton.textContent = "□";
 		}
 
-		// Restore previous non-maximized geometry
 		appWindow.style.top = appWindow.dataset.prevTop || "";
 		appWindow.style.left = appWindow.dataset.prevLeft || "";
 		appWindow.style.width = appWindow.dataset.prevWidth || "";
 		appWindow.style.height = appWindow.dataset.prevHeight || "";
 		appWindow.style.transform = appWindow.dataset.prevTransform || "";
 	} else {
-		// Save current geometry before maximizing
 		appWindow.dataset.prevTop = appWindow.style.top || "";
 		appWindow.dataset.prevLeft = appWindow.style.left || "";
 		appWindow.dataset.prevWidth = appWindow.style.width || "";
@@ -60,7 +62,6 @@ function addMaximizeButton(appWindow) {
 		return;
 	}
 
-	// Add the maximize button between minimize and close
 	const maximizeButton = document.createElement("button");
 	maximizeButton.className = "window-maximize";
 	maximizeButton.textContent = "□";
@@ -71,25 +72,18 @@ function addMaximizeButton(appWindow) {
 		toggleMaximize(appWindow);
 	});
 
-	// Double click on the title bar also maximizes
 	const header = appWindow.querySelector(".window-header");
 	if (header) {
 		header.addEventListener("dblclick", function (event) {
 			if (event.target.closest(".window-controls, .window-tools")) {
 				return;
 			}
-
 			toggleMaximize(appWindow);
 		});
 	}
 }
 
 document.querySelectorAll(".app-window").forEach(addMaximizeButton);
-
-// Re-sync all maximized windows on resize, orientation change, fullscreen, or taskbar hide/show
-function syncAllMaximizedWindows() {
-	document.querySelectorAll(".app-window.maximized").forEach(syncMaximizedGeometry);
-}
 
 window.addEventListener("resize", syncAllMaximizedWindows);
 window.addEventListener("orientationchange", function () {
@@ -99,7 +93,7 @@ document.addEventListener("fullscreenchange", function () {
 	setTimeout(syncAllMaximizedWindows, 140);
 });
 
-new MutationObserver(syncAllMaximizedWindows).observe(document.body, {
+new MutationObserver(syncAllMaximizedWindows).observe(document.documentElement, {
 	attributes: true,
-	attributeFilter: ["class"],
+	attributeFilter: ["data-taskbar-hidden"],
 });
