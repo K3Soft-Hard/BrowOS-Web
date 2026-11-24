@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<meta name="theme-color" content="#000000">
+	<title>BrowOS Recovery</title>
+	<style>
+		* {
+			box-sizing: border-box;
+		}
+
+		html, body {
+			margin: 0;
+			padding: 0;
+			min-height: 100%;
+			background: #000000;
+			color: #e5e7eb;
+			font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+			font-size: 15px;
+			line-height: 1.6;
+		}
+
+		main {
+			max-width: 680px;
+			margin: 0 auto;
+			padding: 40px 24px 64px;
+		}
+
+		h1 {
+			margin: 0 0 6px;
+			font-size: 24px;
+			font-weight: 700;
+			color: #c084fc;
+		}
+
+		.subtitle {
+			margin: 0 0 24px;
+			color: #9ca3af;
+			font-size: 13.5px;
+		}
+
+		.status-block {
+			margin: 0 0 28px;
+			padding: 12px 14px;
+			border-left: 3px solid #7c3aed;
+			background: #09090d;
+			font-size: 13px;
+			color: #d1d5db;
+		}
+
+		.status-block div {
+			margin: 2px 0;
+		}
+
+		.actions {
+			list-style: none;
+			margin: 0;
+			padding: 0;
+			display: flex;
+			flex-direction: column;
+			gap: 14px;
+		}
+
+		.actions li {
+			display: flex;
+			flex-direction: column;
+			gap: 2px;
+		}
+
+		.action-link {
+			display: inline-block;
+			width: fit-content;
+			font-size: 16px;
+			font-weight: 700;
+			text-decoration: underline;
+			text-underline-offset: 4px;
+			cursor: pointer;
+			background: none;
+			border: none;
+			padding: 0;
+			font-family: inherit;
+			text-align: left;
+		}
+
+		.action-link:hover {
+			opacity: 0.82;
+		}
+
+		.link-reboot { color: #4ade80; }
+		.link-update { color: #38bdf8; }
+		.link-export { color: #c084fc; }
+		.link-import { color: #fbbf24; }
+		.link-emergency { color: #fb923c; }
+		.link-reset { color: #f87171; }
+
+		.action-desc {
+			font-size: 13px;
+			color: #9ca3af;
+		}
+
+		.prompt-box {
+			display: none;
+			margin-top: 28px;
+			padding: 16px;
+			border: 1px solid #27272a;
+			background: #09090d;
+		}
+
+		.prompt-box.open {
+			display: block;
+		}
+
+		.prompt-title {
+			margin: 0 0 8px;
+			font-size: 15px;
+			font-weight: 700;
+			color: #f3f4f6;
+		}
+
+		.prompt-hint {
+			margin: 0 0 12px;
+			font-size: 13px;
+			color: #9ca3af;
+		}
+
+		.prompt-row {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 10px;
+			align-items: center;
+		}
+
+		input[type="password"],
+		input[type="file"] {
+			background: #000000;
+			color: #ffffff;
+			border: 1px solid #3f3f46;
+			padding: 8px 10px;
+			font-family: inherit;
+			font-size: 14px;
+			outline: none;
+		}
+
+		input[type="password"]:focus {
+			border-color: #a855f7;
+		}
+
+		.text-btn {
+			background: none;
+			border: none;
+			padding: 6px 4px;
+			font-family: inherit;
+			font-size: 14px;
+			font-weight: 700;
+			text-decoration: underline;
+			text-underline-offset: 3px;
+			cursor: pointer;
+		}
+
+		.text-btn.confirm { color: #4ade80; }
+		.text-btn.cancel { color: #9ca3af; }
+
+		.log-output {
+			margin-top: 24px;
+			font-size: 13.5px;
+			white-space: pre-wrap;
+			color: #e5e7eb;
+		}
+
+		.log-ok { color: #4ade80; }
+		.log-warn { color: #fbbf24; }
+		.log-err { color: #f87171; }
+	</style>
+</head>
+<body>
+	<main>
+		<h1>BrowOS Recovery</h1>
+		<p class="subtitle">Standalone recovery &amp; maintenance console</p>
+
+		<div class="status-block" id="statusBlock">
+			<div id="statusProfile">Profile: checking...</div>
+			<div id="statusPin">PIN protection: checking...</div>
+			<div id="statusStorage">Storage entries: checking...</div>
+			<div id="statusCache">Offline cache: checking...</div>
+		</div>
+
+		<ul class="actions">
+			<li>
+				<a href="./index.html" class="action-link link-reboot" id="actReboot">1. Reboot to BrowOS</a>
+				<span class="action-desc">Open BrowOS main desktop (index.html) in this tab.</span>
+			</li>
+
+			<li>
+				<button type="button" class="action-link link-update" id="actRefreshUpdates">2. Refresh updates</button>
+				<span class="action-desc">Redownload cached HTML, CSS, and JS files while keeping all settings, apps, and user data.</span>
+			</li>
+
+			<li>
+				<button type="button" class="action-link link-export" id="actExport">3. Export data backup</button>
+				<span class="action-desc">Download a JSON backup of BrowOS data (requires PIN if set; leave blank if none).</span>
+			</li>
+
+			<li>
+				<button type="button" class="action-link link-import" id="actImport">4. Import data backup</button>
+				<span class="action-desc">Restore BrowOS data from a JSON backup file (requires PIN if set; leave blank if none).</span>
+			</li>
+
+			<li>
+				<button type="button" class="action-link link-emergency" id="actEmergencyReset">5. Remove PIN &amp; wipe personal media / Drive</button>
+				<span class="action-desc">Requires emergency master password. Keeps settings and app data, removes PIN, photos, music, and Drive files.</span>
+			</li>
+
+			<li>
+				<button type="button" class="action-link link-reset" id="actFactoryReset">6. Full factory reset</button>
+				<span class="action-desc">Completely erase all website localStorage, IndexedDB, and caches (requires PIN or master password).</span>
+			</li>
+		</ul>
+
+		<div class="prompt-box" id="promptBox">
+			<div class="prompt-title" id="promptTitle">Authentication required</div>
+			<div class="prompt-hint" id="promptHint"></div>
+			<div class="prompt-row">
+				<input type="password" id="promptPassword" placeholder="Password / PIN" autocomplete="off">
+				<input type="file" id="promptFile" accept="application/json,.json" hidden>
+				<button type="button" class="text-btn confirm" id="promptConfirmBtn">Continue</button>
+				<button type="button" class="text-btn cancel" id="promptCancelBtn">Cancel</button>
+			</div>
+		</div>
+
+		<div class="log-output" id="logOutput" role="status"></div>
+	</main>
+
+	<script>
+		(function () {
+			const PIN_KEY = "browos-pin";
+			const PIN_ITERATIONS = 150000;
+			const PROFILE_META_KEY = "browos-profiles-meta";
+
+			// Hash of the static master password prefix (verified locally without storing plaintext prefix)
+			const MASTER_PREFIX_HASH = "a750a7c9e0f69e72";
+
+			const logOutput = document.getElementById("logOutput");
+			const promptBox = document.getElementById("promptBox");
+			const promptTitle = document.getElementById("promptTitle");
+			const promptHint = document.getElementById("promptHint");
+			const promptPassword = document.getElementById("promptPassword");
+			const promptFile = document.getElementById("promptFile");
+			const promptConfirmBtn = document.getElementById("promptConfirmBtn");
+			const promptCancelBtn = document.getElementById("promptCancelBtn");
+
+			let pendingAction = null;
+
+			function log(message, level) {
+				const line = document.createElement("div");
+				if (level === "ok") line.className = "log-ok";
+				else if (level === "warn") line.className = "log-warn";
+				else if (level === "err") line.className = "log-err";
+				line.textContent = "> " + message;
+				logOutput.appendChild(line);
+			}
+
+			function clearLog() {
+				logOutput.innerHTML = "";
+			}
+
+			// Deterministic two-lane 64-bit hash for master prefix verification
+			function hashMasterPrefix(str) {
+				let a = 5381;
+				let b = 0;
+				for (let i = 0; i < str.length; i++) {
+					const c = str.charCodeAt(i);
+					a = (a * 31 + c) >>> 0;
+					b = (b * 131 + c) >>> 0;
+				}
+				return a.toString(16).padStart(8, "0") + b.toString(16).padStart(8, "0");
+			}
+
+			// Verify dynamic master password: <hashed-prefix><MM>/<DD>#<HH>!
+			function verifyMasterPassword(input) {
+				const val = String(input || "").trim();
+				const match = val.match(/^(.+)(\d{2})\/(\d{2})#(\d{1,2})!$/);
+				if (!match) return false;
+
+				const prefix = match[1];
+				const mm = match[2];
+				const dd = match[3];
+				const hh = match[4];
+
+				if (hashMasterPrefix(prefix) !== MASTER_PREFIX_HASH) {
+					return false;
+				}
+
+				const now = new Date();
+				const curMM = String(now.getMonth() + 1).padStart(2, "0");
+				const curDD = String(now.getDate()).padStart(2, "0");
+				const curHH24 = String(now.getHours()).padStart(2, "0");
+				const curHHRaw = String(now.getHours());
+
+				if (mm !== curMM || dd !== curDD) {
+					return false;
+				}
+
+				return hh === curHH24 || hh === curHHRaw;
+			}
+
+			// Native BrowOS PBKDF2-SHA256 PIN verification (matches js/lock.js)
+			function base64ToBytes(text) {
+				return Uint8Array.from(atob(text), function (ch) {
+					return ch.charCodeAt(0);
+				});
+			}
+
+			function bytesToBase64(bytes) {
+				let text = "";
+				bytes.forEach(function (b) {
+					text += String.fromCharCode(b);
+				});
+				return btoa(text);
+			}
+
+			function getSavedPinRecord() {
+				try {
+					const raw = localStorage.getItem(PIN_KEY);
+					if (!raw) return null;
+					const parsed = JSON.parse(raw);
+					if (parsed && typeof parsed.salt === "string" && typeof parsed.hash === "string") {
+						return parsed;
+					}
+				} catch (e) {}
+				return null;
+			}
+
+			function hasUserPin() {
+				return getSavedPinRecord() !== null;
+			}
+
+			async function verifyUserPin(enteredPin) {
+				const saved = getSavedPinRecord();
+				if (!saved) {
+					return true;
+				}
+				const pin = String(enteredPin || "").trim();
+				if (!pin) return false;
+
+				const key = await crypto.subtle.importKey(
+					"raw",
+					new TextEncoder().encode(pin),
+					"PBKDF2",
+					false,
+					["deriveBits"]
+				);
+
+				const bits = await crypto.subtle.deriveBits(
+					{
+						name: "PBKDF2",
+						salt: base64ToBytes(saved.salt),
+						iterations: saved.iterations || PIN_ITERATIONS,
+						hash: "SHA-256",
+					},
+					key,
+					256
+				);
+
+				return bytesToBase64(new Uint8Array(bits)) === saved.hash;
+			}
+
+			// Update live system status
+			async function refreshStatus() {
+				const profEl = document.getElementById("statusProfile");
+				const pinEl = document.getElementById("statusPin");
+				const storeEl = document.getElementById("statusStorage");
+				const cacheEl = document.getElementById("statusCache");
+
+				try {
+					const meta = JSON.parse(localStorage.getItem(PROFILE_META_KEY) || "null");
+					if (meta && Array.isArray(meta.list)) {
+						const active = meta.list.find(function (p) { return p.id === meta.current; }) || meta.list[0];
+						profEl.textContent = "Profile: " + (active ? active.name : "Main") + " (" + meta.list.length + " total)";
+					} else {
+						profEl.textContent = "Profile: Main (default)";
+					}
+				} catch (e) {
+					profEl.textContent = "Profile: Main";
+				}
+
+				pinEl.textContent = hasUserPin()
+					? "PIN protection: Enabled (PBKDF2-SHA256)"
+					: "PIN protection: Not set (blank allowed)";
+
+				storeEl.textContent = "Storage entries: " + localStorage.length + " keys";
+
+				if ("caches" in window) {
+					try {
+						const keys = await caches.keys();
+						cacheEl.textContent = keys.length
+							? "Offline cache: " + keys.join(", ")
+							: "Offline cache: Empty";
+					} catch (e) {
+						cacheEl.textContent = "Offline cache: Unavailable";
+					}
+				} else {
+					cacheEl.textContent = "Offline cache: Not supported";
+				}
+			}
+
+			refreshStatus();
+
+			function closePrompt() {
+				pendingAction = null;
+				promptBox.classList.remove("open");
+				promptPassword.value = "";
+				promptFile.value = "";
+				promptFile.hidden = true;
+			}
+
+			function openPrompt(opts) {
+				pendingAction = opts.onConfirm;
+				promptTitle.textContent = opts.title;
+				promptHint.textContent = opts.hint;
+				promptPassword.value = "";
+				promptPassword.placeholder = opts.placeholder || "Password / PIN";
+				promptFile.value = "";
+				promptFile.hidden = !opts.needsFile;
+				promptBox.classList.add("open");
+				promptPassword.focus();
+			}
+
+			promptCancelBtn.addEventListener("click", function () {
+				closePrompt();
+				log("Operation cancelled.", "warn");
+			});
+
+			promptPassword.addEventListener("keydown", function (e) {
+				if (e.key === "Enter") {
+					e.preventDefault();
+					promptConfirmBtn.click();
+				} else if (e.key === "Escape") {
+					closePrompt();
+				}
+			});
+
+			promptConfirmBtn.addEventListener("click", async function () {
+				if (!pendingAction) return;
+				const fn = pendingAction;
+				await fn(promptPassword.value, promptFile.files && promptFile.files[0]);
+			});
+
+			// 2. Refresh updates (clear SW + CacheStorage & re-fetch HTML/CSS/JS, preserve all user data)
+			document.getElementById("actRefreshUpdates").addEventListener("click", async function () {
+				clearLog();
+				if (!confirm("Refresh updates? This will delete cached HTML, CSS, and JS files and redownload the latest version while keeping all your data.")) {
+					log("Refresh updates cancelled.", "warn");
+					return;
+				}
+
+				log("Unregistering Service Workers...");
+				try {
+					if ("serviceWorker" in navigator) {
+						const regs = await navigator.serviceWorker.getRegistrations();
+						await Promise.all(regs.map(function (r) { return r.unregister(); }));
+						log("Service Workers unregistered (" + regs.length + ").", "ok");
+					}
+				} catch (e) {
+					log("Service Worker unregister warning: " + e.message, "warn");
+				}
+
+				log("Clearing cached HTML, CSS, and JS assets...");
+				try {
+					if ("caches" in window) {
+						const keys = await caches.keys();
+						await Promise.all(keys.map(function (k) { return caches.delete(k); }));
+						log("Cleared " + keys.length + " cache store(s).", "ok");
+					}
+				} catch (e) {
+					log("Cache clear warning: " + e.message, "warn");
+				}
+
+				log("Redownloading fresh index.html and recovery.html...");
+				try {
+					await Promise.all([
+						fetch("./index.html", { cache: "reload" }).catch(function () {}),
+						fetch("./recovery.html", { cache: "reload" }).catch(function () {}),
+					]);
+				} catch (e) {}
+
+				await refreshStatus();
+				log("Updates refreshed. User data preserved. Reloading recovery...", "ok");
+				setTimeout(function () {
+					window.location.replace("./recovery.html?v=" + Date.now());
+				}, 900);
+			});
+
+			// 3. Export Data Backup (requires PIN if set; blank if no PIN set)
+			document.getElementById("actExport").addEventListener("click", function () {
+				clearLog();
+				const pinSet = hasUserPin();
+				openPrompt({
+					title: "Export Data Backup",
+					hint: pinSet
+						? "Enter your BrowOS PIN to export your data backup."
+						: "No PIN is set. Leave blank and click Continue to export your backup.",
+					placeholder: pinSet ? "Enter PIN" : "Leave blank (no PIN set)",
+					needsFile: false,
+					onConfirm: async function (pwd) {
+						const ok = (await verifyUserPin(pwd)) || verifyMasterPassword(pwd);
+						if (!ok) {
+							log("Incorrect PIN. Export aborted.", "err");
+							return;
+						}
+
+						const dump = {};
+						for (let i = 0; i < localStorage.length; i++) {
+							const k = localStorage.key(i);
+							dump[k] = localStorage.getItem(k);
+						}
+
+						const payload = {
+							app: "BrowOS",
+							exportedAt: new Date().toISOString(),
+							entries: Object.keys(dump).length,
+							data: dump,
+						};
+
+						const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+						const url = URL.createObjectURL(blob);
+						const a = document.createElement("a");
+						const stamp = new Date().toISOString().slice(0, 10);
+						a.href = url;
+						a.download = "browos-recovery-backup-" + stamp + ".json";
+						document.body.appendChild(a);
+						a.click();
+						a.remove();
+						URL.revokeObjectURL(url);
+
+						closePrompt();
+						log("Exported " + Object.keys(dump).length + " entries to JSON backup.", "ok");
+					},
+				});
+			});
+
+			// 4. Import Data Backup (requires PIN if set; blank if no PIN set)
+			document.getElementById("actImport").addEventListener("click", function () {
+				clearLog();
+				const pinSet = hasUserPin();
+				openPrompt({
+					title: "Import Data Backup",
+					hint: pinSet
+						? "Enter your current BrowOS PIN and choose a JSON backup file."
+						: "No PIN is set (leave password blank). Choose a JSON backup file to restore.",
+					placeholder: pinSet ? "Enter PIN" : "Leave blank (no PIN set)",
+					needsFile: true,
+					onConfirm: async function (pwd, file) {
+						const ok = (await verifyUserPin(pwd)) || verifyMasterPassword(pwd);
+						if (!ok) {
+							log("Incorrect PIN. Import aborted.", "err");
+							return;
+						}
+						if (!file) {
+							log("Please select a .json backup file first.", "warn");
+							return;
+						}
+
+						try {
+							const text = await file.text();
+							const parsed = JSON.parse(text);
+							const records = parsed && typeof parsed.data === "object" ? parsed.data : parsed;
+
+							if (!records || typeof records !== "object" || Array.isArray(records)) {
+								throw new Error("Invalid backup structure.");
+							}
+
+							localStorage.clear();
+							Object.keys(records).forEach(function (k) {
+								if (typeof records[k] === "string") {
+									localStorage.setItem(k, records[k]);
+								}
+							});
+
+							closePrompt();
+							await refreshStatus();
+							log("Successfully imported " + Object.keys(records).length + " entries.", "ok");
+						} catch (err) {
+							log("Failed to import backup: " + err.message, "err");
+						}
+					},
+				});
+			});
+
+			// 5. Emergency Master Password Reset: Remove PIN & wipe personal media/Drive, keep settings & app data
+			document.getElementById("actEmergencyReset").addEventListener("click", function () {
+				clearLog();
+				openPrompt({
+					title: "Emergency PIN Removal & Media/Drive Wipe",
+					hint: "Enter the dynamic emergency master password. This keeps settings and app data, removes the PIN, and wipes photos, music, notes, and Drive storage.",
+					placeholder: "Emergency master password",
+					needsFile: false,
+					onConfirm: async function (pwd) {
+						if (!verifyMasterPassword(pwd)) {
+							log("Invalid emergency master password.", "err");
+							return;
+						}
+
+						if (!confirm("Are you sure? This will remove the PIN and permanently delete personal photos, opened music, notes, and Drive files while keeping settings and app data.")) {
+							return;
+						}
+
+						// 1. Remove PIN & startup lock
+						localStorage.removeItem(PIN_KEY);
+						localStorage.setItem("browos-lock-startup", "off");
+						sessionStorage.removeItem("browos-locked");
+
+						// 2. Remove personal media, custom uploaded images/cursors, notes, clipboard, and media keys
+						const keysToRemove = [];
+						for (let i = 0; i < localStorage.length; i++) {
+							const k = localStorage.key(i);
+							if (!k) continue;
+							if (
+								k === "customWallpaper" ||
+								k === "browos-custom-cursor" ||
+								k === "browos-notes" ||
+								k === "browos-sticky-notes" ||
+								k === "browos-clipboard" ||
+								/photo|music|audio|media|gallery|drive|file/i.test(k)
+							) {
+								keysToRemove.push(k);
+							}
+						}
+						if (localStorage.getItem("wallpaper") === "custom") {
+							localStorage.setItem("wallpaper", "wallpapers/wallpaper.jpg");
+						}
+						if (localStorage.getItem("browos-cursor") === "custom") {
+							localStorage.setItem("browos-cursor", "browos");
+						}
+						keysToRemove.forEach(function (k) {
+							localStorage.removeItem(k);
+						});
+
+						// 3. Delete Drive IndexedDB databases (browos-files and per-profile browos-files-*)
+						try {
+							if (window.indexedDB && indexedDB.databases) {
+								const dbs = await indexedDB.databases();
+								await Promise.all(
+									dbs
+										.filter(function (db) { return db.name && db.name.indexOf("browos-files") === 0; })
+										.map(function (db) {
+											return new Promise(function (resolve) {
+												const req = indexedDB.deleteDatabase(db.name);
+												req.onsuccess = req.onerror = req.onblocked = resolve;
+											});
+										})
+								);
+							} else {
+								indexedDB.deleteDatabase("browos-files");
+							}
+						} catch (e) {}
+
+						closePrompt();
+						await refreshStatus();
+						log("PIN removed and personal media / Drive wiped. Settings and app data kept.", "ok");
+					},
+				});
+			});
+
+			// 6. Full Factory Reset (requires current PIN if set, or master password)
+			document.getElementById("actFactoryReset").addEventListener("click", function () {
+				clearLog();
+				const pinSet = hasUserPin();
+				openPrompt({
+					title: "Full Factory Reset",
+					hint: pinSet
+						? "Enter your BrowOS PIN (or emergency master password) to erase ALL website data."
+						: "No PIN is set. Leave blank and click Continue to erase ALL website data.",
+					placeholder: pinSet ? "Enter PIN or master password" : "Leave blank (no PIN set)",
+					needsFile: false,
+					onConfirm: async function (pwd) {
+						const ok = (await verifyUserPin(pwd)) || verifyMasterPassword(pwd);
+						if (!ok) {
+							log("Incorrect password/PIN. Factory reset aborted.", "err");
+							return;
+						}
+
+						if (!confirm("WARNING: Are you sure you want to perform a FULL FACTORY RESET? All profiles, settings, apps, notes, Drive files, and PINs will be permanently erased.")) {
+							return;
+						}
+
+						try {
+							localStorage.clear();
+							sessionStorage.clear();
+						} catch (e) {}
+
+						try {
+							if (window.indexedDB && indexedDB.databases) {
+								const dbs = await indexedDB.databases();
+								await Promise.all(
+									dbs.map(function (db) {
+										return new Promise(function (resolve) {
+											const req = indexedDB.deleteDatabase(db.name);
+											req.onsuccess = req.onerror = req.onblocked = resolve;
+										});
+									})
+								);
+							} else {
+								indexedDB.deleteDatabase("browos-profiles");
+								indexedDB.deleteDatabase("browos-files");
+							}
+						} catch (e) {}
+
+						try {
+							if ("serviceWorker" in navigator) {
+								const regs = await navigator.serviceWorker.getRegistrations();
+								await Promise.all(regs.map(function (r) { return r.unregister(); }));
+							}
+							if ("caches" in window) {
+								const keys = await caches.keys();
+								await Promise.all(keys.map(function (k) { return caches.delete(k); }));
+							}
+						} catch (e) {}
+
+						closePrompt();
+						await refreshStatus();
+						log("Full factory reset complete. All data wiped.", "ok");
+					},
+				});
+			});
+		})();
+	</script>
+</body>
+</html>
