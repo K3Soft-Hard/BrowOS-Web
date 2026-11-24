@@ -691,7 +691,7 @@
 			pointer-events: none;
 		}
 
-		/* Backdrop layer: completely unblurred on curtain stage, softly blurred on auth stage */
+		/* Backdrop layer: unblurred by default on curtain stage, optional blur via Security toggle, and blurred on auth stage */
 		.bos-lock-backdrop {
 			position: absolute;
 			inset: 0;
@@ -701,10 +701,16 @@
 			transition: backdrop-filter 0.42s cubic-bezier(0.22, 1, 0.36, 1), -webkit-backdrop-filter 0.42s cubic-bezier(0.22, 1, 0.36, 1), background 0.42s ease;
 		}
 
+		html[data-lock-curtain-blur="1"] .bos-lock-backdrop {
+			background: rgba(8, 7, 16, 0.32);
+			backdrop-filter: blur(22px) saturate(135%);
+			-webkit-backdrop-filter: blur(22px) saturate(135%);
+		}
+
 		#lockScreen.auth-open .bos-lock-backdrop {
-			background: rgba(8, 7, 16, 0.42);
-			backdrop-filter: blur(18px) saturate(135%);
-			-webkit-backdrop-filter: blur(18px) saturate(135%);
+			background: rgba(8, 7, 16, 0.44);
+			backdrop-filter: blur(20px) saturate(140%);
+			-webkit-backdrop-filter: blur(20px) saturate(140%);
 		}
 
 		#lockScreen .lock-content {
@@ -775,17 +781,17 @@
 			transform: translateX(-50%) translateY(10px);
 		}
 
-		/* Auth Card (Avatar + Profile Name + Profile Switcher + PIN or Unlock) */
+		/* Auth Card (Avatar + Profile Selector Box + PIN/Unlock + Back) */
 		.bos-lock-auth-box {
 			display: flex;
 			flex-direction: column;
 			align-items: center;
-			gap: 14px;
+			gap: 13px;
 			width: 100%;
 			max-width: 340px;
-			padding: 26px 24px;
+			padding: 24px 24px 20px;
 			border-radius: 22px;
-			background: rgba(18, 16, 28, 0.55);
+			background: rgba(18, 16, 28, 0.58);
 			border: 1px solid rgba(255, 255, 255, 0.18);
 			backdrop-filter: blur(22px);
 			-webkit-backdrop-filter: blur(22px);
@@ -804,8 +810,8 @@
 		}
 
 		.bos-lock-avatar {
-			width: 78px;
-			height: 78px;
+			width: 76px;
+			height: 76px;
 			border-radius: 50%;
 			background: linear-gradient(135deg, rgba(168, 85, 247, 0.55), rgba(59, 130, 246, 0.45));
 			border: 2px solid rgba(255, 255, 255, 0.32);
@@ -816,48 +822,51 @@
 		}
 
 		.bos-lock-avatar img {
-			width: 46px;
-			height: 46px;
+			width: 44px;
+			height: 44px;
 			object-fit: contain;
 		}
 
 		.bos-lock-profile-name {
-			font-size: 21px;
+			font-size: 20px;
 			font-weight: 600;
 			color: #ffffff;
 			text-align: center;
 			letter-spacing: -0.01em;
 		}
 
-		/* Profile Switcher Pill */
-		.bos-lock-profile-switch {
+		/* Profile Selector Box */
+		.bos-lock-profile-box {
+			width: 100%;
 			display: flex;
 			align-items: center;
-			justify-content: center;
-			gap: 6px;
-			flex-wrap: wrap;
+			justify-content: space-between;
+			gap: 8px;
+			padding: 7px 11px;
+			border-radius: 11px;
+			background: rgba(255, 255, 255, 0.07);
+			border: 1px solid rgba(255, 255, 255, 0.16);
+			box-sizing: border-box;
 		}
 
-		.bos-lock-prof-chip {
-			padding: 5px 12px;
-			border-radius: 999px;
-			border: 1px solid rgba(255, 255, 255, 0.18);
-			background: rgba(255, 255, 255, 0.08);
-			color: rgba(255, 255, 255, 0.85);
+		.bos-lock-profile-box label {
 			font-size: 12px;
-			cursor: pointer;
-			transition: background 0.15s ease, border-color 0.15s ease, transform 0.12s ease;
+			color: rgba(255, 255, 255, 0.72);
+			white-space: nowrap;
 		}
 
-		.bos-lock-prof-chip:hover {
-			background: rgba(255, 255, 255, 0.18);
-		}
-
-		.bos-lock-prof-chip.active {
-			background: rgba(168, 85, 247, 0.45);
-			border-color: rgba(233, 213, 255, 0.55);
+		.bos-lock-profile-box select {
+			flex: 1;
+			min-width: 0;
+			background: rgba(14, 12, 24, 0.85);
+			border: 1px solid rgba(216, 180, 254, 0.32);
 			color: #ffffff;
-			font-weight: 600;
+			padding: 5px 8px;
+			border-radius: 8px;
+			font-size: 12.5px;
+			font-weight: 500;
+			outline: none;
+			cursor: pointer;
 		}
 
 		#lockScreen .lock-form {
@@ -893,8 +902,33 @@
 			display: none !important;
 		}
 
+		.bos-lock-btn-row {
+			display: flex;
+			align-items: center;
+			gap: 8px;
+			width: 100%;
+		}
+
+		.bos-lock-back-btn {
+			padding: 11px 14px !important;
+			border-radius: 12px !important;
+			border: 1px solid rgba(255, 255, 255, 0.22) !important;
+			background: rgba(255, 255, 255, 0.08) !important;
+			color: rgba(255, 255, 255, 0.9) !important;
+			font-size: 13.5px !important;
+			font-weight: 500 !important;
+			cursor: pointer !important;
+			transition: background 0.15s ease, transform 0.12s ease;
+			white-space: nowrap;
+		}
+
+		.bos-lock-back-btn:hover {
+			background: rgba(255, 255, 255, 0.18) !important;
+			transform: translateY(-1px);
+		}
+
 		#lockScreen .lock-form button[type="submit"] {
-			width: 100% !important;
+			flex: 1 !important;
 			padding: 11px 18px !important;
 			border-radius: 12px !important;
 			border: 1px solid rgba(255, 255, 255, 0.25) !important;
@@ -1064,7 +1098,7 @@
 				</div>
 			</div>
 
-			<!-- Step 4: You're all set & Start Tutorial -->
+			<!-- Step 4: You're all set -> Single Finish Button -->
 			<div class="bos-oobe-step" data-step="3">
 				<div class="bos-oobe-hero">
 					<div class="bos-oobe-check" aria-hidden="true">
@@ -1073,15 +1107,12 @@
 						</svg>
 					</div>
 					<h2 class="bos-oobe-hello" style="font-size:36px;">You’re all set</h2>
-					<p class="bos-oobe-sub">Everything is configured and ready. Start the quick interactive tutorial to explore BrowOS, or jump straight to your desktop.</p>
+					<p class="bos-oobe-sub">Everything is configured and ready. Click <strong>Finish</strong> to enter your desktop and start the quick tutorial.</p>
 				</div>
 
 				<div class="bos-oobe-actions">
 					<button type="button" class="bos-oobe-btn" id="bosOobeBack3">Back</button>
-					<div style="display:flex;gap:10px;">
-						<button type="button" class="bos-oobe-btn" id="bosOobeSkipTourBtn">Go to desktop</button>
-						<button type="button" class="bos-oobe-btn primary" id="bosOobeStartTourBtn">Start tutorial</button>
-					</div>
+					<button type="button" class="bos-oobe-btn primary" id="bosOobeFinishBtn">Finish</button>
 				</div>
 			</div>
 		</div>
@@ -1561,9 +1592,18 @@
 				<div class="settings-page" id="securityPage">
 					<h2>Security</h2>
 
-					<h3>Lock screen</h3>
+					<h3>Lock screen &amp; Privacy</h3>
 
 					<p class="settings-note">The lock screen covers your desktop. A PIN keeps other people from using it, but it is not strong security: anyone who can use your browser profile can still reach what BrowOS keeps in it. If you forget the PIN, open the browser's developer tools on this page and run <code>localStorage.removeItem("browos-pin")</code>.</p>
+
+					<div class="setting-row">
+						<span>Blur lock screen background</span>
+
+						<label class="switch">
+							<input type="checkbox" id="lockBlurCurtainToggle">
+							<span class="slider"></span>
+						</label>
+					</div>
 
 					<div class="setting-row">
 						<span id="pinStatus">No PIN is set</span>
@@ -2218,7 +2258,7 @@
 <!-- Cursor -->
 <div class="fake-cursor hide" id="fakeCursor"></div>
 
-<!-- Windows-Style Lock Screen (Unblurred Curtain -> Blurred Auth + Profile Switcher) -->
+<!-- Windows-Style Lock Screen (Unblurred Curtain -> Blurred Auth + Profile Selector Box + Back Button) -->
 <div class="lock-screen" id="lockScreen" tabindex="-1" hidden>
 	<div class="bos-lock-backdrop" id="bosLockBackdrop"></div>
 
@@ -2235,13 +2275,19 @@
 				<img src="icons/browos-logo.png" alt="User">
 			</div>
 
-			<div class="bos-lock-profile-name" id="bosLockProfileName">Default</div>
+			<div class="bos-lock-profile-name" id="bosLockProfileName">Main</div>
 
-			<div class="bos-lock-profile-switch" id="bosLockProfileSwitch"></div>
+			<div class="bos-lock-profile-box" id="bosLockProfileBox">
+				<label for="bosLockProfileSelect">Profile</label>
+				<select id="bosLockProfileSelect" aria-label="Select profile"></select>
+			</div>
 
 			<form class="lock-form" id="lockForm" autocomplete="off">
 				<input type="password" id="lockPin" inputmode="numeric" maxlength="8" placeholder="PIN" aria-label="PIN" autocomplete="off">
-				<button type="submit" id="bosLockSubmitBtn">Unlock</button>
+				<div class="bos-lock-btn-row">
+					<button type="button" class="bos-lock-back-btn" id="bosLockBackBtn">Back</button>
+					<button type="submit" id="bosLockSubmitBtn">Unlock</button>
+				</div>
 			</form>
 
 			<div class="lock-message" id="lockMessage" role="status"></div>
@@ -2539,6 +2585,23 @@
 		if (hideBtn) hideBtn.onclick = function (e) { e.stopPropagation(); setTbHidden(true); };
 		if (restoreBtn) restoreBtn.onclick = function (e) { e.stopPropagation(); setTbHidden(false); };
 
+		// Lock screen curtain blur fallback
+		const lockBlurToggle = document.getElementById("lockBlurCurtainToggle");
+		function setLockCurtainBlur(on) {
+			if (on) document.documentElement.dataset.lockCurtainBlur = "1";
+			else delete document.documentElement.dataset.lockCurtainBlur;
+		}
+		const lockBlurOn = localStorage.getItem("browos-lock-curtain-blur") === "on";
+		setLockCurtainBlur(lockBlurOn);
+		if (lockBlurToggle) {
+			lockBlurToggle.checked = lockBlurOn;
+			lockBlurToggle.onchange = function () {
+				const on = lockBlurToggle.checked;
+				localStorage.setItem("browos-lock-curtain-blur", on ? "on" : "off");
+				setLockCurtainBlur(on);
+			};
+		}
+
 		// Data buttons
 		const refBtn = document.getElementById("refreshUpdatesButton");
 		const rstAllBtn = document.getElementById("resetAllDataButton");
@@ -2570,7 +2633,7 @@
 		}
 
 		// =========================================================
-		// WINDOWS-STYLE LOCK SCREEN + PROFILE SWITCHER
+		// WINDOWS-STYLE LOCK SCREEN + PROFILE SELECTOR BOX + BACK BUTTON
 		// =========================================================
 		const lockScreenEl = document.getElementById("lockScreen");
 		const lockPinEl = document.getElementById("lockPin");
@@ -2578,7 +2641,8 @@
 		const lockMsgEl = document.getElementById("lockMessage");
 		const authBoxEl = document.getElementById("bosLockAuthBox");
 		const profNameEl = document.getElementById("bosLockProfileName");
-		const profSwitchEl = document.getElementById("bosLockProfileSwitch");
+		const profSelectEl = document.getElementById("bosLockProfileSelect");
+		const lockBackBtnEl = document.getElementById("bosLockBackBtn");
 
 		function getSavedProfiles() {
 			const keysToTry = ["browos-profiles", "profiles", "browos_profiles"];
@@ -2590,22 +2654,22 @@
 					if (Array.isArray(parsed) && parsed.length > 0) {
 						return parsed.map(function (p, idx) {
 							if (typeof p === "string") return { id: p, name: p };
-							return { id: p.id || p.key || String(idx), name: p.name || p.label || "Profile " + (idx + 1) };
+							return { id: p.id || p.key || String(idx), name: p.name || p.label || (idx === 0 ? "Main" : "Profile " + (idx + 1)) };
 						});
 					}
 					if (parsed && typeof parsed === "object") {
 						const entries = Object.entries(parsed);
 						if (entries.length > 0) {
-							return entries.map(function (entry) {
+							return entries.map(function (entry, idx) {
 								const k = entry[0];
 								const v = entry[1];
-								return { id: k, name: (v && v.name) ? v.name : k };
+								return { id: k, name: (v && v.name) ? v.name : (k === "default" ? "Main" : k) };
 							});
 						}
 					}
 				} catch (e) {}
 			}
-			return [{ id: "default", name: "Default" }];
+			return [{ id: "default", name: "Main" }];
 		}
 
 		function getActiveProfileId(list) {
@@ -2620,7 +2684,7 @@
 		function syncLockScreenVisuals() {
 			if (!lockScreenEl) return;
 
-			// Use current unblurred BrowOS wallpaper on lock screen
+			// Use current BrowOS wallpaper on lock screen
 			const wp = localStorage.getItem("wallpaper") === "custom"
 				? localStorage.getItem("customWallpaper")
 				: (localStorage.getItem("wallpaper") || "wallpapers/wallpaper.jpg");
@@ -2632,40 +2696,62 @@
 			const hasPin = Boolean(localStorage.getItem("browos-pin"));
 			lockScreenEl.classList.toggle("no-pin", !hasPin);
 
-			// Populate active profile name & switcher chips
+			// Populate active profile name & profile selector box
 			const profiles = getSavedProfiles();
 			const activeId = getActiveProfileId(profiles);
 			const currentProf = profiles.find(function (p) { return p.id === activeId; }) || profiles[0];
 
 			if (profNameEl) {
-				profNameEl.textContent = currentProf ? currentProf.name : "Default";
+				profNameEl.textContent = currentProf ? currentProf.name : "Main";
 			}
 
-			if (profSwitchEl) {
-				profSwitchEl.innerHTML = "";
-				if (profiles.length > 1) {
-					profiles.forEach(function (prof) {
-						const chip = document.createElement("button");
-						chip.type = "button";
-						chip.className = "bos-lock-prof-chip" + (prof.id === activeId ? " active" : "");
-						chip.textContent = prof.name;
-						chip.onclick = function (e) {
-							e.stopPropagation();
-							if (prof.id === activeId) return;
-							localStorage.setItem("browos-active-profile", prof.id);
-							localStorage.setItem("browos-profile", prof.id);
-							// Keep lock screen open across profile reload
-							localStorage.setItem("browos-reopen-lock", "1");
-							location.reload();
-						};
-						profSwitchEl.appendChild(chip);
-					});
-				}
+			if (profSelectEl) {
+				profSelectEl.innerHTML = "";
+				profiles.forEach(function (prof) {
+					const opt = document.createElement("option");
+					opt.value = prof.id;
+					opt.textContent = prof.name;
+					if (prof.id === activeId) {
+						opt.selected = true;
+					}
+					profSelectEl.appendChild(opt);
+				});
 			}
 		}
 
+		if (profSelectEl) {
+			profSelectEl.addEventListener("pointerdown", function (e) { e.stopPropagation(); });
+			profSelectEl.addEventListener("click", function (e) { e.stopPropagation(); });
+			profSelectEl.addEventListener("change", function (e) {
+				e.stopPropagation();
+				const chosenId = profSelectEl.value;
+				const profiles = getSavedProfiles();
+				const activeId = getActiveProfileId(profiles);
+				if (!chosenId || chosenId === activeId) return;
+
+				localStorage.setItem("browos-active-profile", chosenId);
+				localStorage.setItem("browos-profile", chosenId);
+				localStorage.setItem("activeProfile", chosenId);
+				localStorage.setItem("browos-reopen-lock", "1");
+				location.reload();
+			});
+		}
+
+		if (lockBackBtnEl) {
+			lockBackBtnEl.addEventListener("pointerdown", function (e) { e.stopPropagation(); });
+			lockBackBtnEl.addEventListener("click", function (e) {
+				e.stopPropagation();
+				if (lockPinEl) {
+					lockPinEl.value = "";
+					lockPinEl.blur();
+				}
+				if (lockMsgEl) lockMsgEl.textContent = "";
+				if (lockScreenEl) lockScreenEl.classList.remove("auth-open");
+			});
+		}
+
 		if (lockScreenEl) {
-			// Reset to unblurred curtain whenever lock screen opens
+			// Reset to curtain stage whenever lock screen opens
 			new MutationObserver(function () {
 				if (!lockScreenEl.hidden) {
 					lockScreenEl.classList.remove("auth-open", "bos-lock-unlocking");
@@ -2746,21 +2832,22 @@
 				dots.forEach(function (d, i) { d.classList.toggle("active", i === idx); });
 			}
 
-			function closeOobeWizard(runTour) {
+			function closeOobeWizard(keepTutorial) {
 				localStorage.setItem("browos-setup-done", "1");
 				oobeOverlay.classList.add("closing");
 
-				if (runTour) {
+				if (keepTutorial) {
+					// Leave tutorial enabled so BrowOS's normal tutorial shows on desktop
 					localStorage.removeItem("browos-tour-done");
 					setTimeout(function () {
 						oobeOverlay.classList.remove("open", "closing");
-						// Trigger BrowOS built-in tour if available, or reload to launch tour cleanly
-						if (typeof startTour === "function") {
+						const existingTour = document.querySelector(".tour-overlay, .tour-box, .tour-card, #tourBox");
+						if (existingTour) {
+							existingTour.style.display = "";
+						} else if (typeof startTour === "function") {
 							startTour();
 						} else if (window.BrowOSTour && typeof window.BrowOSTour.start === "function") {
 							window.BrowOSTour.start();
-						} else {
-							location.reload();
 						}
 					}, 430);
 				} else {
@@ -2947,13 +3034,13 @@
 				};
 			}
 
-			// Step 3: "You're all set" -> Start Tutorial or Go to Desktop
+			// Step 3: "You're all set" -> Single Finish Button
 			const back3 = document.getElementById("bosOobeBack3");
-			const skipTourBtn = document.getElementById("bosOobeSkipTourBtn");
-			const startTourBtn = document.getElementById("bosOobeStartTourBtn");
+			const finishBtn = document.getElementById("bosOobeFinishBtn");
 			if (back3) back3.onclick = function () { showOobeStep(2); };
-			if (skipTourBtn) skipTourBtn.onclick = function () { closeOobeWizard(false); };
-			if (startTourBtn) startTourBtn.onclick = function () { closeOobeWizard(true); };
+			if (finishBtn) {
+				finishBtn.onclick = function () { closeOobeWizard(true); };
+			}
 		}
 
 		document.addEventListener("click", function (e) {
