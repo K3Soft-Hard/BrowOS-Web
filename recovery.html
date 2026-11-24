@@ -183,6 +183,7 @@
 			<div id="statusPin">PIN protection: checking...</div>
 			<div id="statusStorage">Storage entries: checking...</div>
 			<div id="statusCache">Offline cache: checking...</div>
+			<div id="statusClock">System clock: checking...</div>
 		</div>
 
 		<ul class="actions">
@@ -208,7 +209,7 @@
 
 			<li>
 				<button type="button" class="action-link link-emergency" id="actEmergencyReset">5. Remove PIN &amp; wipe personal media / Drive</button>
-				<span class="action-desc">Requires emergency master password. Keeps settings and app data, removes PIN, photos, music, and Drive files.</span>
+				<span class="action-desc">Requires case-sensitive emergency master password. Keeps settings and app data, removes PIN, photos, music, and Drive files.</span>
 			</li>
 
 			<li>
@@ -237,7 +238,7 @@
 			const PIN_ITERATIONS = 150000;
 			const PROFILE_META_KEY = "browos-profiles-meta";
 
-			// Exact 64-bit two-lane hash of the static master password prefix
+			// Case-sensitive 64-bit two-lane hash of the exact master password prefix ("idkPASSWD!!")
 			const MASTER_PREFIX_HASH = "a75067c9e0f6ee72";
 
 			const logOutput = document.getElementById("logOutput");
@@ -275,22 +276,21 @@
 				return a.toString(16).padStart(8, "0") + b.toString(16).padStart(8, "0");
 			}
 
-			// Verify dynamic master password: <hashed-prefix><MM>/<DD>#<HH>!
-			function verifyMasterPassword(input) {
+			// Strictly case-sensitive verification: <exact-prefix><MM>/<DD>#<HH>!
+			function checkMasterPassword(input) {
 				const val = String(input || "").trim();
 				const match = val.match(/^(.+)(\d{2})\/(\d{2})#(\d{1,2})!$/);
-				if (!match) return false;
+				if (!match) {
+					return { ok: false, reason: "Invalid format (expected prefix + MM/DD#HH!)." };
+				}
 
-				const rawPrefix = match[1];
-				const normalizedPrefix = rawPrefix.length >= 3
-					? rawPrefix.slice(0, 3).toLowerCase() + rawPrefix.slice(3)
-					: rawPrefix;
+				const exactPrefix = match[1];
 				const mm = match[2];
 				const dd = match[3];
 				const hh = match[4];
 
-				if (hashMasterPrefix(normalizedPrefix) !== MASTER_PREFIX_HASH) {
-					return false;
+				if (hashMasterPrefix(exactPrefix) !== MASTER_PREFIX_HASH) {
+					return { ok: false, reason: "Master prefix mismatch (check exact uppercase/lowercase)." };
 				}
 
 				const now = new Date();
@@ -300,10 +300,18 @@
 				const curHHRaw = String(now.getHours());
 
 				if (mm !== curMM || dd !== curDD) {
-					return false;
+					return { ok: false, reason: "Date mismatch (system date is " + curMM + "/" + curDD + ")." };
 				}
 
-				return hh === curHH24 || hh === curHHRaw;
+				if (hh !== curHH24 && hh !== curHHRaw) {
+					return { ok: false, reason: "Hour mismatch (system hour is " + curHH24 + ")." };
+				}
+
+				return { ok: true, reason: "" };
+			}
+
+			function verifyMasterPassword(input) {
+				return checkMasterPassword(input).ok;
 			}
 
 			// Native BrowOS PBKDF2-SHA256 PIN verification (matches js/lock.js)
@@ -372,6 +380,7 @@
 				const pinEl = document.getElementById("statusPin");
 				const storeEl = document.getElementById("statusStorage");
 				const cacheEl = document.getElementById("statusCache");
+				const clockEl = document.getElementById("statusClock");
 
 				try {
 					const meta = JSON.parse(localStorage.getItem(PROFILE_META_KEY) || "null");
@@ -403,6 +412,13 @@
 				} else {
 					cacheEl.textContent = "Offline cache: Not supported";
 				}
+
+				const now = new Date();
+				const mm = String(now.getMonth() + 1).padStart(2, "0");
+				const dd = String(now.getDate()).padStart(2, "0");
+				const hh = String(now.getHours()).padStart(2, "0");
+				const min = String(now.getMinutes()).padStart(2, "0");
+				clockEl.textContent = "System clock: " + mm + "/" + dd + " " + hh + ":" + min;
 			}
 
 			refreshStatus();
@@ -593,12 +609,13 @@
 				clearLog();
 				openPrompt({
 					title: "Emergency PIN Removal & Media/Drive Wipe",
-					hint: "Enter the dynamic emergency master password. This keeps settings and app data, removes the PIN, and wipes photos, music, notes, and Drive storage.",
+					hint: "Enter the case-sensitive emergency master password. This keeps settings and app data, removes the PIN, and wipes photos, music, notes, and Drive storage.",
 					placeholder: "Emergency master password",
 					needsFile: false,
 					onConfirm: async function (pwd) {
-						if (!verifyMasterPassword(pwd)) {
-							log("Invalid emergency master password.", "err");
+						const check = checkMasterPassword(pwd);
+						if (!check.ok) {
+							log("Auth failed: " + check.reason, "err");
 							return;
 						}
 
@@ -674,7 +691,8 @@
 					onConfirm: async function (pwd) {
 						const ok = (await verifyUserPin(pwd)) || verifyMasterPassword(pwd);
 						if (!ok) {
-							log("Incorrect password/PIN. Factory reset aborted.", "err");
+							const check = checkMasterPassword(pwd);
+							log("Incorrect PIN/password. " + check.reason, "err");
 							return;
 						}
 
