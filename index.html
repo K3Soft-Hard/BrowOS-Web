@@ -208,7 +208,9 @@
 			background: rgba(255, 255, 255, 0.16);
 		}
 
-		/* Full PC-Like OOBE Setup Wizard */
+		/* =========================================================
+		   ANIMATED PC-LIKE OOBE SETUP WIZARD
+		   ========================================================= */
 		#bosOobeOverlay {
 			position: fixed;
 			inset: 0;
@@ -216,35 +218,91 @@
 			display: none;
 			align-items: center;
 			justify-content: center;
-			padding: 20px;
-			background: radial-gradient(circle at 22% 18%, #9d6bff 0%, #5b21b6 38%, #240944 74%, #0f041e 100%);
+			padding: 24px;
+			background: linear-gradient(135deg, #120626 0%, #2e1065 28%, #6d28d9 56%, #9333ea 78%, #1e093d 100%);
+			background-size: 300% 300%;
+			animation: bosAuroraBg 14s ease infinite;
 			color: #ffffff;
 			font-family: inherit;
 			overflow-y: auto;
+			transition: opacity 0.45s cubic-bezier(0.22, 1, 0.36, 1), transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+		}
+
+		#bosOobeOverlay::before,
+		#bosOobeOverlay::after {
+			content: "";
+			position: fixed;
+			width: 520px;
+			height: 520px;
+			border-radius: 50%;
+			filter: blur(95px);
+			opacity: 0.42;
+			pointer-events: none;
+			z-index: 0;
+		}
+
+		#bosOobeOverlay::before {
+			top: -140px;
+			left: -120px;
+			background: #c084fc;
+			animation: bosOrbFloatA 11s ease-in-out infinite alternate;
+		}
+
+		#bosOobeOverlay::after {
+			bottom: -160px;
+			right: -110px;
+			background: #4c1d95;
+			animation: bosOrbFloatB 13s ease-in-out infinite alternate;
+		}
+
+		@keyframes bosAuroraBg {
+			0% { background-position: 0% 50%; }
+			50% { background-position: 100% 50%; }
+			100% { background-position: 0% 50%; }
+		}
+
+		@keyframes bosOrbFloatA {
+			from { transform: translate(0, 0) scale(1); }
+			to { transform: translate(90px, 70px) scale(1.18); }
+		}
+
+		@keyframes bosOrbFloatB {
+			from { transform: translate(0, 0) scale(1.05); }
+			to { transform: translate(-80px, -65px) scale(0.92); }
 		}
 
 		#bosOobeOverlay.open {
 			display: flex;
 		}
 
-		.bos-oobe-card {
-			width: 100%;
-			max-width: 560px;
-			background: rgba(16, 10, 30, 0.68);
-			border: 1px solid rgba(216, 180, 254, 0.25);
-			border-radius: 22px;
-			padding: 32px 30px;
-			backdrop-filter: blur(26px) saturate(160%);
-			-webkit-backdrop-filter: blur(26px) saturate(160%);
-			box-shadow: 0 28px 80px rgba(0, 0, 0, 0.6);
-			display: flex;
-			flex-direction: column;
-			gap: 20px;
-			animation: bosOobeFadeIn 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+		#bosOobeOverlay.closing {
+			opacity: 0;
+			transform: scale(1.04);
+			pointer-events: none;
 		}
 
-		@keyframes bosOobeFadeIn {
-			from { opacity: 0; transform: translateY(14px) scale(0.98); }
+		.bos-oobe-card {
+			position: relative;
+			z-index: 1;
+			width: 100%;
+			max-width: 740px;
+			min-height: 460px;
+			background: rgba(15, 9, 28, 0.72);
+			border: 1px solid rgba(233, 213, 255, 0.24);
+			border-radius: 26px;
+			padding: 36px 40px;
+			backdrop-filter: blur(30px) saturate(165%);
+			-webkit-backdrop-filter: blur(30px) saturate(165%);
+			box-shadow: 0 32px 90px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.14);
+			display: flex;
+			flex-direction: column;
+			justify-content: space-between;
+			gap: 22px;
+			animation: bosOobeCardEntrance 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+		}
+
+		@keyframes bosOobeCardEntrance {
+			from { opacity: 0; transform: translateY(24px) scale(0.96); }
 			to { opacity: 1; transform: translateY(0) scale(1); }
 		}
 
@@ -252,10 +310,27 @@
 			display: none;
 			flex-direction: column;
 			gap: 18px;
+			flex: 1;
+			justify-content: center;
 		}
 
 		.bos-oobe-step.active {
 			display: flex;
+		}
+
+		.bos-oobe-step.active > * {
+			animation: bosStepItemIn 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+		}
+
+		.bos-oobe-step.active > *:nth-child(1) { animation-delay: 0.03s; }
+		.bos-oobe-step.active > *:nth-child(2) { animation-delay: 0.08s; }
+		.bos-oobe-step.active > *:nth-child(3) { animation-delay: 0.13s; }
+		.bos-oobe-step.active > *:nth-child(4) { animation-delay: 0.18s; }
+		.bos-oobe-step.active > *:nth-child(5) { animation-delay: 0.22s; }
+
+		@keyframes bosStepItemIn {
+			from { opacity: 0; transform: translateY(14px); }
+			to { opacity: 1; transform: translateY(0); }
 		}
 
 		.bos-oobe-hero {
@@ -263,63 +338,188 @@
 			flex-direction: column;
 			align-items: center;
 			text-align: center;
-			gap: 12px;
-			padding: 10px 0;
+			gap: 14px;
+			padding: 16px 0;
 		}
 
 		.bos-oobe-logo {
-			width: 82px;
-			height: 82px;
+			width: 96px;
+			height: 96px;
 			object-fit: contain;
-			filter: drop-shadow(0 10px 24px rgba(168, 85, 247, 0.55));
+			filter: drop-shadow(0 12px 28px rgba(168, 85, 247, 0.6));
+			animation: bosLogoPulse 3.6s ease-in-out infinite;
+		}
+
+		@keyframes bosLogoPulse {
+			0%, 100% { transform: translateY(0) scale(1); }
+			50% { transform: translateY(-5px) scale(1.03); }
 		}
 
 		.bos-oobe-hello {
-			font-size: 40px;
+			font-size: 48px;
 			font-weight: 700;
-			letter-spacing: -0.02em;
+			letter-spacing: -0.025em;
 			margin: 0;
-			background: linear-gradient(135deg, #ffffff 15%, #e9d5ff 65%, #c084fc 100%);
+			background: linear-gradient(135deg, #ffffff 15%, #f3e8ff 58%, #c084fc 100%);
 			-webkit-background-clip: text;
 			-webkit-text-fill-color: transparent;
 		}
 
 		.bos-oobe-sub {
 			margin: 0;
-			font-size: 14.5px;
-			line-height: 1.55;
-			color: rgba(243, 232, 255, 0.84);
-			max-width: 430px;
+			font-size: 15px;
+			line-height: 1.6;
+			color: rgba(243, 232, 255, 0.86);
+			max-width: 500px;
 		}
 
 		.bos-oobe-title {
 			margin: 0;
-			font-size: 22px;
+			font-size: 24px;
 			font-weight: 600;
-			color: #f5f3ff;
+			color: #faf5ff;
 		}
 
-		.bos-oobe-grid {
+		/* Live Desktop Preview Box inside Setup Step 2 */
+		.bos-oobe-preview-wrap {
 			display: grid;
-			grid-template-columns: repeat(2, minmax(0, 1fr));
-			gap: 10px;
+			grid-template-columns: 1.08fr 1fr;
+			gap: 18px;
+			align-items: stretch;
 		}
 
-		.bos-oobe-guide-item {
-			background: rgba(255, 255, 255, 0.06);
-			border: 1px solid rgba(216, 180, 254, 0.16);
+		@media (max-width: 680px) {
+			.bos-oobe-preview-wrap {
+				grid-template-columns: 1fr;
+			}
+			.bos-oobe-card {
+				padding: 24px 20px;
+			}
+		}
+
+		.bos-oobe-preview-stage {
+			position: relative;
+			min-height: 215px;
+			border-radius: 16px;
+			overflow: hidden;
+			border: 1px solid rgba(233, 213, 255, 0.25);
+			background: #181226 url("wallpapers/wallpaper.jpg") center / cover no-repeat;
+			box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.35), 0 12px 30px rgba(0, 0, 0, 0.45);
+			transition: background-image 0.3s ease;
+		}
+
+		.bos-oobe-preview-win {
+			position: absolute;
+			top: 18px;
+			left: 20px;
+			right: 20px;
+			bottom: 52px;
 			border-radius: 12px;
-			padding: 11px 13px;
-			font-size: 12.5px;
-			line-height: 1.45;
-			color: rgba(243, 232, 255, 0.9);
+			border: 1px solid rgba(255, 255, 255, 0.18);
+			background: rgba(22, 22, 28, 0.85);
+			backdrop-filter: blur(14px);
+			-webkit-backdrop-filter: blur(14px);
+			display: flex;
+			flex-direction: column;
+			overflow: hidden;
+			transition: background 0.15s ease, color 0.15s ease;
 		}
 
-		.bos-oobe-guide-item strong {
-			display: block;
-			color: #e9d5ff;
-			margin-bottom: 3px;
-			font-size: 13px;
+		.bos-oobe-preview-win.light {
+			background: rgba(245, 245, 250, 0.85);
+			color: #111827;
+			border-color: rgba(0, 0, 0, 0.12);
+		}
+
+		.bos-oobe-preview-winbar {
+			height: 28px;
+			padding: 0 10px;
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			background: rgba(255, 255, 255, 0.06);
+			border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+			font-size: 11px;
+			font-weight: 600;
+		}
+
+		.bos-oobe-preview-win.light .bos-oobe-preview-winbar {
+			background: rgba(0, 0, 0, 0.05);
+			border-bottom-color: rgba(0, 0, 0, 0.08);
+		}
+
+		.bos-oobe-preview-winbody {
+			flex: 1;
+			padding: 10px 12px;
+			display: flex;
+			flex-direction: column;
+			gap: 7px;
+			font-size: 11px;
+			opacity: 0.85;
+		}
+
+		.bos-oobe-preview-pill {
+			align-self: flex-start;
+			padding: 4px 10px;
+			border-radius: 6px;
+			background: #8e5cf7;
+			color: #fff;
+			font-weight: 600;
+			font-size: 10.5px;
+		}
+
+		.bos-oobe-preview-taskbar {
+			position: absolute;
+			left: 12px;
+			right: 12px;
+			bottom: 8px;
+			height: 32px;
+			border-radius: 10px;
+			border: 1px solid rgba(255, 255, 255, 0.2);
+			background: rgba(18, 18, 24, 0.35);
+			backdrop-filter: blur(20px) saturate(170%);
+			-webkit-backdrop-filter: blur(20px) saturate(170%);
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			padding: 0 10px;
+			font-size: 10.5px;
+			color: #fff;
+		}
+
+		.bos-oobe-wallpapers {
+			display: grid;
+			grid-template-columns: repeat(6, 1fr);
+			gap: 7px;
+		}
+
+		.bos-oobe-wp {
+			width: 100%;
+			aspect-ratio: 16 / 10;
+			object-fit: cover;
+			border-radius: 8px;
+			border: 2px solid transparent;
+			cursor: pointer;
+			opacity: 0.78;
+			transition: transform 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+		}
+
+		.bos-oobe-wp:hover {
+			opacity: 1;
+			transform: scale(1.04);
+		}
+
+		.bos-oobe-wp.active {
+			border-color: #d8b4fe;
+			opacity: 1;
+			transform: scale(1.05);
+		}
+
+		.bos-oobe-controls-col {
+			display: flex;
+			flex-direction: column;
+			gap: 10px;
+			justify-content: center;
 		}
 
 		.bos-oobe-row {
@@ -327,33 +527,44 @@
 			align-items: center;
 			justify-content: space-between;
 			gap: 12px;
-			background: rgba(255, 255, 255, 0.05);
-			border: 1px solid rgba(255, 255, 255, 0.1);
+			background: rgba(255, 255, 255, 0.06);
+			border: 1px solid rgba(255, 255, 255, 0.11);
 			padding: 10px 14px;
 			border-radius: 12px;
-			font-size: 13.5px;
+			font-size: 13px;
 		}
 
 		.bos-oobe-row select,
 		.bos-oobe-row input[type="password"] {
-			background: rgba(15, 8, 28, 0.85);
-			border: 1px solid rgba(216, 180, 254, 0.3);
+			background: rgba(15, 8, 28, 0.88);
+			border: 1px solid rgba(216, 180, 254, 0.32);
 			color: #ffffff;
-			padding: 7px 10px;
+			padding: 6px 10px;
 			border-radius: 8px;
-			font-size: 13px;
+			font-size: 12.5px;
 			outline: none;
+		}
+
+		.bos-oobe-slider-wrap {
+			display: flex;
+			align-items: center;
+			gap: 8px;
+		}
+
+		.bos-oobe-slider-wrap input[type="range"] {
+			width: 105px;
+			accent-color: #c084fc;
 		}
 
 		.bos-oobe-swatches {
 			display: flex;
-			gap: 8px;
+			gap: 7px;
 			flex-wrap: wrap;
 		}
 
 		.bos-oobe-swatch {
-			width: 26px;
-			height: 26px;
+			width: 22px;
+			height: 22px;
 			border-radius: 50%;
 			border: 2px solid transparent;
 			cursor: pointer;
@@ -362,25 +573,35 @@
 
 		.bos-oobe-swatch.active {
 			border-color: #ffffff;
-			transform: scale(1.15);
+			transform: scale(1.16);
+		}
+
+		.bos-oobe-tip {
+			font-size: 12.5px;
+			line-height: 1.45;
+			color: rgba(233, 213, 255, 0.82);
+			background: rgba(168, 85, 247, 0.14);
+			border: 1px solid rgba(216, 180, 254, 0.22);
+			padding: 10px 14px;
+			border-radius: 11px;
 		}
 
 		.bos-oobe-dots {
 			display: flex;
 			justify-content: center;
-			gap: 7px;
+			gap: 8px;
 		}
 
 		.bos-oobe-dot {
-			width: 8px;
-			height: 8px;
+			width: 9px;
+			height: 9px;
 			border-radius: 999px;
-			background: rgba(255, 255, 255, 0.25);
-			transition: width 0.2s ease, background 0.2s ease;
+			background: rgba(255, 255, 255, 0.24);
+			transition: width 0.25s ease, background 0.25s ease;
 		}
 
 		.bos-oobe-dot.active {
-			width: 22px;
+			width: 26px;
 			background: #d8b4fe;
 		}
 
@@ -388,17 +609,17 @@
 			display: flex;
 			align-items: center;
 			justify-content: space-between;
-			gap: 10px;
+			gap: 12px;
 			margin-top: 4px;
 		}
 
 		.bos-oobe-btn {
-			padding: 10px 18px;
-			border-radius: 11px;
+			padding: 11px 22px;
+			border-radius: 12px;
 			border: 1px solid rgba(216, 180, 254, 0.28);
 			background: rgba(255, 255, 255, 0.08);
 			color: #f3e8ff;
-			font-size: 13.5px;
+			font-size: 14px;
 			font-weight: 500;
 			cursor: pointer;
 			transition: background 0.15s ease, transform 0.12s ease;
@@ -406,6 +627,7 @@
 
 		.bos-oobe-btn:hover {
 			background: rgba(255, 255, 255, 0.16);
+			transform: translateY(-1px);
 		}
 
 		.bos-oobe-btn.primary {
@@ -413,7 +635,7 @@
 			border-color: rgba(233, 213, 255, 0.45);
 			color: #ffffff;
 			font-weight: 600;
-			box-shadow: 0 6px 20px rgba(124, 58, 237, 0.45);
+			box-shadow: 0 8px 24px rgba(124, 58, 237, 0.48);
 		}
 
 		.bos-oobe-btn.primary:hover {
@@ -421,15 +643,288 @@
 		}
 
 		.bos-oobe-pin-msg {
-			font-size: 12.5px;
+			font-size: 13px;
 			color: #fca5a5;
-			min-height: 16px;
+			min-height: 18px;
+		}
+
+		.bos-oobe-check {
+			width: 78px;
+			height: 78px;
+			border-radius: 50%;
+			background: linear-gradient(135deg, #a855f7, #6d28d9);
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			box-shadow: 0 12px 32px rgba(147, 51, 234, 0.55);
+			animation: bosCheckPop 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+		}
+
+		@keyframes bosCheckPop {
+			0% { transform: scale(0.5); opacity: 0; }
+			75% { transform: scale(1.08); opacity: 1; }
+			100% { transform: scale(1); opacity: 1; }
+		}
+
+		/* =========================================================
+		   WINDOWS-STYLE LOCK SCREEN (UNBLURRED CURTAIN -> BLURRED AUTH + PROFILES)
+		   ========================================================= */
+		#lockScreen {
+			position: fixed !important;
+			inset: 0 !important;
+			z-index: 150000 !important;
+			background-size: cover !important;
+			background-position: center !important;
+			background-repeat: no-repeat !important;
+			overflow: hidden !important;
+			user-select: none;
+			transition: opacity 0.35s ease, transform 0.35s ease;
+		}
+
+		#lockScreen[hidden] {
+			display: none !important;
+		}
+
+		#lockScreen.bos-lock-unlocking {
+			opacity: 0 !important;
+			transform: scale(1.03);
+			pointer-events: none;
+		}
+
+		/* Backdrop layer: completely unblurred on curtain stage, softly blurred on auth stage */
+		.bos-lock-backdrop {
+			position: absolute;
+			inset: 0;
+			background: rgba(6, 6, 12, 0.12);
+			backdrop-filter: blur(0px);
+			-webkit-backdrop-filter: blur(0px);
+			transition: backdrop-filter 0.42s cubic-bezier(0.22, 1, 0.36, 1), -webkit-backdrop-filter 0.42s cubic-bezier(0.22, 1, 0.36, 1), background 0.42s ease;
+		}
+
+		#lockScreen.auth-open .bos-lock-backdrop {
+			background: rgba(8, 7, 16, 0.42);
+			backdrop-filter: blur(18px) saturate(135%);
+			-webkit-backdrop-filter: blur(18px) saturate(135%);
+		}
+
+		#lockScreen .lock-content {
+			position: relative;
+			z-index: 2;
+			width: 100%;
+			height: 100%;
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			justify-content: center;
+			padding: 28px;
+			box-sizing: border-box;
+		}
+
+		/* Clock & Date smoothly slide up when entering PIN/Unlock stage */
+		.bos-lock-clock-wrap {
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			text-align: center;
+			transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.35s ease;
+			transform: translateY(-28px);
+		}
+
+		#lockScreen.auth-open .bos-lock-clock-wrap {
+			transform: translateY(-48px) scale(0.84);
+		}
+
+		#lockScreen #lockTime {
+			font-size: clamp(64px, 10vw, 98px) !important;
+			font-weight: 600 !important;
+			line-height: 1.02 !important;
+			letter-spacing: -0.03em;
+			color: #ffffff !important;
+			text-shadow: 0 6px 28px rgba(0, 0, 0, 0.55);
+			margin: 0 !important;
+		}
+
+		#lockScreen #lockDate {
+			font-size: clamp(16px, 2.2vw, 21px) !important;
+			font-weight: 500 !important;
+			color: rgba(255, 255, 255, 0.94) !important;
+			text-shadow: 0 3px 16px rgba(0, 0, 0, 0.6);
+			margin-top: 8px !important;
+		}
+
+		.bos-lock-hint {
+			position: absolute;
+			bottom: 34px;
+			left: 50%;
+			transform: translateX(-50%);
+			padding: 8px 18px;
+			border-radius: 999px;
+			background: rgba(14, 14, 22, 0.38);
+			border: 1px solid rgba(255, 255, 255, 0.18);
+			backdrop-filter: blur(10px);
+			-webkit-backdrop-filter: blur(10px);
+			color: rgba(255, 255, 255, 0.92);
+			font-size: 13px;
+			letter-spacing: 0.01em;
+			transition: opacity 0.25s ease, transform 0.25s ease;
+			pointer-events: none;
+		}
+
+		#lockScreen.auth-open .bos-lock-hint {
+			opacity: 0;
+			transform: translateX(-50%) translateY(10px);
+		}
+
+		/* Auth Card (Avatar + Profile Name + Profile Switcher + PIN or Unlock) */
+		.bos-lock-auth-box {
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			gap: 14px;
+			width: 100%;
+			max-width: 340px;
+			padding: 26px 24px;
+			border-radius: 22px;
+			background: rgba(18, 16, 28, 0.55);
+			border: 1px solid rgba(255, 255, 255, 0.18);
+			backdrop-filter: blur(22px);
+			-webkit-backdrop-filter: blur(22px);
+			box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+			opacity: 0;
+			transform: translateY(28px) scale(0.95);
+			pointer-events: none;
+			transition: opacity 0.38s cubic-bezier(0.22, 1, 0.36, 1), transform 0.42s cubic-bezier(0.22, 1, 0.36, 1);
+			margin-top: -18px;
+		}
+
+		#lockScreen.auth-open .bos-lock-auth-box {
+			opacity: 1;
+			transform: translateY(0) scale(1);
+			pointer-events: auto;
+		}
+
+		.bos-lock-avatar {
+			width: 78px;
+			height: 78px;
+			border-radius: 50%;
+			background: linear-gradient(135deg, rgba(168, 85, 247, 0.55), rgba(59, 130, 246, 0.45));
+			border: 2px solid rgba(255, 255, 255, 0.32);
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			box-shadow: 0 10px 26px rgba(0, 0, 0, 0.4);
+		}
+
+		.bos-lock-avatar img {
+			width: 46px;
+			height: 46px;
+			object-fit: contain;
+		}
+
+		.bos-lock-profile-name {
+			font-size: 21px;
+			font-weight: 600;
+			color: #ffffff;
+			text-align: center;
+			letter-spacing: -0.01em;
+		}
+
+		/* Profile Switcher Pill */
+		.bos-lock-profile-switch {
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			gap: 6px;
+			flex-wrap: wrap;
+		}
+
+		.bos-lock-prof-chip {
+			padding: 5px 12px;
+			border-radius: 999px;
+			border: 1px solid rgba(255, 255, 255, 0.18);
+			background: rgba(255, 255, 255, 0.08);
+			color: rgba(255, 255, 255, 0.85);
+			font-size: 12px;
+			cursor: pointer;
+			transition: background 0.15s ease, border-color 0.15s ease, transform 0.12s ease;
+		}
+
+		.bos-lock-prof-chip:hover {
+			background: rgba(255, 255, 255, 0.18);
+		}
+
+		.bos-lock-prof-chip.active {
+			background: rgba(168, 85, 247, 0.45);
+			border-color: rgba(233, 213, 255, 0.55);
+			color: #ffffff;
+			font-weight: 600;
+		}
+
+		#lockScreen .lock-form {
+			display: flex !important;
+			flex-direction: column !important;
+			align-items: center !important;
+			gap: 10px !important;
+			width: 100% !important;
+			margin: 0 !important;
+		}
+
+		#lockScreen #lockPin {
+			width: 100% !important;
+			box-sizing: border-box !important;
+			padding: 11px 14px !important;
+			border-radius: 12px !important;
+			border: 1px solid rgba(255, 255, 255, 0.24) !important;
+			background: rgba(10, 10, 18, 0.65) !important;
+			color: #ffffff !important;
+			font-size: 16px !important;
+			text-align: center !important;
+			letter-spacing: 0.22em;
+			outline: none !important;
+			transition: border-color 0.15s ease, box-shadow 0.15s ease;
+		}
+
+		#lockScreen #lockPin:focus {
+			border-color: #c084fc !important;
+			box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.25);
+		}
+
+		#lockScreen.no-pin #lockPin {
+			display: none !important;
+		}
+
+		#lockScreen .lock-form button[type="submit"] {
+			width: 100% !important;
+			padding: 11px 18px !important;
+			border-radius: 12px !important;
+			border: 1px solid rgba(255, 255, 255, 0.25) !important;
+			background: linear-gradient(135deg, rgba(168, 85, 247, 0.85), rgba(124, 58, 237, 0.9)) !important;
+			color: #ffffff !important;
+			font-size: 14.5px !important;
+			font-weight: 600 !important;
+			cursor: pointer !important;
+			transition: transform 0.12s ease, filter 0.15s ease;
+		}
+
+		#lockScreen .lock-form button[type="submit"]:hover {
+			filter: brightness(1.1);
+			transform: translateY(-1px);
+		}
+
+		@keyframes bosPinShake {
+			0%, 100% { transform: translateX(0); }
+			20%, 60% { transform: translateX(-8px); }
+			40%, 80% { transform: translateX(8px); }
+		}
+
+		.bos-lock-auth-box.shake {
+			animation: bosPinShake 0.36s ease;
 		}
 	</style>
 </head>
 
 <body>
-	<!-- Full PC-Like First-Boot Setup Wizard -->
+	<!-- Full PC-Like Animated First-Boot Setup Wizard -->
 	<div id="bosOobeOverlay" role="dialog" aria-modal="true" aria-label="BrowOS Setup">
 		<div class="bos-oobe-card">
 			<div class="bos-oobe-dots" id="bosOobeDots">
@@ -444,7 +939,7 @@
 				<div class="bos-oobe-hero">
 					<img class="bos-oobe-logo" src="icons/browos-logo.png" alt="BrowOS">
 					<h1 class="bos-oobe-hello">Hello</h1>
-					<p class="bos-oobe-sub">Welcome to BrowOS. Let’s quickly personalize your desktop, check where settings live, and set up optional PIN security before starting the tour.</p>
+					<p class="bos-oobe-sub">Welcome to BrowOS. Choose your wallpaper, adjust glassy transparency, set up an optional PIN lock, and jump right in.</p>
 				</div>
 
 				<div class="bos-oobe-actions">
@@ -453,48 +948,86 @@
 				</div>
 			</div>
 
-			<!-- Step 2: Personalize & Where Settings Are -->
+			<!-- Step 2: Wallpaper & Glassy Transparency with Live Preview -->
 			<div class="bos-oobe-step" data-step="1">
-				<h2 class="bos-oobe-title">Make BrowOS yours</h2>
+				<h2 class="bos-oobe-title">Choose your wallpaper &amp; glass style</h2>
 
-				<div class="bos-oobe-row">
-					<span>Window theme</span>
-					<select id="bosOobeTheme">
-						<option value="dark">Dark</option>
-						<option value="light">Light</option>
-					</select>
+				<div class="bos-oobe-wallpapers" id="bosOobeWallpapers">
+					<img class="bos-oobe-wp active" src="wallpapers/wallpaper.jpg" data-wp="wallpapers/wallpaper.jpg" alt="Wallpaper 1">
+					<img class="bos-oobe-wp" src="wallpapers/wallpaper2.jpg" data-wp="wallpapers/wallpaper2.jpg" alt="Wallpaper 2">
+					<img class="bos-oobe-wp" src="wallpapers/wallpaper3.jpg" data-wp="wallpapers/wallpaper3.jpg" alt="Wallpaper 3">
+					<img class="bos-oobe-wp" src="wallpapers/wallpaper4.jpg" data-wp="wallpapers/wallpaper4.jpg" alt="Wallpaper 4">
+					<img class="bos-oobe-wp" src="wallpapers/wallpaper5.jpg" data-wp="wallpapers/wallpaper5.jpg" alt="Wallpaper 5">
+					<img class="bos-oobe-wp" src="wallpapers/wallpaper6.jpg" data-wp="wallpapers/wallpaper6.jpg" alt="Wallpaper 6">
 				</div>
 
-				<div class="bos-oobe-row">
-					<span>Accent color</span>
-					<div class="bos-oobe-swatches" id="bosOobeSwatches">
-						<button type="button" class="bos-oobe-swatch active" data-color="#8e5cf7" style="background:#8e5cf7"></button>
-						<button type="button" class="bos-oobe-swatch" data-color="#2196F3" style="background:#2196F3"></button>
-						<button type="button" class="bos-oobe-swatch" data-color="#e91e63" style="background:#e91e63"></button>
-						<button type="button" class="bos-oobe-swatch" data-color="#4caf50" style="background:#4caf50"></button>
-						<button type="button" class="bos-oobe-swatch" data-color="#00bcd4" style="background:#00bcd4"></button>
+				<div class="bos-oobe-preview-wrap">
+					<!-- Live Mini Desktop Preview -->
+					<div class="bos-oobe-preview-stage" id="bosOobePreviewStage">
+						<div class="bos-oobe-preview-win" id="bosOobePreviewWin">
+							<div class="bos-oobe-preview-winbar">
+								<span>Preview Window</span>
+								<span>— □ ×</span>
+							</div>
+							<div class="bos-oobe-preview-winbody">
+								<span>Live glass &amp; wallpaper preview</span>
+								<span class="bos-oobe-preview-pill" id="bosOobePreviewAccent">Accent Button</span>
+							</div>
+						</div>
+						<div class="bos-oobe-preview-taskbar" id="bosOobePreviewTaskbar">
+							<span>Start</span>
+							<span>15:14</span>
+						</div>
+					</div>
+
+					<!-- Clean Controls -->
+					<div class="bos-oobe-controls-col">
+						<div class="bos-oobe-row">
+							<span>Window transparency</span>
+							<div class="bos-oobe-slider-wrap">
+								<input type="range" id="bosOobeWinTrans" min="0" max="100" value="15">
+								<span id="bosOobeWinTransVal">15%</span>
+							</div>
+						</div>
+
+						<div class="bos-oobe-row">
+							<span>Taskbar glass opacity</span>
+							<div class="bos-oobe-slider-wrap">
+								<input type="range" id="bosOobeTbGlass" min="0" max="100" value="30">
+								<span id="bosOobeTbGlassVal">30%</span>
+							</div>
+						</div>
+
+						<div class="bos-oobe-row">
+							<span>Theme &amp; Accent</span>
+							<div style="display:flex;align-items:center;gap:8px;">
+								<select id="bosOobeTheme">
+									<option value="dark">Dark</option>
+									<option value="light">Light</option>
+								</select>
+								<div class="bos-oobe-swatches" id="bosOobeSwatches">
+									<button type="button" class="bos-oobe-swatch active" data-color="#8e5cf7" style="background:#8e5cf7"></button>
+									<button type="button" class="bos-oobe-swatch" data-color="#2196F3" style="background:#2196F3"></button>
+									<button type="button" class="bos-oobe-swatch" data-color="#e91e63" style="background:#e91e63"></button>
+									<button type="button" class="bos-oobe-swatch" data-color="#4caf50" style="background:#4caf50"></button>
+								</div>
+							</div>
+						</div>
+
+						<div class="bos-oobe-row">
+							<span>Window bar size</span>
+							<select id="bosOobeBarSize">
+								<option value="compact">Compact (34px)</option>
+								<option value="normal" selected>Normal (46px)</option>
+								<option value="large">Large (56px)</option>
+								<option value="xlarge">Extra large (66px)</option>
+							</select>
+						</div>
 					</div>
 				</div>
 
-				<div class="bos-oobe-row">
-					<span>Window bar &amp; buttons</span>
-					<select id="bosOobeBarSize">
-						<option value="compact">Compact (34px)</option>
-						<option value="normal" selected>Normal (46px)</option>
-						<option value="large">Large (56px)</option>
-						<option value="xlarge">Extra large (66px)</option>
-					</select>
-				</div>
-
-				<div class="bos-oobe-grid">
-					<div class="bos-oobe-guide-item">
-						<strong>Personalization</strong>
-						Wallpapers, themes, cursors &amp; window bar sizes in <em>Settings → Personalization</em>.
-					</div>
-					<div class="bos-oobe-guide-item">
-						<strong>Taskbar &amp; Fullscreen</strong>
-						Scale (`0.25x–2x`), glass opacity &amp; icon toggles in <em>Settings → Taskbar</em>. Triple-tap any title bar for F11 fullscreen.
-					</div>
+				<div class="bos-oobe-tip">
+					You can customize wallpapers, live effects, cursors, and themes anytime in <strong>Start → Settings → Personalization</strong> (or right-click the desktop and choose <strong>Personalize</strong>).
 				</div>
 
 				<div class="bos-oobe-actions">
@@ -506,7 +1039,7 @@
 			<!-- Step 3: Security & PIN -->
 			<div class="bos-oobe-step" data-step="2">
 				<h2 class="bos-oobe-title">Lock screen &amp; PIN</h2>
-				<p class="bos-oobe-sub" style="max-width:none;">Protect your desktop with a 4–8 digit PIN, or leave blank to skip. You can always change this later in <strong>Settings → Security</strong>.</p>
+				<p class="bos-oobe-sub" style="max-width:none;">Protect your desktop with a 4–8 digit PIN, or leave blank to unlock with one click. You can also switch profiles directly on the lock screen.</p>
 
 				<div class="bos-oobe-row">
 					<span>New PIN (4–8 digits)</span>
@@ -531,17 +1064,24 @@
 				</div>
 			</div>
 
-			<!-- Step 4: Ready & Start Tour -->
+			<!-- Step 4: You're all set & Start Tutorial -->
 			<div class="bos-oobe-step" data-step="3">
 				<div class="bos-oobe-hero">
-					<img class="bos-oobe-logo" src="icons/browos-logo.png" alt="BrowOS">
-					<h2 class="bos-oobe-title" style="font-size:28px;">You’re all set</h2>
-					<p class="bos-oobe-sub">Your preferences are saved. Click <strong>Finish</strong> to enter BrowOS and launch the quick desktop tutorial.</p>
+					<div class="bos-oobe-check" aria-hidden="true">
+						<svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">
+							<polyline points="20 6 9 17 4 12"></polyline>
+						</svg>
+					</div>
+					<h2 class="bos-oobe-hello" style="font-size:36px;">You’re all set</h2>
+					<p class="bos-oobe-sub">Everything is configured and ready. Start the quick interactive tutorial to explore BrowOS, or jump straight to your desktop.</p>
 				</div>
 
 				<div class="bos-oobe-actions">
 					<button type="button" class="bos-oobe-btn" id="bosOobeBack3">Back</button>
-					<button type="button" class="bos-oobe-btn primary" id="bosOobeFinishBtn">Finish</button>
+					<div style="display:flex;gap:10px;">
+						<button type="button" class="bos-oobe-btn" id="bosOobeSkipTourBtn">Go to desktop</button>
+						<button type="button" class="bos-oobe-btn primary" id="bosOobeStartTourBtn">Start tutorial</button>
+					</div>
 				</div>
 			</div>
 		</div>
@@ -1678,18 +2218,34 @@
 <!-- Cursor -->
 <div class="fake-cursor hide" id="fakeCursor"></div>
 
-<!-- Lock screen -->
+<!-- Windows-Style Lock Screen (Unblurred Curtain -> Blurred Auth + Profile Switcher) -->
 <div class="lock-screen" id="lockScreen" tabindex="-1" hidden>
-	<div class="lock-content">
-		<div class="lock-time" id="lockTime">00:00</div>
-		<div class="lock-date" id="lockDate"></div>
+	<div class="bos-lock-backdrop" id="bosLockBackdrop"></div>
 
-		<form class="lock-form" id="lockForm" autocomplete="off">
-			<input type="password" id="lockPin" inputmode="numeric" maxlength="8" placeholder="PIN" aria-label="PIN" autocomplete="off">
-			<button type="submit">Unlock</button>
-		</form>
+	<div class="lock-content" id="bosLockContent">
+		<div class="bos-lock-clock-wrap">
+			<div class="lock-time" id="lockTime">00:00</div>
+			<div class="lock-date" id="lockDate"></div>
+		</div>
 
-		<div class="lock-message" id="lockMessage" role="status"></div>
+		<div class="bos-lock-hint" id="bosLockHint">Click or tap anywhere to unlock</div>
+
+		<div class="bos-lock-auth-box" id="bosLockAuthBox">
+			<div class="bos-lock-avatar">
+				<img src="icons/browos-logo.png" alt="User">
+			</div>
+
+			<div class="bos-lock-profile-name" id="bosLockProfileName">Default</div>
+
+			<div class="bos-lock-profile-switch" id="bosLockProfileSwitch"></div>
+
+			<form class="lock-form" id="lockForm" autocomplete="off">
+				<input type="password" id="lockPin" inputmode="numeric" maxlength="8" placeholder="PIN" aria-label="PIN" autocomplete="off">
+				<button type="submit" id="bosLockSubmitBtn">Unlock</button>
+			</form>
+
+			<div class="lock-message" id="lockMessage" role="status"></div>
+		</div>
 	</div>
 </div>
 
@@ -1813,7 +2369,7 @@
 		window.addEventListener("orientationchange", function () { setTimeout(fitBrowOSViewportNow, 140); });
 		document.addEventListener("fullscreenchange", function () { setTimeout(fitBrowOSViewportNow, 140); });
 
-		// Window bar size fallback
+		// Window bar size helper
 		const presets = {
 			compact: { bar: "34px", btn: "36px", btnFont: "15px", titleFont: "12px", icon: "16px" },
 			normal: { bar: "46px", btn: "46px", btnFont: "18px", titleFont: "13px", icon: "20px" },
@@ -1847,7 +2403,7 @@
 			};
 		}
 
-		// Taskbar scale fallback (0.25x - 2x)
+		// Taskbar scale (0.25x - 2x)
 		const scaleSlider = document.getElementById("taskbarScaleSlider");
 		const scaleText = document.getElementById("taskbarScaleText");
 		const scaleReset = document.getElementById("taskbarScaleResetBtn");
@@ -1874,7 +2430,7 @@
 			};
 		}
 
-		// Taskbar glassy transparency override fallback
+		// Taskbar glassy transparency override
 		const glassToggle = document.getElementById("taskbarGlassOverrideToggle");
 		const glassRow = document.getElementById("taskbarGlassRow");
 		const glassSlider = document.getElementById("taskbarGlassSlider");
@@ -1925,7 +2481,7 @@
 		}
 		setTbGlass(gOn, gPct);
 
-		// Hideable taskbar icons fallback
+		// Hideable taskbar icons
 		[
 			{ id: "tbShowStartToggle", key: "browos-tb-show-start", attr: "tbHideStart" },
 			{ id: "tbShowDesktopsToggle", key: "browos-tb-show-desktops", attr: "tbHideDesktops" },
@@ -1948,7 +2504,7 @@
 			}
 		});
 
-		// Taskbar hide/restore fallback
+		// Taskbar hide/restore
 		const hideToggle = document.getElementById("taskbarHideFeatureToggle");
 		const hideBtn = document.getElementById("taskbarHideButton");
 		const restoreBtn = document.getElementById("taskbarRestoreBox");
@@ -1983,7 +2539,7 @@
 		if (hideBtn) hideBtn.onclick = function (e) { e.stopPropagation(); setTbHidden(true); };
 		if (restoreBtn) restoreBtn.onclick = function (e) { e.stopPropagation(); setTbHidden(false); };
 
-		// Data buttons fallback
+		// Data buttons
 		const refBtn = document.getElementById("refreshUpdatesButton");
 		const rstAllBtn = document.getElementById("resetAllDataButton");
 		if (refBtn) {
@@ -2013,52 +2569,297 @@
 			};
 		}
 
-		// Full PC-Like First-Boot OOBE Setup Wizard
+		// =========================================================
+		// WINDOWS-STYLE LOCK SCREEN + PROFILE SWITCHER
+		// =========================================================
+		const lockScreenEl = document.getElementById("lockScreen");
+		const lockPinEl = document.getElementById("lockPin");
+		const lockFormEl = document.getElementById("lockForm");
+		const lockMsgEl = document.getElementById("lockMessage");
+		const authBoxEl = document.getElementById("bosLockAuthBox");
+		const profNameEl = document.getElementById("bosLockProfileName");
+		const profSwitchEl = document.getElementById("bosLockProfileSwitch");
+
+		function getSavedProfiles() {
+			const keysToTry = ["browos-profiles", "profiles", "browos_profiles"];
+			for (let i = 0; i < keysToTry.length; i++) {
+				try {
+					const raw = localStorage.getItem(keysToTry[i]);
+					if (!raw) continue;
+					const parsed = JSON.parse(raw);
+					if (Array.isArray(parsed) && parsed.length > 0) {
+						return parsed.map(function (p, idx) {
+							if (typeof p === "string") return { id: p, name: p };
+							return { id: p.id || p.key || String(idx), name: p.name || p.label || "Profile " + (idx + 1) };
+						});
+					}
+					if (parsed && typeof parsed === "object") {
+						const entries = Object.entries(parsed);
+						if (entries.length > 0) {
+							return entries.map(function (entry) {
+								const k = entry[0];
+								const v = entry[1];
+								return { id: k, name: (v && v.name) ? v.name : k };
+							});
+						}
+					}
+				} catch (e) {}
+			}
+			return [{ id: "default", name: "Default" }];
+		}
+
+		function getActiveProfileId(list) {
+			const activeKeys = ["browos-active-profile", "browos-profile", "activeProfile", "browos_active_profile"];
+			for (let i = 0; i < activeKeys.length; i++) {
+				const val = localStorage.getItem(activeKeys[i]);
+				if (val) return val;
+			}
+			return list[0] ? list[0].id : "default";
+		}
+
+		function syncLockScreenVisuals() {
+			if (!lockScreenEl) return;
+
+			// Use current unblurred BrowOS wallpaper on lock screen
+			const wp = localStorage.getItem("wallpaper") === "custom"
+				? localStorage.getItem("customWallpaper")
+				: (localStorage.getItem("wallpaper") || "wallpapers/wallpaper.jpg");
+			if (wp) {
+				lockScreenEl.style.backgroundImage = 'url("' + wp + '")';
+			}
+
+			// Toggle PIN input vs one-click Unlock button
+			const hasPin = Boolean(localStorage.getItem("browos-pin"));
+			lockScreenEl.classList.toggle("no-pin", !hasPin);
+
+			// Populate active profile name & switcher chips
+			const profiles = getSavedProfiles();
+			const activeId = getActiveProfileId(profiles);
+			const currentProf = profiles.find(function (p) { return p.id === activeId; }) || profiles[0];
+
+			if (profNameEl) {
+				profNameEl.textContent = currentProf ? currentProf.name : "Default";
+			}
+
+			if (profSwitchEl) {
+				profSwitchEl.innerHTML = "";
+				if (profiles.length > 1) {
+					profiles.forEach(function (prof) {
+						const chip = document.createElement("button");
+						chip.type = "button";
+						chip.className = "bos-lock-prof-chip" + (prof.id === activeId ? " active" : "");
+						chip.textContent = prof.name;
+						chip.onclick = function (e) {
+							e.stopPropagation();
+							if (prof.id === activeId) return;
+							localStorage.setItem("browos-active-profile", prof.id);
+							localStorage.setItem("browos-profile", prof.id);
+							// Keep lock screen open across profile reload
+							localStorage.setItem("browos-reopen-lock", "1");
+							location.reload();
+						};
+						profSwitchEl.appendChild(chip);
+					});
+				}
+			}
+		}
+
+		if (lockScreenEl) {
+			// Reset to unblurred curtain whenever lock screen opens
+			new MutationObserver(function () {
+				if (!lockScreenEl.hidden) {
+					lockScreenEl.classList.remove("auth-open", "bos-lock-unlocking");
+					if (lockMsgEl) lockMsgEl.textContent = "";
+					if (lockPinEl) lockPinEl.value = "";
+					syncLockScreenVisuals();
+				}
+			}).observe(lockScreenEl, { attributes: true, attributeFilter: ["hidden"] });
+
+			// Stage 1 -> Stage 2 on click/tap or keypress
+			lockScreenEl.addEventListener("pointerdown", function (e) {
+				if (!lockScreenEl.classList.contains("auth-open")) {
+					e.stopPropagation();
+					syncLockScreenVisuals();
+					lockScreenEl.classList.add("auth-open");
+					if (localStorage.getItem("browos-pin") && lockPinEl) {
+						setTimeout(function () { lockPinEl.focus(); }, 120);
+					}
+				}
+			});
+
+			lockScreenEl.addEventListener("keydown", function (e) {
+				if (!lockScreenEl.classList.contains("auth-open")) {
+					syncLockScreenVisuals();
+					lockScreenEl.classList.add("auth-open");
+					if (localStorage.getItem("browos-pin") && lockPinEl) {
+						setTimeout(function () { lockPinEl.focus(); }, 80);
+					}
+				}
+			});
+
+			// Handle PIN submit / No-PIN instant unlock smoothly
+			if (lockFormEl) {
+				lockFormEl.addEventListener("submit", function () {
+					const savedPin = localStorage.getItem("browos-pin");
+					if (!savedPin) {
+						lockScreenEl.classList.add("bos-lock-unlocking");
+						setTimeout(function () {
+							lockScreenEl.hidden = true;
+							lockScreenEl.classList.remove("auth-open", "bos-lock-unlocking");
+						}, 260);
+						return;
+					}
+					const entered = lockPinEl ? lockPinEl.value : "";
+					if (entered === savedPin) {
+						lockScreenEl.classList.add("bos-lock-unlocking");
+					} else if (authBoxEl) {
+						authBoxEl.classList.remove("shake");
+						void authBoxEl.offsetWidth;
+						authBoxEl.classList.add("shake");
+					}
+				}, true);
+			}
+
+			// Re-open lock screen seamlessly if user switched profiles on the lock screen
+			if (localStorage.getItem("browos-reopen-lock") === "1") {
+				localStorage.removeItem("browos-reopen-lock");
+				setTimeout(function () {
+					lockScreenEl.hidden = false;
+					syncLockScreenVisuals();
+					lockScreenEl.classList.add("auth-open");
+				}, 80);
+			}
+		}
+
+		// =========================================================
+		// FULL PC-LIKE FIRST-BOOT OOBE SETUP WIZARD
+		// =========================================================
 		const oobeOverlay = document.getElementById("bosOobeOverlay");
 		if (oobeOverlay && localStorage.getItem("browos-setup-done") !== "1") {
 			oobeOverlay.classList.add("open");
 
 			const steps = Array.from(oobeOverlay.querySelectorAll(".bos-oobe-step"));
 			const dots = Array.from(document.querySelectorAll("#bosOobeDots .bos-oobe-dot"));
-			let currentStep = 0;
 
 			function showOobeStep(idx) {
-				currentStep = idx;
 				steps.forEach(function (s, i) { s.classList.toggle("active", i === idx); });
 				dots.forEach(function (d, i) { d.classList.toggle("active", i === idx); });
 			}
 
 			function closeOobeWizard(runTour) {
 				localStorage.setItem("browos-setup-done", "1");
-				oobeOverlay.classList.remove("open");
-				if (!runTour) {
+				oobeOverlay.classList.add("closing");
+
+				if (runTour) {
+					localStorage.removeItem("browos-tour-done");
+					setTimeout(function () {
+						oobeOverlay.classList.remove("open", "closing");
+						// Trigger BrowOS built-in tour if available, or reload to launch tour cleanly
+						if (typeof startTour === "function") {
+							startTour();
+						} else if (window.BrowOSTour && typeof window.BrowOSTour.start === "function") {
+							window.BrowOSTour.start();
+						} else {
+							location.reload();
+						}
+					}, 430);
+				} else {
 					localStorage.setItem("browos-tour-done", "1");
-					document.querySelectorAll(".tour-overlay, .tour-box, .tour-card, #tourBox").forEach(function (el) {
-						el.style.display = "none";
-					});
+					setTimeout(function () {
+						oobeOverlay.classList.remove("open", "closing");
+						document.querySelectorAll(".tour-overlay, .tour-box, .tour-card, #tourBox").forEach(function (el) {
+							el.style.display = "none";
+						});
+					}, 430);
 				}
 			}
 
 			// Skip all right on first screen
 			const skipAllBtn = document.getElementById("bosOobeSkipAllBtn");
 			if (skipAllBtn) {
-				skipAllBtn.onclick = function () {
-					closeOobeWizard(false);
-				};
+				skipAllBtn.onclick = function () { closeOobeWizard(false); };
 			}
 
 			// Step 0 -> 1
 			const next0 = document.getElementById("bosOobeNext0");
 			if (next0) next0.onclick = function () { showOobeStep(1); };
 
-			// Step 1 controls (Theme, Accent, Window Bar Size)
+			// Step 1: Wallpaper + Glass Sliders + Live Preview Box
+			const previewStage = document.getElementById("bosOobePreviewStage");
+			const previewWin = document.getElementById("bosOobePreviewWin");
+			const previewTb = document.getElementById("bosOobePreviewTaskbar");
+			const previewAccent = document.getElementById("bosOobePreviewAccent");
+			const wpThumbs = document.querySelectorAll("#bosOobeWallpapers .bos-oobe-wp");
+			const winTransSlider = document.getElementById("bosOobeWinTrans");
+			const winTransVal = document.getElementById("bosOobeWinTransVal");
+			const tbGlassSlider = document.getElementById("bosOobeTbGlass");
+			const tbGlassVal = document.getElementById("bosOobeTbGlassVal");
 			const oobeTheme = document.getElementById("bosOobeTheme");
 			const oobeBar = document.getElementById("bosOobeBarSize");
 			const oobeSwatches = document.querySelectorAll("#bosOobeSwatches .bos-oobe-swatch");
 
+			function updateOobePreview() {
+				const isLight = oobeTheme && oobeTheme.value === "light";
+				const winTrans = winTransSlider ? parseInt(winTransSlider.value, 10) : 15;
+				const tbOpacity = tbGlassSlider ? parseInt(tbGlassSlider.value, 10) : 30;
+
+				if (winTransVal) winTransVal.textContent = winTrans + "%";
+				if (tbGlassVal) tbGlassVal.textContent = tbOpacity + "%";
+
+				if (previewWin) {
+					previewWin.classList.toggle("light", isLight);
+					const winAlpha = (1 - (winTrans / 100) * 0.78).toFixed(2);
+					previewWin.style.background = isLight
+						? "rgba(245, 245, 250, " + winAlpha + ")"
+						: "rgba(22, 22, 28, " + winAlpha + ")";
+				}
+
+				if (previewTb) {
+					const tbAlpha = (0.08 + (tbOpacity / 100) * 0.88).toFixed(2);
+					const tbBlur = Math.round(24 - (tbOpacity / 100) * 12);
+					previewTb.style.background = "rgba(18, 18, 24, " + tbAlpha + ")";
+					previewTb.style.backdropFilter = "blur(" + tbBlur + "px) saturate(170%)";
+				}
+			}
+
+			wpThumbs.forEach(function (img) {
+				img.onclick = function () {
+					wpThumbs.forEach(function (x) { x.classList.remove("active"); });
+					img.classList.add("active");
+					const wp = img.dataset.wp;
+					if (previewStage) previewStage.style.backgroundImage = 'url("' + wp + '")';
+					localStorage.setItem("wallpaper", wp);
+					const shell = document.querySelector(".desktop-shell");
+					if (shell) shell.style.backgroundImage = 'url("' + wp + '")';
+				};
+			});
+
+			if (winTransSlider) {
+				winTransSlider.oninput = function () {
+					updateOobePreview();
+					localStorage.setItem("browos-transparency", winTransSlider.value);
+					const mainTrans = document.getElementById("transparencySlider");
+					if (mainTrans) {
+						mainTrans.value = winTransSlider.value;
+						mainTrans.dispatchEvent(new Event("input"));
+					}
+				};
+			}
+
+			if (tbGlassSlider) {
+				tbGlassSlider.oninput = function () {
+					updateOobePreview();
+					localStorage.setItem("browos-taskbar-glass-override", "on");
+					localStorage.setItem("browos-taskbar-glass-pct", tbGlassSlider.value);
+					if (glassToggle) glassToggle.checked = true;
+					setTbGlass(true, tbGlassSlider.value);
+				};
+			}
+
 			if (oobeTheme) {
 				oobeTheme.value = localStorage.getItem("browos-theme") || "dark";
 				oobeTheme.onchange = function () {
+					updateOobePreview();
 					localStorage.setItem("browos-theme", oobeTheme.value);
 					const mainTheme = document.getElementById("themeSelect");
 					if (mainTheme) {
@@ -2073,6 +2874,7 @@
 					oobeSwatches.forEach(function (x) { x.classList.remove("active"); });
 					sw.classList.add("active");
 					const col = sw.dataset.color;
+					if (previewAccent) previewAccent.style.background = col;
 					localStorage.setItem("browos-accent", col);
 					const mainAccent = document.getElementById("customAccent");
 					if (mainAccent) {
@@ -2091,12 +2893,14 @@
 				};
 			}
 
+			updateOobePreview();
+
 			const back1 = document.getElementById("bosOobeBack1");
 			const next1 = document.getElementById("bosOobeNext1");
 			if (back1) back1.onclick = function () { showOobeStep(0); };
 			if (next1) next1.onclick = function () { showOobeStep(2); };
 
-			// Step 2 controls (PIN setup)
+			// Step 2: PIN Setup
 			const back2 = document.getElementById("bosOobeBack2");
 			const next2 = document.getElementById("bosOobeNext2");
 			const pin1El = document.getElementById("bosOobePin1");
@@ -2120,7 +2924,6 @@
 							if (pinMsgEl) pinMsgEl.textContent = "PINs do not match.";
 							return;
 						}
-						// Apply via existing Settings PIN controls if available, plus direct storage
 						const mainPinNew = document.getElementById("pinNew");
 						const mainPinConf = document.getElementById("pinConfirm");
 						const mainPinSave = document.getElementById("pinSave");
@@ -2144,16 +2947,13 @@
 				};
 			}
 
-			// Step 3 -> Finish & launch existing tutorial
+			// Step 3: "You're all set" -> Start Tutorial or Go to Desktop
 			const back3 = document.getElementById("bosOobeBack3");
-			const finishBtn = document.getElementById("bosOobeFinishBtn");
+			const skipTourBtn = document.getElementById("bosOobeSkipTourBtn");
+			const startTourBtn = document.getElementById("bosOobeStartTourBtn");
 			if (back3) back3.onclick = function () { showOobeStep(2); };
-			if (finishBtn) {
-				finishBtn.onclick = function () {
-					localStorage.removeItem("browos-tour-done");
-					closeOobeWizard(true);
-				};
-			}
+			if (skipTourBtn) skipTourBtn.onclick = function () { closeOobeWizard(false); };
+			if (startTourBtn) startTourBtn.onclick = function () { closeOobeWizard(true); };
 		}
 
 		document.addEventListener("click", function (e) {
