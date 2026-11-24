@@ -22,7 +22,7 @@
 		}
 
 		main {
-			max-width: 680px;
+			max-width: 720px;
 			margin: 0 auto;
 			padding: 40px 24px 64px;
 		}
@@ -132,6 +132,7 @@
 		}
 
 		input[type="password"],
+		input[type="text"],
 		input[type="file"] {
 			background: #000000;
 			color: #ffffff;
@@ -142,7 +143,8 @@
 			outline: none;
 		}
 
-		input[type="password"]:focus {
+		input[type="password"]:focus,
+		input[type="text"]:focus {
 			border-color: #a855f7;
 		}
 
@@ -159,6 +161,7 @@
 		}
 
 		.text-btn.confirm { color: #4ade80; }
+		.text-btn.toggle { color: #38bdf8; }
 		.text-btn.cancel { color: #9ca3af; }
 
 		.log-output {
@@ -171,12 +174,13 @@
 		.log-ok { color: #4ade80; }
 		.log-warn { color: #fbbf24; }
 		.log-err { color: #f87171; }
+		.log-dbg { color: #93c5fd; }
 	</style>
 </head>
 <body>
 	<main>
 		<h1>BrowOS Recovery</h1>
-		<p class="subtitle">Standalone recovery &amp; maintenance console</p>
+		<p class="subtitle">Standalone recovery &amp; maintenance console (DEBUG BUILD)</p>
 
 		<div class="status-block" id="statusBlock">
 			<div id="statusProfile">Profile: checking...</div>
@@ -223,6 +227,7 @@
 			<div class="prompt-hint" id="promptHint"></div>
 			<div class="prompt-row">
 				<input type="password" id="promptPassword" placeholder="Password / PIN" autocomplete="off">
+				<button type="button" class="text-btn toggle" id="promptShowBtn">Show</button>
 				<input type="file" id="promptFile" accept="application/json,.json" hidden>
 				<button type="button" class="text-btn confirm" id="promptConfirmBtn">Continue</button>
 				<button type="button" class="text-btn cancel" id="promptCancelBtn">Cancel</button>
@@ -238,7 +243,8 @@
 			const PIN_ITERATIONS = 150000;
 			const PROFILE_META_KEY = "browos-profiles-meta";
 
-			// Case-sensitive 64-bit two-lane hash of the exact master password prefix ("idkPASSWD!!")
+			// Algorithm: Two-lane 32-bit polynomial rolling hash (Lane A: DJB2 seed=5381 mult=31; Lane B: SDBM-style seed=0 mult=131), formatted as 16-char lowercase hex
+			const HASH_ALGO_NAME = "Dual-32bit-PolyHex (Lane A: DJB2 mult=31 seed=5381 | Lane B: Poly mult=131 seed=0 -> 16-char hex)";
 			const MASTER_PREFIX_HASH = "a75067c9e0f6ee72";
 
 			const logOutput = document.getElementById("logOutput");
@@ -246,6 +252,7 @@
 			const promptTitle = document.getElementById("promptTitle");
 			const promptHint = document.getElementById("promptHint");
 			const promptPassword = document.getElementById("promptPassword");
+			const promptShowBtn = document.getElementById("promptShowBtn");
 			const promptFile = document.getElementById("promptFile");
 			const promptConfirmBtn = document.getElementById("promptConfirmBtn");
 			const promptCancelBtn = document.getElementById("promptCancelBtn");
@@ -257,6 +264,7 @@
 				if (level === "ok") line.className = "log-ok";
 				else if (level === "warn") line.className = "log-warn";
 				else if (level === "err") line.className = "log-err";
+				else if (level === "dbg") line.className = "log-dbg";
 				line.textContent = "> " + message;
 				logOutput.appendChild(line);
 			}
@@ -276,37 +284,65 @@
 				return a.toString(16).padStart(8, "0") + b.toString(16).padStart(8, "0");
 			}
 
-			// Strictly case-sensitive verification: <exact-prefix><MM>/<DD>#<HH>!
+			// Strictly case-sensitive verification with full debug report
 			function checkMasterPassword(input) {
-				const val = String(input || "").trim();
-				const match = val.match(/^(.+)(\d{2})\/(\d{2})#(\d{1,2})!$/);
-				if (!match) {
-					return { ok: false, reason: "Invalid format (expected prefix + MM/DD#HH!)." };
-				}
-
-				const exactPrefix = match[1];
-				const mm = match[2];
-				const dd = match[3];
-				const hh = match[4];
-
-				if (hashMasterPrefix(exactPrefix) !== MASTER_PREFIX_HASH) {
-					return { ok: false, reason: "Master prefix mismatch (check exact uppercase/lowercase)." };
-				}
-
+				const raw = String(input || "");
+				const val = raw.trim();
 				const now = new Date();
 				const curMM = String(now.getMonth() + 1).padStart(2, "0");
 				const curDD = String(now.getDate()).padStart(2, "0");
 				const curHH24 = String(now.getHours()).padStart(2, "0");
 				const curHHRaw = String(now.getHours());
 
+				log("=== MASTER PASSWORD DEBUG ===", "dbg");
+				log("Entered raw: " + JSON.stringify(raw) + " (length: " + raw.length + ")", "dbg");
+				log("Entered trimmed: " + JSON.stringify(val) + " (length: " + val.length + ")", "dbg");
+				log("Hash algorithm: " + HASH_ALGO_NAME, "dbg");
+				log("Expected prefix hash: " + MASTER_PREFIX_HASH, "dbg");
+				log("System clock -> Month (MM): " + curMM + " | Day (DD): " + curDD + " | Hour (HH): " + curHH24 + " (raw: " + curHHRaw + ")", "dbg");
+				log("Expected suffix right now: " + curMM + "/" + curDD + "#" + curHH24 + "!", "dbg");
+
+				const match = val.match(/^(.+)(\d{2})\/(\d{2})#(\d{1,2})!$/);
+				if (!match) {
+					const wholeHash = hashMasterPrefix(val);
+					log("Regex parse: FAILED (did not match <prefix><MM>/<DD>#<HH>!)", "dbg");
+					log("Hash of entire entered string: " + wholeHash, "dbg");
+					return { ok: false, reason: "Invalid format (expected <prefix>MM/DD#HH!)." };
+				}
+
+				const exactPrefix = match[1];
+				const mm = match[2];
+				const dd = match[3];
+				const hh = match[4];
+				const computedHash = hashMasterPrefix(exactPrefix);
+
+				log("Parsed prefix (case-sensitive): " + JSON.stringify(exactPrefix), "dbg");
+				log("Computed hash of entered prefix: " + computedHash, "dbg");
+				log("Hash match: " + (computedHash === MASTER_PREFIX_HASH ? "YES" : "NO"), "dbg");
+				log("Parsed date/hour -> Month: " + mm + " (expected " + curMM + ") | Day: " + dd + " (expected " + curDD + ") | Hour: " + hh + " (expected " + curHH24 + ")", "dbg");
+
+				if (computedHash !== MASTER_PREFIX_HASH) {
+					return {
+						ok: false,
+						reason: "Prefix hash mismatch (got " + computedHash + ", expected " + MASTER_PREFIX_HASH + "). Check exact case!",
+					};
+				}
+
 				if (mm !== curMM || dd !== curDD) {
-					return { ok: false, reason: "Date mismatch (system date is " + curMM + "/" + curDD + ")." };
+					return {
+						ok: false,
+						reason: "Date mismatch (entered " + mm + "/" + dd + ", system is " + curMM + "/" + curDD + ").",
+					};
 				}
 
 				if (hh !== curHH24 && hh !== curHHRaw) {
-					return { ok: false, reason: "Hour mismatch (system hour is " + curHH24 + ")." };
+					return {
+						ok: false,
+						reason: "Hour mismatch (entered #" + hh + ", system hour is #" + curHH24 + ").",
+					};
 				}
 
+				log("=== DEBUG RESULT: AUTHENTICATED ===", "ok");
 				return { ok: true, reason: "" };
 			}
 
@@ -418,14 +454,23 @@
 				const dd = String(now.getDate()).padStart(2, "0");
 				const hh = String(now.getHours()).padStart(2, "0");
 				const min = String(now.getMinutes()).padStart(2, "0");
-				clockEl.textContent = "System clock: " + mm + "/" + dd + " " + hh + ":" + min;
+				clockEl.textContent = "System clock: Month=" + mm + " Day=" + dd + " Hour=" + hh + ":" + min;
 			}
 
 			refreshStatus();
 
+			promptShowBtn.addEventListener("click", function () {
+				const isHidden = promptPassword.type === "password";
+				promptPassword.type = isHidden ? "text" : "password";
+				promptShowBtn.textContent = isHidden ? "Hide" : "Show";
+				promptPassword.focus();
+			});
+
 			function closePrompt() {
 				pendingAction = null;
 				promptBox.classList.remove("open");
+				promptPassword.type = "password";
+				promptShowBtn.textContent = "Show";
 				promptPassword.value = "";
 				promptFile.value = "";
 				promptFile.hidden = true;
@@ -435,6 +480,8 @@
 				pendingAction = opts.onConfirm;
 				promptTitle.textContent = opts.title;
 				promptHint.textContent = opts.hint;
+				promptPassword.type = "password";
+				promptShowBtn.textContent = "Show";
 				promptPassword.value = "";
 				promptPassword.placeholder = opts.placeholder || "Password / PIN";
 				promptFile.value = "";
@@ -689,9 +736,9 @@
 					placeholder: pinSet ? "Enter PIN or master password" : "Leave blank (no PIN set)",
 					needsFile: false,
 					onConfirm: async function (pwd) {
-						const ok = (await verifyUserPin(pwd)) || verifyMasterPassword(pwd);
+						const check = checkMasterPassword(pwd);
+						const ok = (await verifyUserPin(pwd)) || check.ok;
 						if (!ok) {
-							const check = checkMasterPassword(pwd);
 							log("Incorrect PIN/password. " + check.reason, "err");
 							return;
 						}
