@@ -418,6 +418,30 @@ if (taskbarRestoreBox) {
 	});
 }
 
+// Security / Privacy: Lock screen curtain background blur toggle
+
+const lockBlurCurtainToggle = document.getElementById("lockBlurCurtainToggle");
+
+function applyLockCurtainBlur(blurOn) {
+	if (blurOn) {
+		document.documentElement.dataset.lockCurtainBlur = "1";
+	} else {
+		delete document.documentElement.dataset.lockCurtainBlur;
+	}
+}
+
+const savedLockCurtainBlur = localStorage.getItem("browos-lock-curtain-blur") === "on";
+applyLockCurtainBlur(savedLockCurtainBlur);
+
+if (lockBlurCurtainToggle) {
+	lockBlurCurtainToggle.checked = savedLockCurtainBlur;
+	lockBlurCurtainToggle.addEventListener("change", function () {
+		const on = lockBlurCurtainToggle.checked;
+		localStorage.setItem("browos-lock-curtain-blur", on ? "on" : "off");
+		applyLockCurtainBlur(on);
+	});
+}
+
 // Data page: Refresh updates (clear HTML/CSS/JS cache only) & Reset all data (wipe entire localStorage)
 
 const refreshUpdatesButton = document.getElementById("refreshUpdatesButton");
@@ -490,6 +514,7 @@ resetSettingsButton.addEventListener("click", function () {
 	localStorage.removeItem("browos-taskbar-hide-enabled");
 	localStorage.removeItem("browos-taskbar-hidden");
 	localStorage.removeItem("browos-window-bar-size");
+	localStorage.removeItem("browos-lock-curtain-blur");
 	localStorage.removeItem("browos-cursor");
 	localStorage.removeItem("browos-custom-cursor");
 	localStorage.removeItem("browos-cursor-size");
