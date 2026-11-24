@@ -755,6 +755,12 @@
 			transition: opacity 0.35s ease, transform 0.35s ease;
 		}
 
+		#lockScreen::before,
+		#lockScreen::after {
+			display: none !important;
+			content: none !important;
+		}
+
 		#lockScreen[hidden] {
 			display: none !important;
 		}
@@ -765,13 +771,11 @@
 			pointer-events: none;
 		}
 
-		/* Isolated wallpaper layer so blur can be toggled cleanly without css/lock.css interference */
 		.bos-lock-bg {
 			position: absolute;
 			inset: -24px;
 			z-index: 0;
 			background-color: #15171d;
-			background-image: url("wallpapers/wallpaper.jpg");
 			background-size: cover;
 			background-position: center;
 			background-repeat: no-repeat;
@@ -791,7 +795,7 @@
 			position: absolute;
 			inset: 0;
 			z-index: 1;
-			background: radial-gradient(circle at center, rgba(0, 0, 0, 0.05) 0%, rgba(0, 0, 0, 0.35) 100%);
+			background: radial-gradient(circle at center, rgba(0, 0, 0, 0.04) 0%, rgba(0, 0, 0, 0.32) 100%);
 			backdrop-filter: none !important;
 			-webkit-backdrop-filter: none !important;
 			transition: background 0.42s ease;
@@ -966,6 +970,7 @@
 		}
 
 		#lockScreen #lockPin {
+			display: block !important;
 			width: 100% !important;
 			box-sizing: border-box !important;
 			padding: 11px 14px !important;
@@ -1083,7 +1088,6 @@
 				</div>
 
 				<div class="bos-oobe-preview-wrap">
-					<!-- Live Mini Desktop Preview -->
 					<div class="bos-oobe-preview-stage" id="bosOobePreviewStage">
 						<div class="bos-oobe-preview-win" id="bosOobePreviewWin">
 							<div class="bos-oobe-preview-winbar">
@@ -1101,7 +1105,6 @@
 						</div>
 					</div>
 
-					<!-- Clean Controls -->
 					<div class="bos-oobe-controls-col">
 						<div class="bos-oobe-row">
 							<span>Window transparency</span>
@@ -1160,7 +1163,7 @@
 			<!-- Step 3: Security & PIN -->
 			<div class="bos-oobe-step" data-step="2">
 				<h2 class="bos-oobe-title">Lock screen &amp; PIN</h2>
-				<p class="bos-oobe-sub" style="max-width:none;">Protect your desktop with a 4–8 digit PIN (stored locally as a salted SHA-256 hash), or leave blank to unlock with one click.</p>
+				<p class="bos-oobe-sub" style="max-width:none;">Protect your desktop with a 4–8 digit PIN (encrypted with PBKDF2-SHA256), or leave blank to unlock with one click.</p>
 
 				<div class="bos-oobe-row">
 					<span>New PIN (4–8 digits)</span>
@@ -1681,7 +1684,7 @@
 
 					<h3>Lock screen &amp; Privacy</h3>
 
-					<p class="settings-note">The lock screen covers your desktop. Your PIN is stored locally as a salted SHA-256 hash rather than plain text.</p>
+					<p class="settings-note">The lock screen covers your desktop. Your PIN is encrypted locally with PBKDF2-SHA256 (150,000 iterations + random salt) and never stored in plain text.</p>
 
 					<div class="setting-row">
 						<span>Blur lock screen background</span>
@@ -2345,7 +2348,7 @@
 <!-- Cursor -->
 <div class="fake-cursor hide" id="fakeCursor"></div>
 
-<!-- Windows-Style Lock Screen (Unblurred Wallpaper -> Blurred Auth + Profile Selector Box + Back Button) -->
+<!-- Windows-Style Lock Screen (Unblurred Wallpaper -> Blurred Auth + Native Profile Switcher + Back Button) -->
 <div class="lock-screen" id="lockScreen" tabindex="-1" hidden>
 	<div class="bos-lock-bg" id="bosLockBg"></div>
 	<div class="bos-lock-backdrop" id="bosLockBackdrop"></div>
@@ -2448,231 +2451,6 @@
 
 <script>
 	(function () {
-		// =========================================================
-		// PURE-JS SALTED SHA-256 PIN HASHER (NO EXTERNAL APIS)
-		// =========================================================
-		const HASH_SENTINEL = "__HASHED__";
-
-		function pureSha256Hex(ascii) {
-			function rightRotate(value, amount) {
-				return (value >>> amount) | (value << (32 - amount));
-			}
-			const mathPow = Math.pow;
-			const maxWord = mathPow(2, 32);
-			let result = "";
-			const words = [];
-			const asciiBitLength = ascii.length * 8;
-			const hash = [];
-			const k = [];
-			let primeCounter = 0;
-			const isComposite = {};
-
-			for (let candidate = 2; primeCounter < 64; candidate++) {
-				if (!isComposite[candidate]) {
-					for (let i = 0; i < 313; i += candidate) {
-						isComposite[i] = candidate;
-					}
-					hash[primeCounter] = (mathPow(candidate, 0.5) * maxWord) | 0;
-					k[primeCounter++] = (mathPow(candidate, 1 / 3) * maxWord) | 0;
-				}
-			}
-
-			ascii += "\x80";
-			while ((ascii.length % 64) - 56) ascii += "\x00";
-			for (let i = 0; i < ascii.length; i++) {
-				const j = ascii.charCodeAt(i);
-				words[i >> 2] |= j << (((3 - i) % 4) * 8);
-			}
-			words[words.length] = (asciiBitLength / maxWord) | 0;
-			words[words.length] = asciiBitLength;
-
-			for (let j = 0; j < words.length;) {
-				const w = words.slice(j, (j += 16));
-				const oldHash = hash.slice(0);
-
-				for (let i = 0; i < 64; i++) {
-					const w15 = w[i - 15];
-					const w2 = w[i - 2];
-					const a = hash[0];
-					const e = hash[4];
-					const temp1 =
-						hash[7] +
-						(rightRotate(e, 6) ^ rightRotate(e, 11) ^ rightRotate(e, 25)) +
-						((e & hash[5]) ^ (~e & hash[6])) +
-						k[i] +
-						(w[i] =
-							i < 16
-								? w[i]
-								: (w[i - 16] +
-										(rightRotate(w15, 7) ^ rightRotate(w15, 18) ^ (w15 >>> 3)) +
-										w[i - 7] +
-										(rightRotate(w2, 17) ^ rightRotate(w2, 19) ^ (w2 >>> 10))) |
-									0);
-					const temp2 =
-						(rightRotate(a, 2) ^ rightRotate(a, 13) ^ rightRotate(a, 22)) +
-						((a & hash[1]) ^ (a & hash[2]) ^ (hash[1] & hash[2]));
-
-					hash.unshift((temp1 + temp2) | 0);
-					hash[4] = (hash[4] + temp1) | 0;
-					hash.pop();
-				}
-
-				for (let i = 0; i < 8; i++) {
-					hash[i] = (hash[i] + oldHash[i]) | 0;
-				}
-			}
-
-			for (let i = 0; i < 8; i++) {
-				for (let j = 3; j + 1; j--) {
-					const b = (hash[i] >> (j * 8)) & 255;
-					result += (b < 16 ? "0" : "") + b.toString(16);
-				}
-			}
-			return result;
-		}
-
-		function generatePinSalt() {
-			let s = "";
-			const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-			for (let i = 0; i < 24; i++) {
-				s += chars.charAt(Math.floor(Math.random() * chars.length));
-			}
-			return s + ":" + Date.now().toString(36);
-		}
-
-		function hashPinWithSalt(pin, salt) {
-			let acc = salt + "::" + pin + "::BrowOS_PinGuard";
-			for (let i = 0; i < 1200; i++) {
-				acc = pureSha256Hex(acc + ":" + i);
-			}
-			return acc;
-		}
-
-		function hasPinConfigured() {
-			const raw = localStorage.getItem("browos-pin");
-			const hash = localStorage.getItem("browos-pin-hash");
-			return Boolean(hash || (raw && raw !== ""));
-		}
-
-		function setHashedPin(plainPin) {
-			const salt = generatePinSalt();
-			const digest = hashPinWithSalt(plainPin, salt);
-			localStorage.setItem("browos-pin-salt", salt);
-			localStorage.setItem("browos-pin-hash", digest);
-			// Keep sentinel in browos-pin so native lock.js & profiles.js recognize PIN presence without plaintext
-			localStorage.setItem("browos-pin", HASH_SENTINEL);
-		}
-
-		function clearHashedPin() {
-			localStorage.removeItem("browos-pin-salt");
-			localStorage.removeItem("browos-pin-hash");
-			localStorage.removeItem("browos-pin");
-		}
-
-		function verifyHashedPin(candidatePin) {
-			const raw = localStorage.getItem("browos-pin");
-			if (raw && raw !== HASH_SENTINEL) {
-				if (candidatePin === raw) {
-					setHashedPin(candidatePin);
-					return true;
-				}
-				return false;
-			}
-			const salt = localStorage.getItem("browos-pin-salt");
-			const storedHash = localStorage.getItem("browos-pin-hash");
-			if (!salt || !storedHash) return true;
-			return hashPinWithSalt(candidatePin, salt) === storedHash;
-		}
-
-		// Automatically migrate any legacy plaintext PIN to salted hash on load
-		function migrateLegacyPinIfNeeded() {
-			const legacy = localStorage.getItem("browos-pin");
-			if (legacy && legacy !== HASH_SENTINEL) {
-				setHashedPin(legacy);
-			}
-		}
-
-		migrateLegacyPinIfNeeded();
-
-		function refreshSecurityPinUI() {
-			migrateLegacyPinIfNeeded();
-			const statusEl = document.getElementById("pinStatus");
-			const currentRow = document.getElementById("pinCurrentRow");
-			const removeBtn = document.getElementById("pinRemove");
-			const configured = hasPinConfigured();
-
-			if (statusEl) {
-				statusEl.textContent = configured ? "PIN is set (salted SHA-256 hash)" : "No PIN is set";
-			}
-			if (currentRow) {
-				currentRow.hidden = !configured;
-			}
-			if (removeBtn) {
-				removeBtn.hidden = !configured;
-			}
-		}
-
-		refreshSecurityPinUI();
-
-		const pinSaveBtn = document.getElementById("pinSave");
-		const pinRemoveBtn = document.getElementById("pinRemove");
-		const pinCurrentEl = document.getElementById("pinCurrent");
-		const pinNewEl = document.getElementById("pinNew");
-		const pinConfirmEl = document.getElementById("pinConfirm");
-		const pinMsgEl = document.getElementById("pinMessage");
-
-		if (pinSaveBtn) {
-			pinSaveBtn.addEventListener("click", function (e) {
-				e.stopImmediatePropagation();
-				e.preventDefault();
-
-				const configured = hasPinConfigured();
-				const curVal = pinCurrentEl ? pinCurrentEl.value.trim() : "";
-				const newVal = pinNewEl ? pinNewEl.value.trim() : "";
-				const confVal = pinConfirmEl ? pinConfirmEl.value.trim() : "";
-
-				if (configured && !verifyHashedPin(curVal)) {
-					if (pinMsgEl) pinMsgEl.textContent = "Current PIN is incorrect.";
-					return;
-				}
-				if (!/^\d{4,8}$/.test(newVal)) {
-					if (pinMsgEl) pinMsgEl.textContent = "PIN must be 4 to 8 digits.";
-					return;
-				}
-				if (newVal !== confVal) {
-					if (pinMsgEl) pinMsgEl.textContent = "New PINs do not match.";
-					return;
-				}
-
-				setHashedPin(newVal);
-				if (pinCurrentEl) pinCurrentEl.value = "";
-				if (pinNewEl) pinNewEl.value = "";
-				if (pinConfirmEl) pinConfirmEl.value = "";
-				if (pinMsgEl) pinMsgEl.textContent = "PIN saved securely.";
-				refreshSecurityPinUI();
-			}, true);
-		}
-
-		if (pinRemoveBtn) {
-			pinRemoveBtn.addEventListener("click", function (e) {
-				e.stopImmediatePropagation();
-				e.preventDefault();
-
-				const curVal = pinCurrentEl ? pinCurrentEl.value.trim() : "";
-				if (hasPinConfigured() && !verifyHashedPin(curVal)) {
-					if (pinMsgEl) pinMsgEl.textContent = "Enter your current PIN to remove it.";
-					return;
-				}
-
-				clearHashedPin();
-				if (pinCurrentEl) pinCurrentEl.value = "";
-				if (pinNewEl) pinNewEl.value = "";
-				if (pinConfirmEl) pinConfirmEl.value = "";
-				if (pinMsgEl) pinMsgEl.textContent = "PIN removed.";
-				refreshSecurityPinUI();
-			}, true);
-		}
-
 		// =========================================================
 		// VIEWPORT, MAXIMIZE & FROSTED WIDGETS SYNC
 		// =========================================================
@@ -2957,18 +2735,30 @@
 			};
 		}
 		if (rstAllBtn) {
-			rstAllBtn.onclick = function () {
-				if (!confirm("Are you sure you want to reset ALL data? This will completely erase all localStorage for this website (settings, PIN, notes, files, and installed apps) and start fresh.")) return;
+			rstAllBtn.onclick = async function () {
+				if (!confirm("Are you sure you want to reset ALL data? This will completely erase all localStorage and profiles for this website and start fresh.")) return;
 				try {
 					localStorage.clear();
 					sessionStorage.clear();
+					if (window.indexedDB && indexedDB.databases) {
+						const dbs = await indexedDB.databases();
+						await Promise.all(dbs.map(function (db) {
+							return new Promise(function (res) {
+								const req = indexedDB.deleteDatabase(db.name);
+								req.onsuccess = req.onerror = req.onblocked = res;
+							});
+						}));
+					} else {
+						indexedDB.deleteDatabase("browos-profiles");
+						indexedDB.deleteDatabase("browos-files");
+					}
 				} catch (e) {}
 				location.reload();
 			};
 		}
 
 		// =========================================================
-		// WINDOWS-STYLE LOCK SCREEN + SYSTEM PROFILES SYNC + HASHED PIN
+		// WINDOWS-STYLE LOCK SCREEN + NATIVE PROFILES + NATIVE PBKDF2 PIN
 		// =========================================================
 		const lockScreenEl = document.getElementById("lockScreen");
 		const lockBgEl = document.getElementById("bosLockBg");
@@ -2980,151 +2770,57 @@
 		const profSelectEl = document.getElementById("bosLockProfileSelect");
 		const lockBackBtnEl = document.getElementById("bosLockBackBtn");
 
-		// Discover profiles from Settings -> System (#systemPage) and localStorage
-		function discoverSystemProfiles() {
-			const found = [];
-			const seenNames = new Set();
-
-			function addProfile(id, name, active, switchAction) {
-				const cleanName = String(name || "").trim();
-				if (!cleanName || seenNames.has(cleanName.toLowerCase())) return;
-				seenNames.add(cleanName.toLowerCase());
-				found.push({ id: String(id), name: cleanName, active: Boolean(active), switchAction: switchAction || null });
+		function getProfilesMetaSafe() {
+			if (typeof profileMeta === "function") {
+				return profileMeta();
 			}
-
-			// 1. Inspect rendered profile items/buttons/selects in Settings -> System (#systemPage)
-			const sysPage = document.getElementById("systemPage");
-			if (sysPage) {
-				const sysSelect = sysPage.querySelector("select");
-				if (sysSelect && sysSelect.options.length > 0) {
-					Array.from(sysSelect.options).forEach(function (opt) {
-						addProfile(opt.value, opt.textContent, opt.selected, function () {
-							sysSelect.value = opt.value;
-							sysSelect.dispatchEvent(new Event("change", { bubbles: true }));
-						});
-					});
+			try {
+				const meta = JSON.parse(localStorage.getItem("browos-profiles-meta"));
+				if (meta && Array.isArray(meta.list) && meta.list.length) {
+					return meta;
 				}
+			} catch (e) {}
+			return { current: "default", list: [{ id: "default", name: "Main" }] };
+		}
 
-				const switchButtons = Array.from(sysPage.querySelectorAll("button")).filter(function (b) {
-					return /switch/i.test(b.textContent.trim());
-				});
-				switchButtons.forEach(function (btn, idx) {
-					const row = btn.closest("div, li, tr");
-					if (!row) return;
-					const textParts = Array.from(row.querySelectorAll("span, strong, div, p"))
-						.map(function (el) { return el.textContent.trim(); })
-						.filter(function (t) { return t && !/switch|delete|remove|active|current/i.test(t); });
-					const pName = textParts[0] || ("Profile " + (idx + 1));
-					addProfile("sys-" + idx, pName, false, function () {
-						btn.click();
-					});
-				});
-
-				const activeIndicators = Array.from(sysPage.querySelectorAll("span, div, strong")).filter(function (el) {
-					return /\(active\)|\(current\)/i.test(el.textContent);
-				});
-				activeIndicators.forEach(function (el) {
-					const raw = el.textContent.replace(/\(active\)|\(current\)/gi, "").trim();
-					if (raw) {
-						addProfile("active-" + raw, raw, true, null);
-					}
-				});
+		function syncLockWallpaper() {
+			if (!lockBgEl) return;
+			const shell = document.querySelector(".desktop-shell");
+			const shellBg = shell ? shell.style.backgroundImage : "";
+			if (shellBg && shellBg !== "none" && shellBg !== "") {
+				lockBgEl.style.backgroundImage = shellBg;
+			} else {
+				const wp = localStorage.getItem("wallpaper") === "custom"
+					? localStorage.getItem("customWallpaper")
+					: (localStorage.getItem("wallpaper") || "wallpapers/wallpaper.jpg");
+				lockBgEl.style.backgroundImage = 'url("' + (wp || "wallpapers/wallpaper.jpg") + '")';
 			}
-
-			// 2. Scan all localStorage keys related to profiles
-			for (let i = 0; i < localStorage.length; i++) {
-				const k = localStorage.key(i);
-				if (!k || !/profile/i.test(k) || /active|current|reopen/i.test(k)) continue;
-				try {
-					const parsed = JSON.parse(localStorage.getItem(k));
-					if (Array.isArray(parsed)) {
-						parsed.forEach(function (item, idx) {
-							if (typeof item === "string") {
-								addProfile(item, item, false, null);
-							} else if (item && typeof item === "object") {
-								addProfile(item.id || item.key || item.name || idx, item.name || item.label || item.id, Boolean(item.active), null);
-							}
-						});
-					} else if (parsed && typeof parsed === "object") {
-						Object.entries(parsed).forEach(function (entry) {
-							const pk = entry[0];
-							const pv = entry[1];
-							if (pv && typeof pv === "object" && (pv.name || pv.data || pv.storage)) {
-								addProfile(pk, pv.name || pk, false, null);
-							}
-						});
-					}
-				} catch (e) {}
-			}
-
-			if (found.length === 0) {
-				addProfile("main", "Main", true, null);
-			}
-
-			let activeId = null;
-			for (let i = 0; i < localStorage.length; i++) {
-				const k = localStorage.key(i);
-				if (k && /profile/i.test(k) && /active|current/i.test(k)) {
-					const v = localStorage.getItem(k);
-					if (v) {
-						activeId = v;
-						break;
-					}
-				}
-			}
-
-			if (activeId) {
-				found.forEach(function (p) {
-					if (p.id === activeId || p.name.toLowerCase() === activeId.toLowerCase()) {
-						p.active = true;
-					}
-				});
-			}
-
-			if (!found.some(function (p) { return p.active; })) {
-				found[0].active = true;
-			}
-
-			return found;
 		}
 
 		function syncLockScreenVisuals() {
 			if (!lockScreenEl) return;
 
-			migrateLegacyPinIfNeeded();
+			syncLockWallpaper();
 
-			// Sync wallpaper onto .bos-lock-bg from live .desktop-shell or localStorage
-			if (lockBgEl) {
-				const shell = document.querySelector(".desktop-shell");
-				const shellBg = shell ? shell.style.backgroundImage : "";
-				if (shellBg && shellBg !== "none") {
-					lockBgEl.style.backgroundImage = shellBg;
-				} else {
-					const wp = localStorage.getItem("wallpaper") === "custom"
-						? localStorage.getItem("customWallpaper")
-						: (localStorage.getItem("wallpaper") || "wallpapers/wallpaper.jpg");
-					lockBgEl.style.backgroundImage = 'url("' + (wp || "wallpapers/wallpaper.jpg") + '")';
-				}
-			}
+			// Uses BrowOS's native hasPin() from js/lock.js
+			const withPin = typeof hasPin === "function" ? hasPin() : Boolean(localStorage.getItem("browos-pin"));
+			lockScreenEl.classList.toggle("no-pin", !withPin);
 
-			// Show PIN input only if this profile has a PIN; non-PIN profiles still show Stage 2 with Profile switcher + Unlock button
-			const hasPin = hasPinConfigured();
-			lockScreenEl.classList.toggle("no-pin", !hasPin);
-
-			const profiles = discoverSystemProfiles();
-			const currentProf = profiles.find(function (p) { return p.active; }) || profiles[0];
+			// Uses BrowOS's native profileMeta() from js/profiles.js
+			const meta = getProfilesMetaSafe();
+			const activeProf = meta.list.find(function (p) { return p.id === meta.current; }) || meta.list[0];
 
 			if (profNameEl) {
-				profNameEl.textContent = currentProf ? currentProf.name : "Main";
+				profNameEl.textContent = activeProf ? activeProf.name : "Main";
 			}
 
 			if (profSelectEl) {
 				profSelectEl.innerHTML = "";
-				profiles.forEach(function (prof) {
+				meta.list.forEach(function (prof) {
 					const opt = document.createElement("option");
 					opt.value = prof.id;
 					opt.textContent = prof.name;
-					if (prof.active) {
+					if (prof.id === meta.current) {
 						opt.selected = true;
 					}
 					profSelectEl.appendChild(opt);
@@ -3132,35 +2828,32 @@
 			}
 		}
 
+		// Switch profiles directly on the lock screen using native switchProfile(id)
 		if (profSelectEl) {
-			profSelectEl.addEventListener("pointerdown", function (e) { e.stopPropagation(); });
-			profSelectEl.addEventListener("click", function (e) { e.stopPropagation(); });
+			["pointerdown", "mousedown", "touchstart", "click"].forEach(function (ev) {
+				profSelectEl.addEventListener(ev, function (e) { e.stopPropagation(); });
+			});
 			profSelectEl.addEventListener("change", function (e) {
 				e.stopPropagation();
-				const chosenId = profSelectEl.value;
-				const profiles = discoverSystemProfiles();
-				const chosen = profiles.find(function (p) { return p.id === chosenId; });
-				if (!chosen || chosen.active) return;
+				const targetId = profSelectEl.value;
+				const meta = getProfilesMetaSafe();
+				if (!targetId || targetId === meta.current) return;
 
-				localStorage.setItem("browos-reopen-lock", "1");
+				// Keep lock screen open on Stage 2 after switchProfile() reloads the page
+				sessionStorage.setItem("browos-locked", "1");
+				sessionStorage.setItem("browos-lock-auth-open", "1");
 
-				if (typeof chosen.switchAction === "function") {
-					chosen.switchAction();
+				if (typeof switchProfile === "function") {
+					switchProfile(targetId);
 				}
-
-				for (let i = 0; i < localStorage.length; i++) {
-					const k = localStorage.key(i);
-					if (k && /profile/i.test(k) && /active|current/i.test(k)) {
-						localStorage.setItem(k, chosen.id);
-					}
-				}
-				localStorage.setItem("browos-active-profile", chosen.id);
-				location.reload();
 			});
 		}
 
+		// Back button inside PIN / Unlock card returns to Stage 1 (curtain)
 		if (lockBackBtnEl) {
-			lockBackBtnEl.addEventListener("pointerdown", function (e) { e.stopPropagation(); });
+			["pointerdown", "mousedown", "touchstart", "click"].forEach(function (ev) {
+				lockBackBtnEl.addEventListener(ev, function (e) { e.stopPropagation(); });
+			});
 			lockBackBtnEl.addEventListener("click", function (e) {
 				e.stopPropagation();
 				if (lockPinEl) {
@@ -3173,17 +2866,22 @@
 		}
 
 		if (lockScreenEl) {
-			// Reset to Stage 1 (unblurred curtain) whenever lock screen opens
+			// Reset to Stage 1 (unblurred curtain) whenever lockScreen opens
 			new MutationObserver(function () {
 				if (!lockScreenEl.hidden) {
-					lockScreenEl.classList.remove("auth-open", "bos-lock-unlocking");
+					if (sessionStorage.getItem("browos-lock-auth-open") === "1") {
+						sessionStorage.removeItem("browos-lock-auth-open");
+						lockScreenEl.classList.add("auth-open");
+					} else {
+						lockScreenEl.classList.remove("auth-open", "bos-lock-unlocking");
+					}
 					if (lockMsgEl) lockMsgEl.textContent = "";
 					if (lockPinEl) lockPinEl.value = "";
 					syncLockScreenVisuals();
 				}
 			}).observe(lockScreenEl, { attributes: true, attributeFilter: ["hidden"] });
 
-			// Intercept Stage 1 tap/click/key in capture phase so native lock.js NEVER bypasses Stage 2
+			// Stage 1 -> Stage 2 on click/tap/keypress (intercepted in capture phase so non-PIN profiles don't skip Stage 2)
 			function openAuthStageFromCurtain(e) {
 				if (lockScreenEl.hidden) return;
 				if (!lockScreenEl.classList.contains("auth-open")) {
@@ -3191,8 +2889,9 @@
 					e.preventDefault();
 					syncLockScreenVisuals();
 					lockScreenEl.classList.add("auth-open");
-					if (hasPinConfigured() && lockPinEl) {
-						setTimeout(function () { lockPinEl.focus(); }, 120);
+					const withPin = typeof hasPin === "function" ? hasPin() : false;
+					if (withPin && lockPinEl) {
+						setTimeout(function () { lockPinEl.focus(); }, 100);
 					}
 				}
 			}
@@ -3201,62 +2900,53 @@
 				lockScreenEl.addEventListener(evtName, openAuthStageFromCurtain, true);
 			});
 
-			// Verify hashed PIN (or unlock directly if current profile has no PIN)
+			// Block document-level quickUnlock from bypassing Stage 2 on non-PIN profiles
+			document.addEventListener("keydown", function (e) {
+				if (!lockScreenEl.hidden && !lockScreenEl.classList.contains("auth-open")) {
+					openAuthStageFromCurtain(e);
+				}
+			}, true);
+
+			// Handle Unlock button for BOTH PIN and non-PIN profiles
 			if (lockFormEl) {
 				lockFormEl.addEventListener("submit", function (e) {
-					e.preventDefault();
-					e.stopImmediatePropagation();
-
-					if (!hasPinConfigured()) {
+					const withPin = typeof hasPin === "function" ? hasPin() : false;
+					if (!withPin) {
+						e.preventDefault();
+						e.stopImmediatePropagation();
 						lockScreenEl.classList.add("bos-lock-unlocking");
 						setTimeout(function () {
-							lockScreenEl.hidden = true;
+							if (typeof unlockScreen === "function") {
+								unlockScreen();
+							} else {
+								lockScreenEl.hidden = true;
+							}
 							lockScreenEl.classList.remove("auth-open", "bos-lock-unlocking");
-						}, 260);
-						return;
+						}, 220);
 					}
-
-					const entered = lockPinEl ? lockPinEl.value.trim() : "";
-					if (verifyHashedPin(entered)) {
-						if (lockMsgEl) lockMsgEl.textContent = "";
-						if (lockPinEl) lockPinEl.value = "";
-						lockScreenEl.classList.add("bos-lock-unlocking");
-						setTimeout(function () {
-							lockScreenEl.hidden = true;
-							lockScreenEl.classList.remove("auth-open", "bos-lock-unlocking");
-						}, 260);
-					} else {
-						if (lockMsgEl) lockMsgEl.textContent = "Incorrect PIN";
-						if (lockPinEl) {
-							lockPinEl.value = "";
-							lockPinEl.focus();
-						}
-						if (authBoxEl) {
-							authBoxEl.classList.remove("shake");
-							void authBoxEl.offsetWidth;
-							authBoxEl.classList.add("shake");
-						}
-					}
+					// When withPin is true, native lockForm listener in js/lock.js checks PBKDF2 PIN and calls unlockScreen()!
 				}, true);
 			}
 
-			// Ensure lock screen opens on startup if enabled
-			if (localStorage.getItem("browos-lock-startup") === "on") {
-				lockScreenEl.hidden = false;
-				syncLockScreenVisuals();
-			}
+			// Mirror shake animation onto auth card if native lock.js shakes #lockScreen on wrong PIN
+			new MutationObserver(function () {
+				if (lockScreenEl.classList.contains("shake") && authBoxEl) {
+					authBoxEl.classList.remove("shake");
+					void authBoxEl.offsetWidth;
+					authBoxEl.classList.add("shake");
+				}
+			}).observe(lockScreenEl, { attributes: true, attributeFilter: ["class"] });
 
-			// Keep Stage 2 open when switching profiles directly from the lock screen
-			if (localStorage.getItem("browos-reopen-lock") === "1") {
-				localStorage.removeItem("browos-reopen-lock");
-				setTimeout(function () {
-					lockScreenEl.hidden = false;
-					syncLockScreenVisuals();
+			// If lockScreen is already visible on startup (e.g. lock-startup or profile switch), sync visuals immediately
+			if (!lockScreenEl.hidden) {
+				syncLockScreenVisuals();
+				if (sessionStorage.getItem("browos-lock-auth-open") === "1") {
+					sessionStorage.removeItem("browos-lock-auth-open");
 					lockScreenEl.classList.add("auth-open");
-					if (hasPinConfigured() && lockPinEl) {
-						lockPinEl.focus();
+					if (typeof hasPin === "function" && hasPin() && lockPinEl) {
+						setTimeout(function () { lockPinEl.focus(); }, 100);
 					}
-				}, 80);
+				}
 			}
 		}
 
@@ -3355,8 +3045,13 @@
 					const wp = img.dataset.wp;
 					if (previewStage) previewStage.style.backgroundImage = 'url("' + wp + '")';
 					localStorage.setItem("wallpaper", wp);
-					const shell = document.querySelector(".desktop-shell");
-					if (shell) shell.style.backgroundImage = 'url("' + wp + '")';
+					if (typeof setWallpaper === "function") {
+						setWallpaper(wp);
+					} else {
+						const shell = document.querySelector(".desktop-shell");
+						if (shell) shell.style.backgroundImage = 'url("' + wp + '")';
+					}
+					syncLockWallpaper();
 				};
 			});
 
@@ -3426,7 +3121,7 @@
 			if (back1) back1.onclick = function () { showOobeStep(0); };
 			if (next1) next1.onclick = function () { showOobeStep(2); };
 
-			// Step 2: PIN Setup (stores salted SHA-256 hash)
+			// Step 2: PIN Setup using native PBKDF2-SHA256 setPin() from js/lock.js
 			const back2 = document.getElementById("bosOobeBack2");
 			const next2 = document.getElementById("bosOobeNext2");
 			const pin1El = document.getElementById("bosOobePin1");
@@ -3436,7 +3131,7 @@
 
 			if (back2) back2.onclick = function () { showOobeStep(1); };
 			if (next2) {
-				next2.onclick = function () {
+				next2.onclick = async function () {
 					const p1 = pin1El ? pin1El.value.trim() : "";
 					const p2 = pin2El ? pin2El.value.trim() : "";
 					if (pinMsgEl) pinMsgEl.textContent = "";
@@ -3450,16 +3145,16 @@
 							if (pinMsgEl) pinMsgEl.textContent = "PINs do not match.";
 							return;
 						}
-						setHashedPin(p1);
-						refreshSecurityPinUI();
-
+						if (typeof setPin === "function") {
+							await setPin(p1);
+						}
+						if (typeof showPinState === "function") {
+							showPinState();
+						}
 						if (lockStartEl && lockStartEl.checked) {
+							localStorage.setItem("browos-lock-startup", "on");
 							const mainLockToggle = document.getElementById("lockStartupToggle");
-							if (mainLockToggle && !mainLockToggle.checked) {
-								mainLockToggle.click();
-							} else {
-								localStorage.setItem("browos-lock-startup", "on");
-							}
+							if (mainLockToggle) mainLockToggle.checked = true;
 						}
 					}
 					showOobeStep(3);
