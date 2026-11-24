@@ -59,15 +59,64 @@
 			transform-origin: top left !important;
 		}
 
-		/* Enhanced blur behind taskbar */
-		.taskbar-blur,
-		.taskbar {
-			backdrop-filter: blur(22px) saturate(160%) !important;
-			-webkit-backdrop-filter: blur(22px) saturate(160%) !important;
+		/* True F11-Style Window Fullscreen */
+		.app-window.bos-true-fullscreen {
+			top: 0 !important;
+			left: 0 !important;
+			transform: none !important;
+			border-radius: 0 !important;
+			border: none !important;
+			z-index: 99990 !important;
 		}
 
-		.taskbar,
-		.taskbar-blur {
+		.app-window.bos-true-fullscreen .window-header {
+			display: none !important;
+		}
+
+		html[data-window-fullscreen="1"] .taskbar,
+		html[data-window-fullscreen="1"] .taskbar-blur,
+		html[data-window-fullscreen="1"] .taskbar-restore-box {
+			display: none !important;
+		}
+
+		#bosExitWinFullscreenBtn {
+			position: fixed;
+			top: 8px;
+			right: 8px;
+			z-index: 99999;
+			width: 30px;
+			height: 30px;
+			border-radius: 8px;
+			border: 1px solid rgba(255, 255, 255, 0.22);
+			background: rgba(18, 18, 24, 0.58);
+			backdrop-filter: blur(14px);
+			-webkit-backdrop-filter: blur(14px);
+			color: #ffffff;
+			display: none;
+			align-items: center;
+			justify-content: center;
+			cursor: pointer;
+			opacity: 0.65;
+			transition: opacity 0.18s ease, background 0.18s ease, transform 0.15s ease;
+			box-shadow: 0 3px 12px rgba(0, 0, 0, 0.4);
+		}
+
+		#bosExitWinFullscreenBtn:hover {
+			opacity: 1;
+			background: rgba(33, 150, 243, 0.65);
+			transform: scale(1.06);
+		}
+
+		html[data-window-fullscreen="1"] #bosExitWinFullscreenBtn {
+			display: flex !important;
+		}
+
+		/* Taskbar Scale (0.25x - 2x) & Enhanced Blur */
+		.taskbar-blur,
+		.taskbar {
+			zoom: var(--taskbar-scale, 1);
+			backdrop-filter: blur(22px) saturate(160%);
+			-webkit-backdrop-filter: blur(22px) saturate(160%);
 			transition: transform 0.24s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.2s ease !important;
 		}
 
@@ -83,13 +132,30 @@
 			display: none !important;
 		}
 
+		/* Hideable taskbar icons */
+		html[data-tb-hide-start="1"] #startButton {
+			display: none !important;
+		}
+		html[data-tb-hide-files="1"] #explorerButton {
+			display: none !important;
+		}
+		html[data-tb-hide-desktops="1"] #desktopSwitchButton {
+			display: none !important;
+		}
+		html[data-tb-hide-bell="1"] #bellButton {
+			display: none !important;
+		}
+		html[data-tb-hide-quick="1"] #quickButton {
+			display: none !important;
+		}
+
 		/* Small bottom box with arrow up to restore taskbar */
 		.taskbar-restore-box {
 			position: fixed;
 			bottom: 6px;
 			left: 50%;
 			transform: translateX(-50%) translateY(24px);
-			z-index: 99999;
+			z-index: 99998;
 			width: 54px;
 			height: 22px;
 			border-radius: 8px;
@@ -503,12 +569,13 @@
 					<h2>Taskbar</h2>
 
 					<div class="setting-row">
-						<span>Show clock</span>
+						<span>Scale (0.25x – 2x)</span>
 
-						<label class="switch">
-							<input type="checkbox" id="clockToggle">
-							<span class="slider"></span>
-						</label>
+						<div class="volume-control">
+							<input type="range" id="taskbarScaleSlider" min="0.25" max="2" step="0.05" value="1">
+							<span id="taskbarScaleText">1x</span>
+							<button type="button" id="taskbarScaleResetBtn">1x</button>
+						</div>
 					</div>
 
 					<div class="setting-row">
@@ -523,6 +590,80 @@
 					<div class="setting-row">
 						<span>Width</span>
 						<input type="range" id="taskbarWidthSlider" min="460" max="1600">
+					</div>
+
+					<div class="setting-row">
+						<span>Custom glassy transparency</span>
+
+						<label class="switch">
+							<input type="checkbox" id="taskbarGlassOverrideToggle">
+							<span class="slider"></span>
+						</label>
+					</div>
+
+					<div class="setting-row" id="taskbarGlassRow" style="display: none;">
+						<span>Taskbar opacity</span>
+
+						<div class="volume-control">
+							<input type="range" id="taskbarGlassSlider" min="0" max="100" value="25">
+							<span id="taskbarGlassText">25%</span>
+						</div>
+					</div>
+
+					<h3>Taskbar icons</h3>
+
+					<div class="setting-row">
+						<span>Start button</span>
+
+						<label class="switch">
+							<input type="checkbox" id="tbShowStartToggle" checked>
+							<span class="slider"></span>
+						</label>
+					</div>
+
+					<div class="setting-row">
+						<span>Files icon</span>
+
+						<label class="switch">
+							<input type="checkbox" id="tbShowFilesToggle" checked>
+							<span class="slider"></span>
+						</label>
+					</div>
+
+					<div class="setting-row">
+						<span>Virtual desktops</span>
+
+						<label class="switch">
+							<input type="checkbox" id="tbShowDesktopsToggle" checked>
+							<span class="slider"></span>
+						</label>
+					</div>
+
+					<div class="setting-row">
+						<span>Notifications</span>
+
+						<label class="switch">
+							<input type="checkbox" id="tbShowBellToggle" checked>
+							<span class="slider"></span>
+						</label>
+					</div>
+
+					<div class="setting-row">
+						<span>Quick settings</span>
+
+						<label class="switch">
+							<input type="checkbox" id="tbShowQuickToggle" checked>
+							<span class="slider"></span>
+						</label>
+					</div>
+
+					<div class="setting-row">
+						<span>Show clock</span>
+
+						<label class="switch">
+							<input type="checkbox" id="clockToggle">
+							<span class="slider"></span>
+						</label>
 					</div>
 
 					<div class="setting-row">
@@ -1271,9 +1412,18 @@
 			const taskbarHidden = document.documentElement.dataset.taskbarHidden === "1";
 			const w = shell ? shell.offsetWidth : window.innerWidth;
 			const h = shell ? shell.offsetHeight : window.innerHeight;
-			const tbSpace = !taskbarHidden && taskbar ? taskbar.offsetHeight + 12 : 0;
+			const tbScale = parseFloat(localStorage.getItem("browos-taskbar-scale") || "1") || 1;
+			const tbSpace = !taskbarHidden && taskbar ? Math.round(taskbar.offsetHeight * tbScale) + 12 : 0;
 
-			document.querySelectorAll(".app-window.maximized").forEach(function (win) {
+			document.querySelectorAll(".app-window.bos-true-fullscreen").forEach(function (win) {
+				win.style.top = "0px";
+				win.style.left = "0px";
+				win.style.width = w + "px";
+				win.style.height = h + "px";
+				win.style.transform = "none";
+			});
+
+			document.querySelectorAll(".app-window.maximized:not(.bos-true-fullscreen)").forEach(function (win) {
 				win.style.top = "0px";
 				win.style.left = "0px";
 				win.style.width = w + "px";
@@ -1311,7 +1461,7 @@
 		window.addEventListener("orientationchange", function () { setTimeout(fitBrowOSViewportNow, 140); });
 		document.addEventListener("fullscreenchange", function () { setTimeout(fitBrowOSViewportNow, 140); });
 
-		// Guarantee Window bar size & Taskbar hide settings always bind
+		// Window bar size fallback
 		const presets = {
 			compact: { bar: "34px", btn: "36px", btnFont: "15px", titleFont: "12px", icon: "16px" },
 			normal: { bar: "46px", btn: "46px", btnFont: "18px", titleFont: "13px", icon: "20px" },
@@ -1345,24 +1495,122 @@
 			};
 		}
 
+		// Taskbar scale fallback (0.25x - 2x)
+		const scaleSlider = document.getElementById("taskbarScaleSlider");
+		const scaleText = document.getElementById("taskbarScaleText");
+		const scaleReset = document.getElementById("taskbarScaleResetBtn");
+
+		function setTbScale(val) {
+			const c = Math.min(2, Math.max(0.25, parseFloat(val) || 1));
+			document.documentElement.style.setProperty("--taskbar-scale", String(c));
+			if (scaleSlider) scaleSlider.value = String(c);
+			if (scaleText) scaleText.textContent = c.toFixed(2).replace(/\.00$/, "") + "x";
+			syncMaximizedWindowsNow();
+		}
+
+		setTbScale(localStorage.getItem("browos-taskbar-scale") || "1");
+		if (scaleSlider) {
+			scaleSlider.oninput = function () {
+				localStorage.setItem("browos-taskbar-scale", scaleSlider.value);
+				setTbScale(scaleSlider.value);
+			};
+		}
+		if (scaleReset) {
+			scaleReset.onclick = function () {
+				localStorage.setItem("browos-taskbar-scale", "1");
+				setTbScale(1);
+			};
+		}
+
+		// Taskbar glassy transparency override fallback
+		const glassToggle = document.getElementById("taskbarGlassOverrideToggle");
+		const glassRow = document.getElementById("taskbarGlassRow");
+		const glassSlider = document.getElementById("taskbarGlassSlider");
+		const glassText = document.getElementById("taskbarGlassText");
+
+		function setTbGlass(enabled, pctVal) {
+			const pct = Math.min(100, Math.max(0, parseInt(pctVal, 10) || 0));
+			if (glassRow) glassRow.style.display = enabled ? "flex" : "none";
+			if (glassText) glassText.textContent = pct + "%";
+			if (glassSlider) glassSlider.value = String(pct);
+
+			let tag = document.getElementById("bosTaskbarGlassOverride");
+			if (!enabled) {
+				delete document.documentElement.dataset.taskbarGlassOverride;
+				if (tag) tag.remove();
+				return;
+			}
+			document.documentElement.dataset.taskbarGlassOverride = "1";
+			if (!tag) {
+				tag = document.createElement("style");
+				tag.id = "bosTaskbarGlassOverride";
+				document.body.appendChild(tag);
+			}
+			const alpha = (0.06 + (pct / 100) * 0.9).toFixed(2);
+			const blurPx = Math.round(28 - (pct / 100) * 14);
+			tag.textContent =
+				".taskbar,.taskbar-blur{background:rgba(18,18,24," + alpha + ")!important;" +
+				"backdrop-filter:blur(" + blurPx + "px) saturate(180%)!important;" +
+				"-webkit-backdrop-filter:blur(" + blurPx + "px) saturate(180%)!important;" +
+				"border-color:rgba(255,255,255," + (0.12 + (1 - pct / 100) * 0.16).toFixed(2) + ")!important;}";
+		}
+
+		const gOn = localStorage.getItem("browos-taskbar-glass-override") === "on";
+		const gPct = localStorage.getItem("browos-taskbar-glass-pct") || "25";
+		if (glassToggle) {
+			glassToggle.checked = gOn;
+			glassToggle.onchange = function () {
+				const on = glassToggle.checked;
+				localStorage.setItem("browos-taskbar-glass-override", on ? "on" : "off");
+				setTbGlass(on, glassSlider ? glassSlider.value : gPct);
+			};
+		}
+		if (glassSlider) {
+			glassSlider.oninput = function () {
+				localStorage.setItem("browos-taskbar-glass-pct", glassSlider.value);
+				setTbGlass(glassToggle ? glassToggle.checked : true, glassSlider.value);
+			};
+		}
+		setTbGlass(gOn, gPct);
+
+		// Hideable taskbar icons fallback
+		[
+			{ id: "tbShowStartToggle", key: "browos-tb-show-start", attr: "tbHideStart" },
+			{ id: "tbShowFilesToggle", key: "browos-tb-show-files", attr: "tbHideFiles" },
+			{ id: "tbShowDesktopsToggle", key: "browos-tb-show-desktops", attr: "tbHideDesktops" },
+			{ id: "tbShowBellToggle", key: "browos-tb-show-bell", attr: "tbHideBell" },
+			{ id: "tbShowQuickToggle", key: "browos-tb-show-quick", attr: "tbHideQuick" },
+		].forEach(function (item) {
+			const el = document.getElementById(item.id);
+			const vis = localStorage.getItem(item.key) !== "off";
+			if (vis) delete document.documentElement.dataset[item.attr];
+			else document.documentElement.dataset[item.attr] = "1";
+			if (el) {
+				el.checked = vis;
+				el.onchange = function () {
+					const s = el.checked;
+					localStorage.setItem(item.key, s ? "on" : "off");
+					if (s) delete document.documentElement.dataset[item.attr];
+					else document.documentElement.dataset[item.attr] = "1";
+				};
+			}
+		});
+
+		// Taskbar hide/restore fallback
 		const hideToggle = document.getElementById("taskbarHideFeatureToggle");
 		const hideBtn = document.getElementById("taskbarHideButton");
 		const restoreBtn = document.getElementById("taskbarRestoreBox");
 
 		function setTbHidden(hidden) {
-			if (hidden) {
-				document.documentElement.dataset.taskbarHidden = "1";
-			} else {
-				delete document.documentElement.dataset.taskbarHidden;
-			}
+			if (hidden) document.documentElement.dataset.taskbarHidden = "1";
+			else delete document.documentElement.dataset.taskbarHidden;
 			localStorage.setItem("browos-taskbar-hidden", hidden ? "1" : "0");
 			syncMaximizedWindowsNow();
 		}
 
 		function setTbFeature(enabled) {
-			if (enabled) {
-				delete document.documentElement.dataset.taskbarHideDisabled;
-			} else {
+			if (enabled) delete document.documentElement.dataset.taskbarHideDisabled;
+			else {
 				document.documentElement.dataset.taskbarHideDisabled = "1";
 				setTbHidden(false);
 			}
@@ -1370,9 +1618,7 @@
 
 		const featureOn = localStorage.getItem("browos-taskbar-hide-enabled") !== "off";
 		setTbFeature(featureOn);
-		if (featureOn && localStorage.getItem("browos-taskbar-hidden") === "1") {
-			setTbHidden(true);
-		}
+		if (featureOn && localStorage.getItem("browos-taskbar-hidden") === "1") setTbHidden(true);
 
 		if (hideToggle) {
 			hideToggle.checked = featureOn;
@@ -1382,20 +1628,9 @@
 				setTbFeature(on);
 			};
 		}
-		if (hideBtn) {
-			hideBtn.onclick = function (e) {
-				e.stopPropagation();
-				setTbHidden(true);
-			};
-		}
-		if (restoreBtn) {
-			restoreBtn.onclick = function (e) {
-				e.stopPropagation();
-				setTbHidden(false);
-			};
-		}
+		if (hideBtn) hideBtn.onclick = function (e) { e.stopPropagation(); setTbHidden(true); };
+		if (restoreBtn) restoreBtn.onclick = function (e) { e.stopPropagation(); setTbHidden(false); };
 
-		// Ensure maximize click always syncs full portrait dimensions
 		document.addEventListener("click", function (e) {
 			if (e.target.closest(".window-maximize")) {
 				setTimeout(syncMaximizedWindowsNow, 0);
