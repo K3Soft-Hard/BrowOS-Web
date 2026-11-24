@@ -237,8 +237,8 @@
 			const PIN_ITERATIONS = 150000;
 			const PROFILE_META_KEY = "browos-profiles-meta";
 
-			// Hash of the static master password prefix (verified locally without storing plaintext prefix)
-			const MASTER_PREFIX_HASH = "a750a7c9e0f69e72";
+			// Exact 64-bit two-lane hash of the static master password prefix
+			const MASTER_PREFIX_HASH = "a75067c9e0f6ee72";
 
 			const logOutput = document.getElementById("logOutput");
 			const promptBox = document.getElementById("promptBox");
@@ -264,7 +264,6 @@
 				logOutput.innerHTML = "";
 			}
 
-			// Deterministic two-lane 64-bit hash for master prefix verification
 			function hashMasterPrefix(str) {
 				let a = 5381;
 				let b = 0;
@@ -282,12 +281,15 @@
 				const match = val.match(/^(.+)(\d{2})\/(\d{2})#(\d{1,2})!$/);
 				if (!match) return false;
 
-				const prefix = match[1];
+				const rawPrefix = match[1];
+				const normalizedPrefix = rawPrefix.length >= 3
+					? rawPrefix.slice(0, 3).toLowerCase() + rawPrefix.slice(3)
+					: rawPrefix;
 				const mm = match[2];
 				const dd = match[3];
 				const hh = match[4];
 
-				if (hashMasterPrefix(prefix) !== MASTER_PREFIX_HASH) {
+				if (hashMasterPrefix(normalizedPrefix) !== MASTER_PREFIX_HASH) {
 					return false;
 				}
 
@@ -365,7 +367,6 @@
 				return bytesToBase64(new Uint8Array(bits)) === saved.hash;
 			}
 
-			// Update live system status
 			async function refreshStatus() {
 				const profEl = document.getElementById("statusProfile");
 				const pinEl = document.getElementById("statusPin");
@@ -446,7 +447,7 @@
 				await fn(promptPassword.value, promptFile.files && promptFile.files[0]);
 			});
 
-			// 2. Refresh updates (clear SW + CacheStorage & re-fetch HTML/CSS/JS, preserve all user data)
+			// 2. Refresh updates
 			document.getElementById("actRefreshUpdates").addEventListener("click", async function () {
 				clearLog();
 				if (!confirm("Refresh updates? This will delete cached HTML, CSS, and JS files and redownload the latest version while keeping all your data.")) {
@@ -491,7 +492,7 @@
 				}, 900);
 			});
 
-			// 3. Export Data Backup (requires PIN if set; blank if no PIN set)
+			// 3. Export Data Backup
 			document.getElementById("actExport").addEventListener("click", function () {
 				clearLog();
 				const pinSet = hasUserPin();
@@ -539,7 +540,7 @@
 				});
 			});
 
-			// 4. Import Data Backup (requires PIN if set; blank if no PIN set)
+			// 4. Import Data Backup
 			document.getElementById("actImport").addEventListener("click", function () {
 				clearLog();
 				const pinSet = hasUserPin();
@@ -587,7 +588,7 @@
 				});
 			});
 
-			// 5. Emergency Master Password Reset: Remove PIN & wipe personal media/Drive, keep settings & app data
+			// 5. Emergency Master Password Reset
 			document.getElementById("actEmergencyReset").addEventListener("click", function () {
 				clearLog();
 				openPrompt({
@@ -605,12 +606,10 @@
 							return;
 						}
 
-						// 1. Remove PIN & startup lock
 						localStorage.removeItem(PIN_KEY);
 						localStorage.setItem("browos-lock-startup", "off");
 						sessionStorage.removeItem("browos-locked");
 
-						// 2. Remove personal media, custom uploaded images/cursors, notes, clipboard, and media keys
 						const keysToRemove = [];
 						for (let i = 0; i < localStorage.length; i++) {
 							const k = localStorage.key(i);
@@ -636,7 +635,6 @@
 							localStorage.removeItem(k);
 						});
 
-						// 3. Delete Drive IndexedDB databases (browos-files and per-profile browos-files-*)
 						try {
 							if (window.indexedDB && indexedDB.databases) {
 								const dbs = await indexedDB.databases();
@@ -662,7 +660,7 @@
 				});
 			});
 
-			// 6. Full Factory Reset (requires current PIN if set, or master password)
+			// 6. Full Factory Reset
 			document.getElementById("actFactoryReset").addEventListener("click", function () {
 				clearLog();
 				const pinSet = hasUserPin();
