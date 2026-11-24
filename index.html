@@ -38,6 +38,13 @@
 	<link rel="stylesheet" href="css/settings-extra.css">
 
 	<style>
+		:root {
+			--bos-glass-bg: rgba(20, 20, 28, 0.48);
+			--bos-glass-border: rgba(255, 255, 255, 0.14);
+			--bos-glass-blur: 22px;
+			--bos-tb-safe-bottom: 64px;
+		}
+
 		html, body {
 			margin: 0 !important;
 			padding: 0 !important;
@@ -59,7 +66,76 @@
 			transform-origin: top left !important;
 		}
 
-		/* True F11-Style Window Fullscreen */
+		/* =========================================================
+		   FROSTED GLASS WIDGETS & STICKY NOTES (SYNCED WITH TASKBAR)
+		   ========================================================= */
+		.widget-layer {
+			padding-bottom: var(--bos-tb-safe-bottom, 64px);
+			box-sizing: border-box;
+		}
+
+		.widget-layer .widget,
+		.widget-layer .desktop-widget {
+			background: var(--bos-glass-bg) !important;
+			backdrop-filter: blur(var(--bos-glass-blur)) saturate(165%) !important;
+			-webkit-backdrop-filter: blur(var(--bos-glass-blur)) saturate(165%) !important;
+			border: 1px solid var(--bos-glass-border) !important;
+			border-radius: 18px !important;
+			box-shadow: 0 14px 36px rgba(0, 0, 0, 0.34), inset 0 1px 0 rgba(255, 255, 255, 0.12) !important;
+			color: #f8fafc !important;
+			overflow: hidden;
+			transition: box-shadow 0.2s ease, border-color 0.2s ease, transform 0.18s ease, background 0.2s ease;
+		}
+
+		.widget-layer .widget:hover,
+		.widget-layer .desktop-widget:hover {
+			border-color: rgba(255, 255, 255, 0.24) !important;
+			box-shadow: 0 18px 44px rgba(0, 0, 0, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.16) !important;
+		}
+
+		.widget-layer .widget-header,
+		.widget-layer .widget-bar,
+		.widget-layer .widget-titlebar {
+			background: rgba(255, 255, 255, 0.04) !important;
+			border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+			padding: 8px 13px !important;
+			font-size: 11.5px !important;
+			font-weight: 600 !important;
+			letter-spacing: 0.03em;
+			text-transform: uppercase;
+			color: rgba(255, 255, 255, 0.72) !important;
+		}
+
+		.widget-layer .widget-body,
+		.widget-layer .widget-content {
+			padding: 14px 16px !important;
+			font-variant-numeric: tabular-nums;
+		}
+
+		/* Refined Frosted Sticky Notes */
+		.widget-layer .sticky-note,
+		.widget-layer .note-widget {
+			background: rgba(36, 33, 28, 0.56) !important;
+			backdrop-filter: blur(var(--bos-glass-blur)) saturate(160%) !important;
+			-webkit-backdrop-filter: blur(var(--bos-glass-blur)) saturate(160%) !important;
+			border: 1px solid rgba(253, 230, 138, 0.22) !important;
+			border-radius: 16px !important;
+			box-shadow: 0 14px 34px rgba(0, 0, 0, 0.36), inset 0 1px 0 rgba(254, 243, 199, 0.14) !important;
+			color: #fefce8 !important;
+		}
+
+		.widget-layer .sticky-note textarea,
+		.widget-layer .note-widget textarea {
+			background: transparent !important;
+			color: #fefce8 !important;
+			font-family: inherit !important;
+			font-size: 13.5px !important;
+			line-height: 1.5 !important;
+		}
+
+		/* =========================================================
+		   TRUE F11-STYLE WINDOW FULLSCREEN
+		   ========================================================= */
 		.app-window.bos-true-fullscreen {
 			top: 0 !important;
 			left: 0 !important;
@@ -111,7 +187,9 @@
 			display: flex !important;
 		}
 
-		/* Taskbar Scale (0.25x - 2x) & Enhanced Blur */
+		/* =========================================================
+		   TASKBAR SCALE (0.25x - 2x), GLASS & HIDEABLE ICONS
+		   ========================================================= */
 		.taskbar-blur,
 		.taskbar {
 			zoom: var(--taskbar-scale, 1);
@@ -132,7 +210,6 @@
 			display: none !important;
 		}
 
-		/* Hideable taskbar icons */
 		html[data-tb-hide-start="1"] #startButton {
 			display: none !important;
 		}
@@ -154,7 +231,6 @@
 			display: none !important;
 		}
 
-		/* Small bottom box with arrow up to restore taskbar */
 		.taskbar-restore-box {
 			position: fixed;
 			bottom: 6px;
@@ -380,7 +456,6 @@
 			color: #faf5ff;
 		}
 
-		/* Live Desktop Preview Box inside Setup Step 2 */
 		.bos-oobe-preview-wrap {
 			display: grid;
 			grid-template-columns: 1.08fr 1fr;
@@ -678,7 +753,9 @@
 			background-repeat: no-repeat !important;
 			overflow: hidden !important;
 			user-select: none;
-			transition: opacity 0.35s ease, transform 0.35s ease;
+			backdrop-filter: none !important;
+			-webkit-backdrop-filter: none !important;
+			transition: opacity 0.35s ease, transform 0.35s ease, backdrop-filter 0.42s ease, -webkit-backdrop-filter 0.42s ease;
 		}
 
 		#lockScreen[hidden] {
@@ -691,26 +768,33 @@
 			pointer-events: none;
 		}
 
-		/* Backdrop layer: unblurred by default on curtain stage, optional blur via Security toggle, and blurred on auth stage */
 		.bos-lock-backdrop {
 			position: absolute;
 			inset: 0;
-			background: rgba(6, 6, 12, 0.12);
-			backdrop-filter: blur(0px);
-			-webkit-backdrop-filter: blur(0px);
+			background: rgba(6, 6, 12, 0.08);
+			backdrop-filter: none !important;
+			-webkit-backdrop-filter: none !important;
 			transition: backdrop-filter 0.42s cubic-bezier(0.22, 1, 0.36, 1), -webkit-backdrop-filter 0.42s cubic-bezier(0.22, 1, 0.36, 1), background 0.42s ease;
+		}
+
+		html[data-lock-curtain-blur="1"] #lockScreen,
+		html[data-lock-curtain-blur="1"] .bos-lock-backdrop {
+			backdrop-filter: blur(22px) saturate(135%) !important;
+			-webkit-backdrop-filter: blur(22px) saturate(135%) !important;
 		}
 
 		html[data-lock-curtain-blur="1"] .bos-lock-backdrop {
 			background: rgba(8, 7, 16, 0.32);
-			backdrop-filter: blur(22px) saturate(135%);
-			-webkit-backdrop-filter: blur(22px) saturate(135%);
+		}
+
+		#lockScreen.auth-open,
+		#lockScreen.auth-open .bos-lock-backdrop {
+			backdrop-filter: blur(20px) saturate(140%) !important;
+			-webkit-backdrop-filter: blur(20px) saturate(140%) !important;
 		}
 
 		#lockScreen.auth-open .bos-lock-backdrop {
 			background: rgba(8, 7, 16, 0.44);
-			backdrop-filter: blur(20px) saturate(140%);
-			-webkit-backdrop-filter: blur(20px) saturate(140%);
 		}
 
 		#lockScreen .lock-content {
@@ -726,7 +810,6 @@
 			box-sizing: border-box;
 		}
 
-		/* Clock & Date smoothly slide up when entering PIN/Unlock stage */
 		.bos-lock-clock-wrap {
 			display: flex;
 			flex-direction: column;
@@ -748,6 +831,7 @@
 			color: #ffffff !important;
 			text-shadow: 0 6px 28px rgba(0, 0, 0, 0.55);
 			margin: 0 !important;
+			font-variant-numeric: tabular-nums;
 		}
 
 		#lockScreen #lockDate {
@@ -781,7 +865,6 @@
 			transform: translateX(-50%) translateY(10px);
 		}
 
-		/* Auth Card (Avatar + Profile Selector Box + PIN/Unlock + Back) */
 		.bos-lock-auth-box {
 			display: flex;
 			flex-direction: column;
@@ -835,7 +918,6 @@
 			letter-spacing: -0.01em;
 		}
 
-		/* Profile Selector Box */
 		.bos-lock-profile-box {
 			width: 100%;
 			display: flex;
@@ -1010,7 +1092,7 @@
 						</div>
 						<div class="bos-oobe-preview-taskbar" id="bosOobePreviewTaskbar">
 							<span>Start</span>
-							<span>15:14</span>
+							<span>15:43</span>
 						</div>
 					</div>
 
@@ -1073,7 +1155,7 @@
 			<!-- Step 3: Security & PIN -->
 			<div class="bos-oobe-step" data-step="2">
 				<h2 class="bos-oobe-title">Lock screen &amp; PIN</h2>
-				<p class="bos-oobe-sub" style="max-width:none;">Protect your desktop with a 4–8 digit PIN, or leave blank to unlock with one click. You can also switch profiles directly on the lock screen.</p>
+				<p class="bos-oobe-sub" style="max-width:none;">Protect your desktop with a 4–8 digit PIN (stored securely as a salted hash), or leave blank to unlock with one click.</p>
 
 				<div class="bos-oobe-row">
 					<span>New PIN (4–8 digits)</span>
@@ -1107,7 +1189,7 @@
 						</svg>
 					</div>
 					<h2 class="bos-oobe-hello" style="font-size:36px;">You’re all set</h2>
-					<p class="bos-oobe-sub">Everything is configured and ready. Click <strong>Finish</strong> to enter your desktop and start the quick tutorial.</p>
+					<p class="bos-oobe-sub">Everything is configured and ready. Click <strong>Finish</strong> to enter your desktop and start the tutorial.</p>
 				</div>
 
 				<div class="bos-oobe-actions">
@@ -1594,7 +1676,7 @@
 
 					<h3>Lock screen &amp; Privacy</h3>
 
-					<p class="settings-note">The lock screen covers your desktop. A PIN keeps other people from using it, but it is not strong security: anyone who can use your browser profile can still reach what BrowOS keeps in it. If you forget the PIN, open the browser's developer tools on this page and run <code>localStorage.removeItem("browos-pin")</code>.</p>
+					<p class="settings-note">The lock screen covers your desktop. Your PIN is stored locally as a salted SHA-256 hash rather than plain text.</p>
 
 					<div class="setting-row">
 						<span>Blur lock screen background</span>
@@ -2360,6 +2442,228 @@
 
 <script>
 	(function () {
+		// =========================================================
+		// PURE-JS SALTED SHA-256 PIN HASHER (NO EXTERNAL APIS)
+		// =========================================================
+		function pureSha256Hex(ascii) {
+			function rightRotate(value, amount) {
+				return (value >>> amount) | (value << (32 - amount));
+			}
+			const mathPow = Math.pow;
+			const maxWord = mathPow(2, 32);
+			let result = "";
+			const words = [];
+			const asciiBitLength = ascii.length * 8;
+			const hash = [];
+			const k = [];
+			let primeCounter = 0;
+			const isComposite = {};
+
+			for (let candidate = 2; primeCounter < 64; candidate++) {
+				if (!isComposite[candidate]) {
+					for (let i = 0; i < 313; i += candidate) {
+						isComposite[i] = candidate;
+					}
+					hash[primeCounter] = (mathPow(candidate, 0.5) * maxWord) | 0;
+					k[primeCounter++] = (mathPow(candidate, 1 / 3) * maxWord) | 0;
+				}
+			}
+
+			ascii += "\x80";
+			while ((ascii.length % 64) - 56) ascii += "\x00";
+			for (let i = 0; i < ascii.length; i++) {
+				const j = ascii.charCodeAt(i);
+				words[i >> 2] |= j << (((3 - i) % 4) * 8);
+			}
+			words[words.length] = (asciiBitLength / maxWord) | 0;
+			words[words.length] = asciiBitLength;
+
+			for (let j = 0; j < words.length;) {
+				const w = words.slice(j, (j += 16));
+				const oldHash = hash.slice(0);
+
+				for (let i = 0; i < 64; i++) {
+					const w15 = w[i - 15];
+					const w2 = w[i - 2];
+					const a = hash[0];
+					const e = hash[4];
+					const temp1 =
+						hash[7] +
+						(rightRotate(e, 6) ^ rightRotate(e, 11) ^ rightRotate(e, 25)) +
+						((e & hash[5]) ^ (~e & hash[6])) +
+						k[i] +
+						(w[i] =
+							i < 16
+								? w[i]
+								: (w[i - 16] +
+										(rightRotate(w15, 7) ^ rightRotate(w15, 18) ^ (w15 >>> 3)) +
+										w[i - 7] +
+										(rightRotate(w2, 17) ^ rightRotate(w2, 19) ^ (w2 >>> 10))) |
+									0);
+					const temp2 =
+						(rightRotate(a, 2) ^ rightRotate(a, 13) ^ rightRotate(a, 22)) +
+						((a & hash[1]) ^ (a & hash[2]) ^ (hash[1] & hash[2]));
+
+					hash.unshift((temp1 + temp2) | 0);
+					hash[4] = (hash[4] + temp1) | 0;
+					hash.pop();
+				}
+
+				for (let i = 0; i < 8; i++) {
+					hash[i] = (hash[i] + oldHash[i]) | 0;
+				}
+			}
+
+			for (let i = 0; i < 8; i++) {
+				for (let j = 3; j + 1; j--) {
+					const b = (hash[i] >> (j * 8)) & 255;
+					result += (b < 16 ? "0" : "") + b.toString(16);
+				}
+			}
+			return result;
+		}
+
+		function generatePinSalt() {
+			let s = "";
+			const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+			for (let i = 0; i < 24; i++) {
+				s += chars.charAt(Math.floor(Math.random() * chars.length));
+			}
+			return s + ":" + Date.now().toString(36);
+		}
+
+		function hashPinWithSalt(pin, salt) {
+			let acc = salt + "::" + pin + "::BrowOS_PinGuard";
+			for (let i = 0; i < 1200; i++) {
+				acc = pureSha256Hex(acc + ":" + i);
+			}
+			return acc;
+		}
+
+		function hasPinConfigured() {
+			return Boolean(localStorage.getItem("browos-pin-hash") || localStorage.getItem("browos-pin"));
+		}
+
+		function setHashedPin(plainPin) {
+			const salt = generatePinSalt();
+			const digest = hashPinWithSalt(plainPin, salt);
+			localStorage.setItem("browos-pin-salt", salt);
+			localStorage.setItem("browos-pin-hash", digest);
+			// Never keep plaintext PIN in localStorage
+			localStorage.removeItem("browos-pin");
+		}
+
+		function clearHashedPin() {
+			localStorage.removeItem("browos-pin-salt");
+			localStorage.removeItem("browos-pin-hash");
+			localStorage.removeItem("browos-pin");
+		}
+
+		function verifyHashedPin(candidatePin) {
+			const legacyPlain = localStorage.getItem("browos-pin");
+			if (legacyPlain) {
+				if (candidatePin === legacyPlain) {
+					setHashedPin(candidatePin);
+					return true;
+				}
+				return false;
+			}
+			const salt = localStorage.getItem("browos-pin-salt");
+			const storedHash = localStorage.getItem("browos-pin-hash");
+			if (!salt || !storedHash) return true;
+			return hashPinWithSalt(candidatePin, salt) === storedHash;
+		}
+
+		// Automatically migrate any legacy plaintext PIN to salted hash on load
+		(function migrateLegacyPin() {
+			const legacy = localStorage.getItem("browos-pin");
+			if (legacy) {
+				setHashedPin(legacy);
+			}
+		})();
+
+		// Sync Settings -> Security UI with hashed PIN state
+		function refreshSecurityPinUI() {
+			const statusEl = document.getElementById("pinStatus");
+			const currentRow = document.getElementById("pinCurrentRow");
+			const removeBtn = document.getElementById("pinRemove");
+			const configured = hasPinConfigured();
+
+			if (statusEl) {
+				statusEl.textContent = configured ? "PIN is set (salted SHA-256 hash)" : "No PIN is set";
+			}
+			if (currentRow) {
+				currentRow.hidden = !configured;
+			}
+			if (removeBtn) {
+				removeBtn.hidden = !configured;
+			}
+		}
+
+		refreshSecurityPinUI();
+
+		const pinSaveBtn = document.getElementById("pinSave");
+		const pinRemoveBtn = document.getElementById("pinRemove");
+		const pinCurrentEl = document.getElementById("pinCurrent");
+		const pinNewEl = document.getElementById("pinNew");
+		const pinConfirmEl = document.getElementById("pinConfirm");
+		const pinMsgEl = document.getElementById("pinMessage");
+
+		if (pinSaveBtn) {
+			pinSaveBtn.addEventListener("click", function (e) {
+				e.stopImmediatePropagation();
+				e.preventDefault();
+
+				const configured = hasPinConfigured();
+				const curVal = pinCurrentEl ? pinCurrentEl.value.trim() : "";
+				const newVal = pinNewEl ? pinNewEl.value.trim() : "";
+				const confVal = pinConfirmEl ? pinConfirmEl.value.trim() : "";
+
+				if (configured && !verifyHashedPin(curVal)) {
+					if (pinMsgEl) pinMsgEl.textContent = "Current PIN is incorrect.";
+					return;
+				}
+				if (!/^\d{4,8}$/.test(newVal)) {
+					if (pinMsgEl) pinMsgEl.textContent = "PIN must be 4 to 8 digits.";
+					return;
+				}
+				if (newVal !== confVal) {
+					if (pinMsgEl) pinMsgEl.textContent = "New PINs do not match.";
+					return;
+				}
+
+				setHashedPin(newVal);
+				if (pinCurrentEl) pinCurrentEl.value = "";
+				if (pinNewEl) pinNewEl.value = "";
+				if (pinConfirmEl) pinConfirmEl.value = "";
+				if (pinMsgEl) pinMsgEl.textContent = "PIN saved securely.";
+				refreshSecurityPinUI();
+			}, true);
+		}
+
+		if (pinRemoveBtn) {
+			pinRemoveBtn.addEventListener("click", function (e) {
+				e.stopImmediatePropagation();
+				e.preventDefault();
+
+				const curVal = pinCurrentEl ? pinCurrentEl.value.trim() : "";
+				if (hasPinConfigured() && !verifyHashedPin(curVal)) {
+					if (pinMsgEl) pinMsgEl.textContent = "Enter your current PIN to remove it.";
+					return;
+				}
+
+				clearHashedPin();
+				if (pinCurrentEl) pinCurrentEl.value = "";
+				if (pinNewEl) pinNewEl.value = "";
+				if (pinConfirmEl) pinConfirmEl.value = "";
+				if (pinMsgEl) pinMsgEl.textContent = "PIN removed.";
+				refreshSecurityPinUI();
+			}, true);
+		}
+
+		// =========================================================
+		// VIEWPORT, MAXIMIZE & FROSTED WIDGETS SYNC
+		// =========================================================
 		function syncMaximizedWindowsNow() {
 			const shell = document.querySelector(".desktop-shell");
 			const taskbar = document.querySelector(".taskbar");
@@ -2368,6 +2672,8 @@
 			const h = shell ? shell.offsetHeight : window.innerHeight;
 			const tbScale = parseFloat(localStorage.getItem("browos-taskbar-scale") || "1") || 1;
 			const tbSpace = !taskbarHidden && taskbar ? Math.round(taskbar.offsetHeight * tbScale) + 12 : 0;
+
+			document.documentElement.style.setProperty("--bos-tb-safe-bottom", tbSpace + "px");
 
 			document.querySelectorAll(".app-window.bos-true-fullscreen").forEach(function (win) {
 				win.style.top = "0px";
@@ -2383,6 +2689,15 @@
 				win.style.width = w + "px";
 				win.style.height = Math.max(240, h - tbSpace) + "px";
 				win.style.transform = "none";
+			});
+
+			// Keep widgets above taskbar when taskbar is visible
+			document.querySelectorAll(".widget-layer .widget, .widget-layer .desktop-widget, .widget-layer .sticky-note").forEach(function (el) {
+				const maxBottom = h - tbSpace - 8;
+				const rectBottom = el.offsetTop + el.offsetHeight;
+				if (rectBottom > maxBottom && maxBottom > 120) {
+					el.style.top = Math.max(12, maxBottom - el.offsetHeight) + "px";
+				}
 			});
 		}
 
@@ -2476,7 +2791,7 @@
 			};
 		}
 
-		// Taskbar glassy transparency override
+		// Taskbar glassy transparency override (also syncs frosted widgets!)
 		const glassToggle = document.getElementById("taskbarGlassOverrideToggle");
 		const glassRow = document.getElementById("taskbarGlassRow");
 		const glassSlider = document.getElementById("taskbarGlassSlider");
@@ -2491,6 +2806,9 @@
 			let tag = document.getElementById("bosTaskbarGlassOverride");
 			if (!enabled) {
 				delete document.documentElement.dataset.taskbarGlassOverride;
+				document.documentElement.style.setProperty("--bos-glass-bg", "rgba(20, 20, 28, 0.48)");
+				document.documentElement.style.setProperty("--bos-glass-blur", "22px");
+				document.documentElement.style.setProperty("--bos-glass-border", "rgba(255, 255, 255, 0.14)");
 				if (tag) tag.remove();
 				return;
 			}
@@ -2502,11 +2820,17 @@
 			}
 			const alpha = (0.06 + (pct / 100) * 0.9).toFixed(2);
 			const blurPx = Math.round(28 - (pct / 100) * 14);
+			const borderAlpha = (0.12 + (1 - pct / 100) * 0.16).toFixed(2);
+
+			document.documentElement.style.setProperty("--bos-glass-bg", "rgba(18, 18, 24, " + alpha + ")");
+			document.documentElement.style.setProperty("--bos-glass-blur", blurPx + "px");
+			document.documentElement.style.setProperty("--bos-glass-border", "rgba(255, 255, 255, " + borderAlpha + ")");
+
 			tag.textContent =
 				".taskbar,.taskbar-blur{background:rgba(18,18,24," + alpha + ")!important;" +
 				"backdrop-filter:blur(" + blurPx + "px) saturate(180%)!important;" +
 				"-webkit-backdrop-filter:blur(" + blurPx + "px) saturate(180%)!important;" +
-				"border-color:rgba(255,255,255," + (0.12 + (1 - pct / 100) * 0.16).toFixed(2) + ")!important;}";
+				"border-color:rgba(255,255,255," + borderAlpha + ")!important;}";
 		}
 
 		const gOn = localStorage.getItem("browos-taskbar-glass-override") === "on";
@@ -2585,7 +2909,7 @@
 		if (hideBtn) hideBtn.onclick = function (e) { e.stopPropagation(); setTbHidden(true); };
 		if (restoreBtn) restoreBtn.onclick = function (e) { e.stopPropagation(); setTbHidden(false); };
 
-		// Lock screen curtain blur fallback
+		// Lock screen curtain blur toggle
 		const lockBlurToggle = document.getElementById("lockBlurCurtainToggle");
 		function setLockCurtainBlur(on) {
 			if (on) document.documentElement.dataset.lockCurtainBlur = "1";
@@ -2633,7 +2957,7 @@
 		}
 
 		// =========================================================
-		// WINDOWS-STYLE LOCK SCREEN + PROFILE SELECTOR BOX + BACK BUTTON
+		// WINDOWS-STYLE LOCK SCREEN + SYSTEM PROFILES SYNC + HASHED PIN
 		// =========================================================
 		const lockScreenEl = document.getElementById("lockScreen");
 		const lockPinEl = document.getElementById("lockPin");
@@ -2644,47 +2968,120 @@
 		const profSelectEl = document.getElementById("bosLockProfileSelect");
 		const lockBackBtnEl = document.getElementById("bosLockBackBtn");
 
-		function getSavedProfiles() {
-			const keysToTry = ["browos-profiles", "profiles", "browos_profiles"];
-			for (let i = 0; i < keysToTry.length; i++) {
-				try {
-					const raw = localStorage.getItem(keysToTry[i]);
-					if (!raw) continue;
-					const parsed = JSON.parse(raw);
-					if (Array.isArray(parsed) && parsed.length > 0) {
-						return parsed.map(function (p, idx) {
-							if (typeof p === "string") return { id: p, name: p };
-							return { id: p.id || p.key || String(idx), name: p.name || p.label || (idx === 0 ? "Main" : "Profile " + (idx + 1)) };
+		// Discover profiles both from #systemPage (rendered by js/profiles.js) and localStorage
+		function discoverSystemProfiles() {
+			const found = [];
+			const seenNames = new Set();
+
+			function addProfile(id, name, active, switchAction) {
+				const cleanName = String(name || "").trim();
+				if (!cleanName || seenNames.has(cleanName.toLowerCase())) return;
+				seenNames.add(cleanName.toLowerCase());
+				found.push({ id: String(id), name: cleanName, active: Boolean(active), switchAction: switchAction || null });
+			}
+
+			// 1. Inspect rendered profile items/buttons/selects in Settings -> System (#systemPage)
+			const sysPage = document.getElementById("systemPage");
+			if (sysPage) {
+				const sysSelect = sysPage.querySelector("select");
+				if (sysSelect && sysSelect.options.length > 0) {
+					Array.from(sysSelect.options).forEach(function (opt) {
+						addProfile(opt.value, opt.textContent, opt.selected, function () {
+							sysSelect.value = opt.value;
+							sysSelect.dispatchEvent(new Event("change", { bubbles: true }));
 						});
+					});
+				}
+
+				// Look for profile rows/cards that have a "Switch" button
+				const switchButtons = Array.from(sysPage.querySelectorAll("button")).filter(function (b) {
+					return /switch/i.test(b.textContent.trim());
+				});
+				switchButtons.forEach(function (btn, idx) {
+					const row = btn.closest("div, li, tr");
+					if (!row) return;
+					const textParts = Array.from(row.querySelectorAll("span, strong, div, p"))
+						.map(function (el) { return el.textContent.trim(); })
+						.filter(function (t) { return t && !/switch|delete|remove|active|current/i.test(t); });
+					const pName = textParts[0] || ("Profile " + (idx + 1));
+					addProfile("sys-" + idx, pName, false, function () {
+						btn.click();
+					});
+				});
+
+				// Also detect active profile label in #systemPage
+				const activeIndicators = Array.from(sysPage.querySelectorAll("span, div, strong")).filter(function (el) {
+					return /\(active\)|\(current\)/i.test(el.textContent);
+				});
+				activeIndicators.forEach(function (el) {
+					const raw = el.textContent.replace(/\(active\)|\(current\)/gi, "").trim();
+					if (raw) {
+						addProfile("active-" + raw, raw, true, null);
 					}
-					if (parsed && typeof parsed === "object") {
-						const entries = Object.entries(parsed);
-						if (entries.length > 0) {
-							return entries.map(function (entry, idx) {
-								const k = entry[0];
-								const v = entry[1];
-								return { id: k, name: (v && v.name) ? v.name : (k === "default" ? "Main" : k) };
-							});
-						}
+				});
+			}
+
+			// 2. Scan all localStorage keys related to profiles
+			for (let i = 0; i < localStorage.length; i++) {
+				const k = localStorage.key(i);
+				if (!k || !/profile/i.test(k) || /active|current|reopen/i.test(k)) continue;
+				try {
+					const parsed = JSON.parse(localStorage.getItem(k));
+					if (Array.isArray(parsed)) {
+						parsed.forEach(function (item, idx) {
+							if (typeof item === "string") {
+								addProfile(item, item, false, null);
+							} else if (item && typeof item === "object") {
+								addProfile(item.id || item.key || item.name || idx, item.name || item.label || item.id, Boolean(item.active), null);
+							}
+						});
+					} else if (parsed && typeof parsed === "object") {
+						Object.entries(parsed).forEach(function (entry) {
+							const pk = entry[0];
+							const pv = entry[1];
+							if (pv && typeof pv === "object" && (pv.name || pv.data || pv.storage)) {
+								addProfile(pk, pv.name || pk, false, null);
+							}
+						});
 					}
 				} catch (e) {}
 			}
-			return [{ id: "default", name: "Main" }];
-		}
 
-		function getActiveProfileId(list) {
-			const activeKeys = ["browos-active-profile", "browos-profile", "activeProfile", "browos_active_profile"];
-			for (let i = 0; i < activeKeys.length; i++) {
-				const val = localStorage.getItem(activeKeys[i]);
-				if (val) return val;
+			if (found.length === 0) {
+				addProfile("main", "Main", true, null);
 			}
-			return list[0] ? list[0].id : "default";
+
+			// Determine active profile ID from localStorage
+			let activeId = null;
+			for (let i = 0; i < localStorage.length; i++) {
+				const k = localStorage.key(i);
+				if (k && /profile/i.test(k) && /active|current/i.test(k)) {
+					const v = localStorage.getItem(k);
+					if (v) {
+						activeId = v;
+						break;
+					}
+				}
+			}
+
+			if (activeId) {
+				found.forEach(function (p) {
+					if (p.id === activeId || p.name.toLowerCase() === activeId.toLowerCase()) {
+						p.active = true;
+					}
+				});
+			}
+
+			if (!found.some(function (p) { return p.active; })) {
+				found[0].active = true;
+			}
+
+			return found;
 		}
 
 		function syncLockScreenVisuals() {
 			if (!lockScreenEl) return;
 
-			// Use current BrowOS wallpaper on lock screen
 			const wp = localStorage.getItem("wallpaper") === "custom"
 				? localStorage.getItem("customWallpaper")
 				: (localStorage.getItem("wallpaper") || "wallpapers/wallpaper.jpg");
@@ -2692,14 +3089,11 @@
 				lockScreenEl.style.backgroundImage = 'url("' + wp + '")';
 			}
 
-			// Toggle PIN input vs one-click Unlock button
-			const hasPin = Boolean(localStorage.getItem("browos-pin"));
+			const hasPin = hasPinConfigured();
 			lockScreenEl.classList.toggle("no-pin", !hasPin);
 
-			// Populate active profile name & profile selector box
-			const profiles = getSavedProfiles();
-			const activeId = getActiveProfileId(profiles);
-			const currentProf = profiles.find(function (p) { return p.id === activeId; }) || profiles[0];
+			const profiles = discoverSystemProfiles();
+			const currentProf = profiles.find(function (p) { return p.active; }) || profiles[0];
 
 			if (profNameEl) {
 				profNameEl.textContent = currentProf ? currentProf.name : "Main";
@@ -2711,7 +3105,7 @@
 					const opt = document.createElement("option");
 					opt.value = prof.id;
 					opt.textContent = prof.name;
-					if (prof.id === activeId) {
+					if (prof.active) {
 						opt.selected = true;
 					}
 					profSelectEl.appendChild(opt);
@@ -2725,14 +3119,25 @@
 			profSelectEl.addEventListener("change", function (e) {
 				e.stopPropagation();
 				const chosenId = profSelectEl.value;
-				const profiles = getSavedProfiles();
-				const activeId = getActiveProfileId(profiles);
-				if (!chosenId || chosenId === activeId) return;
+				const profiles = discoverSystemProfiles();
+				const chosen = profiles.find(function (p) { return p.id === chosenId; });
+				if (!chosen || chosen.active) return;
 
-				localStorage.setItem("browos-active-profile", chosenId);
-				localStorage.setItem("browos-profile", chosenId);
-				localStorage.setItem("activeProfile", chosenId);
 				localStorage.setItem("browos-reopen-lock", "1");
+
+				// Trigger native switcher from #systemPage if available
+				if (typeof chosen.switchAction === "function") {
+					chosen.switchAction();
+				}
+
+				// Also update any active-profile keys in localStorage and reload
+				for (let i = 0; i < localStorage.length; i++) {
+					const k = localStorage.key(i);
+					if (k && /profile/i.test(k) && /active|current/i.test(k)) {
+						localStorage.setItem(k, chosen.id);
+					}
+				}
+				localStorage.setItem("browos-active-profile", chosen.id);
 				location.reload();
 			});
 		}
@@ -2751,7 +3156,6 @@
 		}
 
 		if (lockScreenEl) {
-			// Reset to curtain stage whenever lock screen opens
 			new MutationObserver(function () {
 				if (!lockScreenEl.hidden) {
 					lockScreenEl.classList.remove("auth-open", "bos-lock-unlocking");
@@ -2761,33 +3165,34 @@
 				}
 			}).observe(lockScreenEl, { attributes: true, attributeFilter: ["hidden"] });
 
-			// Stage 1 -> Stage 2 on click/tap or keypress
 			lockScreenEl.addEventListener("pointerdown", function (e) {
 				if (!lockScreenEl.classList.contains("auth-open")) {
 					e.stopPropagation();
 					syncLockScreenVisuals();
 					lockScreenEl.classList.add("auth-open");
-					if (localStorage.getItem("browos-pin") && lockPinEl) {
+					if (hasPinConfigured() && lockPinEl) {
 						setTimeout(function () { lockPinEl.focus(); }, 120);
 					}
 				}
 			});
 
-			lockScreenEl.addEventListener("keydown", function (e) {
+			lockScreenEl.addEventListener("keydown", function () {
 				if (!lockScreenEl.classList.contains("auth-open")) {
 					syncLockScreenVisuals();
 					lockScreenEl.classList.add("auth-open");
-					if (localStorage.getItem("browos-pin") && lockPinEl) {
+					if (hasPinConfigured() && lockPinEl) {
 						setTimeout(function () { lockPinEl.focus(); }, 80);
 					}
 				}
 			});
 
-			// Handle PIN submit / No-PIN instant unlock smoothly
+			// Verify hashed PIN on unlock (intercepts before legacy plaintext lock.js handler)
 			if (lockFormEl) {
-				lockFormEl.addEventListener("submit", function () {
-					const savedPin = localStorage.getItem("browos-pin");
-					if (!savedPin) {
+				lockFormEl.addEventListener("submit", function (e) {
+					e.preventDefault();
+					e.stopImmediatePropagation();
+
+					if (!hasPinConfigured()) {
 						lockScreenEl.classList.add("bos-lock-unlocking");
 						setTimeout(function () {
 							lockScreenEl.hidden = true;
@@ -2795,18 +3200,37 @@
 						}, 260);
 						return;
 					}
-					const entered = lockPinEl ? lockPinEl.value : "";
-					if (entered === savedPin) {
+
+					const entered = lockPinEl ? lockPinEl.value.trim() : "";
+					if (verifyHashedPin(entered)) {
+						if (lockMsgEl) lockMsgEl.textContent = "";
+						if (lockPinEl) lockPinEl.value = "";
 						lockScreenEl.classList.add("bos-lock-unlocking");
-					} else if (authBoxEl) {
-						authBoxEl.classList.remove("shake");
-						void authBoxEl.offsetWidth;
-						authBoxEl.classList.add("shake");
+						setTimeout(function () {
+							lockScreenEl.hidden = true;
+							lockScreenEl.classList.remove("auth-open", "bos-lock-unlocking");
+						}, 260);
+					} else {
+						if (lockMsgEl) lockMsgEl.textContent = "Incorrect PIN";
+						if (lockPinEl) {
+							lockPinEl.value = "";
+							lockPinEl.focus();
+						}
+						if (authBoxEl) {
+							authBoxEl.classList.remove("shake");
+							void authBoxEl.offsetWidth;
+							authBoxEl.classList.add("shake");
+						}
 					}
 				}, true);
 			}
 
-			// Re-open lock screen seamlessly if user switched profiles on the lock screen
+			// If lock-startup is enabled with hashed PIN, ensure lockScreen opens on boot
+			if (localStorage.getItem("browos-lock-startup") === "on" && hasPinConfigured()) {
+				lockScreenEl.hidden = false;
+				syncLockScreenVisuals();
+			}
+
 			if (localStorage.getItem("browos-reopen-lock") === "1") {
 				localStorage.removeItem("browos-reopen-lock");
 				setTimeout(function () {
@@ -2837,7 +3261,6 @@
 				oobeOverlay.classList.add("closing");
 
 				if (keepTutorial) {
-					// Leave tutorial enabled so BrowOS's normal tutorial shows on desktop
 					localStorage.removeItem("browos-tour-done");
 					setTimeout(function () {
 						oobeOverlay.classList.remove("open", "closing");
@@ -2861,17 +3284,14 @@
 				}
 			}
 
-			// Skip all right on first screen
 			const skipAllBtn = document.getElementById("bosOobeSkipAllBtn");
 			if (skipAllBtn) {
 				skipAllBtn.onclick = function () { closeOobeWizard(false); };
 			}
 
-			// Step 0 -> 1
 			const next0 = document.getElementById("bosOobeNext0");
 			if (next0) next0.onclick = function () { showOobeStep(1); };
 
-			// Step 1: Wallpaper + Glass Sliders + Live Preview Box
 			const previewStage = document.getElementById("bosOobePreviewStage");
 			const previewWin = document.getElementById("bosOobePreviewWin");
 			const previewTb = document.getElementById("bosOobePreviewTaskbar");
@@ -2987,7 +3407,7 @@
 			if (back1) back1.onclick = function () { showOobeStep(0); };
 			if (next1) next1.onclick = function () { showOobeStep(2); };
 
-			// Step 2: PIN Setup
+			// Step 2: PIN Setup (stores salted SHA-256 hash)
 			const back2 = document.getElementById("bosOobeBack2");
 			const next2 = document.getElementById("bosOobeNext2");
 			const pin1El = document.getElementById("bosOobePin1");
@@ -3011,16 +3431,9 @@
 							if (pinMsgEl) pinMsgEl.textContent = "PINs do not match.";
 							return;
 						}
-						const mainPinNew = document.getElementById("pinNew");
-						const mainPinConf = document.getElementById("pinConfirm");
-						const mainPinSave = document.getElementById("pinSave");
-						if (mainPinNew && mainPinConf && mainPinSave) {
-							mainPinNew.value = p1;
-							mainPinConf.value = p2;
-							mainPinSave.click();
-						} else {
-							localStorage.setItem("browos-pin", p1);
-						}
+						setHashedPin(p1);
+						refreshSecurityPinUI();
+
 						if (lockStartEl && lockStartEl.checked) {
 							const mainLockToggle = document.getElementById("lockStartupToggle");
 							if (mainLockToggle && !mainLockToggle.checked) {
@@ -3034,13 +3447,21 @@
 				};
 			}
 
-			// Step 3: "You're all set" -> Single Finish Button
+			// Step 3: Single Finish button -> enters desktop with tutorial
 			const back3 = document.getElementById("bosOobeBack3");
 			const finishBtn = document.getElementById("bosOobeFinishBtn");
 			if (back3) back3.onclick = function () { showOobeStep(2); };
 			if (finishBtn) {
 				finishBtn.onclick = function () { closeOobeWizard(true); };
 			}
+		}
+
+		// Sync widget geometry whenever widgets are added or moved
+		const widgetLayerEl = document.getElementById("widgetLayer");
+		if (widgetLayerEl) {
+			new MutationObserver(function () {
+				syncMaximizedWindowsNow();
+			}).observe(widgetLayerEl, { childList: true });
 		}
 
 		document.addEventListener("click", function (e) {
