@@ -136,10 +136,15 @@
 		html[data-tb-hide-start="1"] #startButton {
 			display: none !important;
 		}
-		html[data-tb-hide-files="1"] #explorerButton {
+		html[data-tb-hide-desktops="1"] #desktopSwitchButton,
+		html[data-tb-hide-desktops="1"] #desktopsButton,
+		html[data-tb-hide-desktops="1"] .taskbar [title*="desktop" i],
+		html[data-tb-hide-desktops="1"] .taskbar [aria-label*="desktop" i] {
 			display: none !important;
 		}
-		html[data-tb-hide-desktops="1"] #desktopSwitchButton {
+		html[data-tb-hide-clipboard="1"] #clipboardButton,
+		html[data-tb-hide-clipboard="1"] .taskbar [title*="clipboard" i],
+		html[data-tb-hide-clipboard="1"] .taskbar [aria-label*="clipboard" i] {
 			display: none !important;
 		}
 		html[data-tb-hide-bell="1"] #bellButton {
@@ -202,10 +207,346 @@
 		.taskbar-hide-btn:hover {
 			background: rgba(255, 255, 255, 0.16);
 		}
+
+		/* Full PC-Like OOBE Setup Wizard */
+		#bosOobeOverlay {
+			position: fixed;
+			inset: 0;
+			z-index: 200000;
+			display: none;
+			align-items: center;
+			justify-content: center;
+			padding: 20px;
+			background: radial-gradient(circle at 22% 18%, #9d6bff 0%, #5b21b6 38%, #240944 74%, #0f041e 100%);
+			color: #ffffff;
+			font-family: inherit;
+			overflow-y: auto;
+		}
+
+		#bosOobeOverlay.open {
+			display: flex;
+		}
+
+		.bos-oobe-card {
+			width: 100%;
+			max-width: 560px;
+			background: rgba(16, 10, 30, 0.68);
+			border: 1px solid rgba(216, 180, 254, 0.25);
+			border-radius: 22px;
+			padding: 32px 30px;
+			backdrop-filter: blur(26px) saturate(160%);
+			-webkit-backdrop-filter: blur(26px) saturate(160%);
+			box-shadow: 0 28px 80px rgba(0, 0, 0, 0.6);
+			display: flex;
+			flex-direction: column;
+			gap: 20px;
+			animation: bosOobeFadeIn 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+		}
+
+		@keyframes bosOobeFadeIn {
+			from { opacity: 0; transform: translateY(14px) scale(0.98); }
+			to { opacity: 1; transform: translateY(0) scale(1); }
+		}
+
+		.bos-oobe-step {
+			display: none;
+			flex-direction: column;
+			gap: 18px;
+		}
+
+		.bos-oobe-step.active {
+			display: flex;
+		}
+
+		.bos-oobe-hero {
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			text-align: center;
+			gap: 12px;
+			padding: 10px 0;
+		}
+
+		.bos-oobe-logo {
+			width: 82px;
+			height: 82px;
+			object-fit: contain;
+			filter: drop-shadow(0 10px 24px rgba(168, 85, 247, 0.55));
+		}
+
+		.bos-oobe-hello {
+			font-size: 40px;
+			font-weight: 700;
+			letter-spacing: -0.02em;
+			margin: 0;
+			background: linear-gradient(135deg, #ffffff 15%, #e9d5ff 65%, #c084fc 100%);
+			-webkit-background-clip: text;
+			-webkit-text-fill-color: transparent;
+		}
+
+		.bos-oobe-sub {
+			margin: 0;
+			font-size: 14.5px;
+			line-height: 1.55;
+			color: rgba(243, 232, 255, 0.84);
+			max-width: 430px;
+		}
+
+		.bos-oobe-title {
+			margin: 0;
+			font-size: 22px;
+			font-weight: 600;
+			color: #f5f3ff;
+		}
+
+		.bos-oobe-grid {
+			display: grid;
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+			gap: 10px;
+		}
+
+		.bos-oobe-guide-item {
+			background: rgba(255, 255, 255, 0.06);
+			border: 1px solid rgba(216, 180, 254, 0.16);
+			border-radius: 12px;
+			padding: 11px 13px;
+			font-size: 12.5px;
+			line-height: 1.45;
+			color: rgba(243, 232, 255, 0.9);
+		}
+
+		.bos-oobe-guide-item strong {
+			display: block;
+			color: #e9d5ff;
+			margin-bottom: 3px;
+			font-size: 13px;
+		}
+
+		.bos-oobe-row {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 12px;
+			background: rgba(255, 255, 255, 0.05);
+			border: 1px solid rgba(255, 255, 255, 0.1);
+			padding: 10px 14px;
+			border-radius: 12px;
+			font-size: 13.5px;
+		}
+
+		.bos-oobe-row select,
+		.bos-oobe-row input[type="password"] {
+			background: rgba(15, 8, 28, 0.85);
+			border: 1px solid rgba(216, 180, 254, 0.3);
+			color: #ffffff;
+			padding: 7px 10px;
+			border-radius: 8px;
+			font-size: 13px;
+			outline: none;
+		}
+
+		.bos-oobe-swatches {
+			display: flex;
+			gap: 8px;
+			flex-wrap: wrap;
+		}
+
+		.bos-oobe-swatch {
+			width: 26px;
+			height: 26px;
+			border-radius: 50%;
+			border: 2px solid transparent;
+			cursor: pointer;
+			transition: transform 0.15s ease, border-color 0.15s ease;
+		}
+
+		.bos-oobe-swatch.active {
+			border-color: #ffffff;
+			transform: scale(1.15);
+		}
+
+		.bos-oobe-dots {
+			display: flex;
+			justify-content: center;
+			gap: 7px;
+		}
+
+		.bos-oobe-dot {
+			width: 8px;
+			height: 8px;
+			border-radius: 999px;
+			background: rgba(255, 255, 255, 0.25);
+			transition: width 0.2s ease, background 0.2s ease;
+		}
+
+		.bos-oobe-dot.active {
+			width: 22px;
+			background: #d8b4fe;
+		}
+
+		.bos-oobe-actions {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 10px;
+			margin-top: 4px;
+		}
+
+		.bos-oobe-btn {
+			padding: 10px 18px;
+			border-radius: 11px;
+			border: 1px solid rgba(216, 180, 254, 0.28);
+			background: rgba(255, 255, 255, 0.08);
+			color: #f3e8ff;
+			font-size: 13.5px;
+			font-weight: 500;
+			cursor: pointer;
+			transition: background 0.15s ease, transform 0.12s ease;
+		}
+
+		.bos-oobe-btn:hover {
+			background: rgba(255, 255, 255, 0.16);
+		}
+
+		.bos-oobe-btn.primary {
+			background: linear-gradient(135deg, #a855f7, #7c3aed);
+			border-color: rgba(233, 213, 255, 0.45);
+			color: #ffffff;
+			font-weight: 600;
+			box-shadow: 0 6px 20px rgba(124, 58, 237, 0.45);
+		}
+
+		.bos-oobe-btn.primary:hover {
+			background: linear-gradient(135deg, #b56df9, #8b46f8);
+		}
+
+		.bos-oobe-pin-msg {
+			font-size: 12.5px;
+			color: #fca5a5;
+			min-height: 16px;
+		}
 	</style>
 </head>
 
 <body>
+	<!-- Full PC-Like First-Boot Setup Wizard -->
+	<div id="bosOobeOverlay" role="dialog" aria-modal="true" aria-label="BrowOS Setup">
+		<div class="bos-oobe-card">
+			<div class="bos-oobe-dots" id="bosOobeDots">
+				<span class="bos-oobe-dot active"></span>
+				<span class="bos-oobe-dot"></span>
+				<span class="bos-oobe-dot"></span>
+				<span class="bos-oobe-dot"></span>
+			</div>
+
+			<!-- Step 1: Hello -->
+			<div class="bos-oobe-step active" data-step="0">
+				<div class="bos-oobe-hero">
+					<img class="bos-oobe-logo" src="icons/browos-logo.png" alt="BrowOS">
+					<h1 class="bos-oobe-hello">Hello</h1>
+					<p class="bos-oobe-sub">Welcome to BrowOS. Let’s quickly personalize your desktop, check where settings live, and set up optional PIN security before starting the tour.</p>
+				</div>
+
+				<div class="bos-oobe-actions">
+					<button type="button" class="bos-oobe-btn" id="bosOobeSkipAllBtn">Skip all</button>
+					<button type="button" class="bos-oobe-btn primary" id="bosOobeNext0">Continue</button>
+				</div>
+			</div>
+
+			<!-- Step 2: Personalize & Where Settings Are -->
+			<div class="bos-oobe-step" data-step="1">
+				<h2 class="bos-oobe-title">Make BrowOS yours</h2>
+
+				<div class="bos-oobe-row">
+					<span>Window theme</span>
+					<select id="bosOobeTheme">
+						<option value="dark">Dark</option>
+						<option value="light">Light</option>
+					</select>
+				</div>
+
+				<div class="bos-oobe-row">
+					<span>Accent color</span>
+					<div class="bos-oobe-swatches" id="bosOobeSwatches">
+						<button type="button" class="bos-oobe-swatch active" data-color="#8e5cf7" style="background:#8e5cf7"></button>
+						<button type="button" class="bos-oobe-swatch" data-color="#2196F3" style="background:#2196F3"></button>
+						<button type="button" class="bos-oobe-swatch" data-color="#e91e63" style="background:#e91e63"></button>
+						<button type="button" class="bos-oobe-swatch" data-color="#4caf50" style="background:#4caf50"></button>
+						<button type="button" class="bos-oobe-swatch" data-color="#00bcd4" style="background:#00bcd4"></button>
+					</div>
+				</div>
+
+				<div class="bos-oobe-row">
+					<span>Window bar &amp; buttons</span>
+					<select id="bosOobeBarSize">
+						<option value="compact">Compact (34px)</option>
+						<option value="normal" selected>Normal (46px)</option>
+						<option value="large">Large (56px)</option>
+						<option value="xlarge">Extra large (66px)</option>
+					</select>
+				</div>
+
+				<div class="bos-oobe-grid">
+					<div class="bos-oobe-guide-item">
+						<strong>Personalization</strong>
+						Wallpapers, themes, cursors &amp; window bar sizes in <em>Settings → Personalization</em>.
+					</div>
+					<div class="bos-oobe-guide-item">
+						<strong>Taskbar &amp; Fullscreen</strong>
+						Scale (`0.25x–2x`), glass opacity &amp; icon toggles in <em>Settings → Taskbar</em>. Triple-tap any title bar for F11 fullscreen.
+					</div>
+				</div>
+
+				<div class="bos-oobe-actions">
+					<button type="button" class="bos-oobe-btn" id="bosOobeBack1">Back</button>
+					<button type="button" class="bos-oobe-btn primary" id="bosOobeNext1">Continue</button>
+				</div>
+			</div>
+
+			<!-- Step 3: Security & PIN -->
+			<div class="bos-oobe-step" data-step="2">
+				<h2 class="bos-oobe-title">Lock screen &amp; PIN</h2>
+				<p class="bos-oobe-sub" style="max-width:none;">Protect your desktop with a 4–8 digit PIN, or leave blank to skip. You can always change this later in <strong>Settings → Security</strong>.</p>
+
+				<div class="bos-oobe-row">
+					<span>New PIN (4–8 digits)</span>
+					<input type="password" id="bosOobePin1" inputmode="numeric" maxlength="8" placeholder="Optional" autocomplete="off">
+				</div>
+
+				<div class="bos-oobe-row">
+					<span>Confirm PIN</span>
+					<input type="password" id="bosOobePin2" inputmode="numeric" maxlength="8" placeholder="Repeat PIN" autocomplete="off">
+				</div>
+
+				<div class="bos-oobe-row">
+					<span>Lock when BrowOS opens</span>
+					<input type="checkbox" id="bosOobeLockStartup">
+				</div>
+
+				<div class="bos-oobe-pin-msg" id="bosOobePinMsg"></div>
+
+				<div class="bos-oobe-actions">
+					<button type="button" class="bos-oobe-btn" id="bosOobeBack2">Back</button>
+					<button type="button" class="bos-oobe-btn primary" id="bosOobeNext2">Continue</button>
+				</div>
+			</div>
+
+			<!-- Step 4: Ready & Start Tour -->
+			<div class="bos-oobe-step" data-step="3">
+				<div class="bos-oobe-hero">
+					<img class="bos-oobe-logo" src="icons/browos-logo.png" alt="BrowOS">
+					<h2 class="bos-oobe-title" style="font-size:28px;">You’re all set</h2>
+					<p class="bos-oobe-sub">Your preferences are saved. Click <strong>Finish</strong> to enter BrowOS and launch the quick desktop tutorial.</p>
+				</div>
+
+				<div class="bos-oobe-actions">
+					<button type="button" class="bos-oobe-btn" id="bosOobeBack3">Back</button>
+					<button type="button" class="bos-oobe-btn primary" id="bosOobeFinishBtn">Finish</button>
+				</div>
+			</div>
+		</div>
+	</div>
+
 	<div class="boot-screen" aria-hidden="true">
 		<img class="boot-logo" src="icons/browos-logo.png" alt="">
 	</div>
@@ -622,19 +963,19 @@
 					</div>
 
 					<div class="setting-row">
-						<span>Files icon</span>
+						<span>Virtual desktops</span>
 
 						<label class="switch">
-							<input type="checkbox" id="tbShowFilesToggle" checked>
+							<input type="checkbox" id="tbShowDesktopsToggle" checked>
 							<span class="slider"></span>
 						</label>
 					</div>
 
 					<div class="setting-row">
-						<span>Virtual desktops</span>
+						<span>Clipboard</span>
 
 						<label class="switch">
-							<input type="checkbox" id="tbShowDesktopsToggle" checked>
+							<input type="checkbox" id="tbShowClipboardToggle" checked>
 							<span class="slider"></span>
 						</label>
 					</div>
@@ -866,6 +1207,15 @@
 					</div>
 
 					<div class="data-message" id="dataMessage" role="status"></div>
+
+					<h3>Updates &amp; reset</h3>
+
+					<p class="settings-note"><strong>Refresh updates</strong> clears only cached HTML, CSS, and JS files and reloads BrowOS while keeping your apps, notes, PIN, and settings. <strong>Reset all data</strong> completely erases all website data and restarts initial setup.</p>
+
+					<div class="button-row">
+						<button class="app-button" id="refreshUpdatesButton">Refresh updates</button>
+						<button class="reset-button" id="resetAllDataButton">Reset all data</button>
+					</div>
 				</div>
 
 				<!-- System -->
@@ -883,7 +1233,8 @@
 						<div>
 							<div class="about-name">BrowOS</div>
 							<p>Version 1.0</p>
-							<p class="about-by">By <a href="https://www.youtube.com/@YourAllyhere" target="_blank">Allysun</a></p>
+							<p class="about-by">Currently being made and customized by <a href="https://github.com/K3Soft-Hard" target="_blank" rel="noopener">K3Soft-Hard</a></p>
+							<p class="about-by">Originally created by <a href="https://www.youtube.com/@YourAllyhere" target="_blank">Allysun</a></p>
 							<p class="about-by">Extra apps and features by <a href="https://github.com/asrbmy" target="_blank" rel="noopener">Ajit (@asrbmy)</a></p>
 						</div>
 					</div>
@@ -896,6 +1247,7 @@
 					<h2>Credits</h2>
 
 					<ul class="credits">
+						<li>Current customization, portrait scaling, taskbar controls &amp; browser enhancements by <a href="https://github.com/K3Soft-Hard" target="_blank" rel="noopener">K3Soft-Hard</a></li>
 						<li>Files, Calendar, Notes, Habits, Budget, Bookmarks, Recorder, Chess, Sudoku, Solitaire, Orb Hop, Kanban, Converter, Password Generator, Typing Test, the viewers, profiles, sync and the SDK by <a href="https://github.com/asrbmy" target="_blank" rel="noopener">Ajit (@asrbmy)</a></li>
 						<li>Notepad by <a href="https://github.com/amitmerchant1990/notepad" target="_blank">Amit Merchant</a></li>
 						<li>Calculator by <a href="https://github.com/nikh-tail/CodeAlpha_Task" target="_blank">Nikhil Rathor</a></li>
@@ -1576,8 +1928,8 @@
 		// Hideable taskbar icons fallback
 		[
 			{ id: "tbShowStartToggle", key: "browos-tb-show-start", attr: "tbHideStart" },
-			{ id: "tbShowFilesToggle", key: "browos-tb-show-files", attr: "tbHideFiles" },
 			{ id: "tbShowDesktopsToggle", key: "browos-tb-show-desktops", attr: "tbHideDesktops" },
+			{ id: "tbShowClipboardToggle", key: "browos-tb-show-clipboard", attr: "tbHideClipboard" },
 			{ id: "tbShowBellToggle", key: "browos-tb-show-bell", attr: "tbHideBell" },
 			{ id: "tbShowQuickToggle", key: "browos-tb-show-quick", attr: "tbHideQuick" },
 		].forEach(function (item) {
@@ -1630,6 +1982,179 @@
 		}
 		if (hideBtn) hideBtn.onclick = function (e) { e.stopPropagation(); setTbHidden(true); };
 		if (restoreBtn) restoreBtn.onclick = function (e) { e.stopPropagation(); setTbHidden(false); };
+
+		// Data buttons fallback
+		const refBtn = document.getElementById("refreshUpdatesButton");
+		const rstAllBtn = document.getElementById("resetAllDataButton");
+		if (refBtn) {
+			refBtn.onclick = async function () {
+				if (!confirm("Are you sure you want to refresh updates? This will delete cached HTML, CSS, and JS files and reload BrowOS, keeping all your apps, notes, PIN, and settings.")) return;
+				try {
+					if ("serviceWorker" in navigator) {
+						const regs = await navigator.serviceWorker.getRegistrations();
+						await Promise.all(regs.map(function (r) { return r.unregister(); }));
+					}
+					if ("caches" in window) {
+						const keys = await caches.keys();
+						await Promise.all(keys.map(function (k) { return caches.delete(k); }));
+					}
+				} catch (e) {}
+				location.reload();
+			};
+		}
+		if (rstAllBtn) {
+			rstAllBtn.onclick = function () {
+				if (!confirm("Are you sure you want to reset ALL data? This will completely erase all localStorage for this website (settings, PIN, notes, files, and installed apps) and start fresh.")) return;
+				try {
+					localStorage.clear();
+					sessionStorage.clear();
+				} catch (e) {}
+				location.reload();
+			};
+		}
+
+		// Full PC-Like First-Boot OOBE Setup Wizard
+		const oobeOverlay = document.getElementById("bosOobeOverlay");
+		if (oobeOverlay && localStorage.getItem("browos-setup-done") !== "1") {
+			oobeOverlay.classList.add("open");
+
+			const steps = Array.from(oobeOverlay.querySelectorAll(".bos-oobe-step"));
+			const dots = Array.from(document.querySelectorAll("#bosOobeDots .bos-oobe-dot"));
+			let currentStep = 0;
+
+			function showOobeStep(idx) {
+				currentStep = idx;
+				steps.forEach(function (s, i) { s.classList.toggle("active", i === idx); });
+				dots.forEach(function (d, i) { d.classList.toggle("active", i === idx); });
+			}
+
+			function closeOobeWizard(runTour) {
+				localStorage.setItem("browos-setup-done", "1");
+				oobeOverlay.classList.remove("open");
+				if (!runTour) {
+					localStorage.setItem("browos-tour-done", "1");
+					document.querySelectorAll(".tour-overlay, .tour-box, .tour-card, #tourBox").forEach(function (el) {
+						el.style.display = "none";
+					});
+				}
+			}
+
+			// Skip all right on first screen
+			const skipAllBtn = document.getElementById("bosOobeSkipAllBtn");
+			if (skipAllBtn) {
+				skipAllBtn.onclick = function () {
+					closeOobeWizard(false);
+				};
+			}
+
+			// Step 0 -> 1
+			const next0 = document.getElementById("bosOobeNext0");
+			if (next0) next0.onclick = function () { showOobeStep(1); };
+
+			// Step 1 controls (Theme, Accent, Window Bar Size)
+			const oobeTheme = document.getElementById("bosOobeTheme");
+			const oobeBar = document.getElementById("bosOobeBarSize");
+			const oobeSwatches = document.querySelectorAll("#bosOobeSwatches .bos-oobe-swatch");
+
+			if (oobeTheme) {
+				oobeTheme.value = localStorage.getItem("browos-theme") || "dark";
+				oobeTheme.onchange = function () {
+					localStorage.setItem("browos-theme", oobeTheme.value);
+					const mainTheme = document.getElementById("themeSelect");
+					if (mainTheme) {
+						mainTheme.value = oobeTheme.value;
+						mainTheme.dispatchEvent(new Event("change"));
+					}
+				};
+			}
+
+			oobeSwatches.forEach(function (sw) {
+				sw.onclick = function () {
+					oobeSwatches.forEach(function (x) { x.classList.remove("active"); });
+					sw.classList.add("active");
+					const col = sw.dataset.color;
+					localStorage.setItem("browos-accent", col);
+					const mainAccent = document.getElementById("customAccent");
+					if (mainAccent) {
+						mainAccent.value = col;
+						mainAccent.dispatchEvent(new Event("input"));
+					}
+				};
+			});
+
+			if (oobeBar) {
+				oobeBar.value = localStorage.getItem("browos-window-bar-size") || "normal";
+				oobeBar.onchange = function () {
+					localStorage.setItem("browos-window-bar-size", oobeBar.value);
+					setBarSize(oobeBar.value);
+					if (barSel) barSel.value = oobeBar.value;
+				};
+			}
+
+			const back1 = document.getElementById("bosOobeBack1");
+			const next1 = document.getElementById("bosOobeNext1");
+			if (back1) back1.onclick = function () { showOobeStep(0); };
+			if (next1) next1.onclick = function () { showOobeStep(2); };
+
+			// Step 2 controls (PIN setup)
+			const back2 = document.getElementById("bosOobeBack2");
+			const next2 = document.getElementById("bosOobeNext2");
+			const pin1El = document.getElementById("bosOobePin1");
+			const pin2El = document.getElementById("bosOobePin2");
+			const lockStartEl = document.getElementById("bosOobeLockStartup");
+			const pinMsgEl = document.getElementById("bosOobePinMsg");
+
+			if (back2) back2.onclick = function () { showOobeStep(1); };
+			if (next2) {
+				next2.onclick = function () {
+					const p1 = pin1El ? pin1El.value.trim() : "";
+					const p2 = pin2El ? pin2El.value.trim() : "";
+					if (pinMsgEl) pinMsgEl.textContent = "";
+
+					if (p1 !== "" || p2 !== "") {
+						if (!/^\d{4,8}$/.test(p1)) {
+							if (pinMsgEl) pinMsgEl.textContent = "PIN must be 4 to 8 digits.";
+							return;
+						}
+						if (p1 !== p2) {
+							if (pinMsgEl) pinMsgEl.textContent = "PINs do not match.";
+							return;
+						}
+						// Apply via existing Settings PIN controls if available, plus direct storage
+						const mainPinNew = document.getElementById("pinNew");
+						const mainPinConf = document.getElementById("pinConfirm");
+						const mainPinSave = document.getElementById("pinSave");
+						if (mainPinNew && mainPinConf && mainPinSave) {
+							mainPinNew.value = p1;
+							mainPinConf.value = p2;
+							mainPinSave.click();
+						} else {
+							localStorage.setItem("browos-pin", p1);
+						}
+						if (lockStartEl && lockStartEl.checked) {
+							const mainLockToggle = document.getElementById("lockStartupToggle");
+							if (mainLockToggle && !mainLockToggle.checked) {
+								mainLockToggle.click();
+							} else {
+								localStorage.setItem("browos-lock-startup", "on");
+							}
+						}
+					}
+					showOobeStep(3);
+				};
+			}
+
+			// Step 3 -> Finish & launch existing tutorial
+			const back3 = document.getElementById("bosOobeBack3");
+			const finishBtn = document.getElementById("bosOobeFinishBtn");
+			if (back3) back3.onclick = function () { showOobeStep(2); };
+			if (finishBtn) {
+				finishBtn.onclick = function () {
+					localStorage.removeItem("browos-tour-done");
+					closeOobeWizard(true);
+				};
+			}
+		}
 
 		document.addEventListener("click", function (e) {
 			if (e.target.closest(".window-maximize")) {
