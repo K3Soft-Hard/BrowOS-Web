@@ -112,7 +112,6 @@
 			font-variant-numeric: tabular-nums;
 		}
 
-		/* Refined Frosted Sticky Notes */
 		.widget-layer .sticky-note,
 		.widget-layer .note-widget {
 			background: rgba(36, 33, 28, 0.56) !important;
@@ -742,20 +741,18 @@
 		}
 
 		/* =========================================================
-		   WINDOWS-STYLE LOCK SCREEN (UNBLURRED CURTAIN -> BLURRED AUTH + PROFILES)
+		   WINDOWS-STYLE LOCK SCREEN (UNBLURRED WALLPAPER -> BLURRED AUTH + PROFILES)
 		   ========================================================= */
 		#lockScreen {
 			position: fixed !important;
 			inset: 0 !important;
 			z-index: 150000 !important;
-			background-size: cover !important;
-			background-position: center !important;
-			background-repeat: no-repeat !important;
+			background: #08090d !important;
 			overflow: hidden !important;
 			user-select: none;
 			backdrop-filter: none !important;
 			-webkit-backdrop-filter: none !important;
-			transition: opacity 0.35s ease, transform 0.35s ease, backdrop-filter 0.42s ease, -webkit-backdrop-filter 0.42s ease;
+			transition: opacity 0.35s ease, transform 0.35s ease;
 		}
 
 		#lockScreen[hidden] {
@@ -768,33 +765,41 @@
 			pointer-events: none;
 		}
 
+		/* Isolated wallpaper layer so blur can be toggled cleanly without css/lock.css interference */
+		.bos-lock-bg {
+			position: absolute;
+			inset: -24px;
+			z-index: 0;
+			background-color: #15171d;
+			background-image: url("wallpapers/wallpaper.jpg");
+			background-size: cover;
+			background-position: center;
+			background-repeat: no-repeat;
+			filter: blur(0px) brightness(1);
+			transform: scale(1);
+			transition: filter 0.42s cubic-bezier(0.22, 1, 0.36, 1), transform 0.42s cubic-bezier(0.22, 1, 0.36, 1);
+			pointer-events: none;
+		}
+
+		html[data-lock-curtain-blur="1"] .bos-lock-bg,
+		#lockScreen.auth-open .bos-lock-bg {
+			filter: blur(22px) brightness(0.72) saturate(125%);
+			transform: scale(1.03);
+		}
+
 		.bos-lock-backdrop {
 			position: absolute;
 			inset: 0;
-			background: rgba(6, 6, 12, 0.08);
+			z-index: 1;
+			background: radial-gradient(circle at center, rgba(0, 0, 0, 0.05) 0%, rgba(0, 0, 0, 0.35) 100%);
 			backdrop-filter: none !important;
 			-webkit-backdrop-filter: none !important;
-			transition: backdrop-filter 0.42s cubic-bezier(0.22, 1, 0.36, 1), -webkit-backdrop-filter 0.42s cubic-bezier(0.22, 1, 0.36, 1), background 0.42s ease;
-		}
-
-		html[data-lock-curtain-blur="1"] #lockScreen,
-		html[data-lock-curtain-blur="1"] .bos-lock-backdrop {
-			backdrop-filter: blur(22px) saturate(135%) !important;
-			-webkit-backdrop-filter: blur(22px) saturate(135%) !important;
-		}
-
-		html[data-lock-curtain-blur="1"] .bos-lock-backdrop {
-			background: rgba(8, 7, 16, 0.32);
-		}
-
-		#lockScreen.auth-open,
-		#lockScreen.auth-open .bos-lock-backdrop {
-			backdrop-filter: blur(20px) saturate(140%) !important;
-			-webkit-backdrop-filter: blur(20px) saturate(140%) !important;
+			transition: background 0.42s ease;
+			pointer-events: none;
 		}
 
 		#lockScreen.auth-open .bos-lock-backdrop {
-			background: rgba(8, 7, 16, 0.44);
+			background: rgba(8, 7, 16, 0.28);
 		}
 
 		#lockScreen .lock-content {
@@ -829,7 +834,7 @@
 			line-height: 1.02 !important;
 			letter-spacing: -0.03em;
 			color: #ffffff !important;
-			text-shadow: 0 6px 28px rgba(0, 0, 0, 0.55);
+			text-shadow: 0 6px 28px rgba(0, 0, 0, 0.65);
 			margin: 0 !important;
 			font-variant-numeric: tabular-nums;
 		}
@@ -837,8 +842,8 @@
 		#lockScreen #lockDate {
 			font-size: clamp(16px, 2.2vw, 21px) !important;
 			font-weight: 500 !important;
-			color: rgba(255, 255, 255, 0.94) !important;
-			text-shadow: 0 3px 16px rgba(0, 0, 0, 0.6);
+			color: rgba(255, 255, 255, 0.96) !important;
+			text-shadow: 0 3px 16px rgba(0, 0, 0, 0.7);
 			margin-top: 8px !important;
 		}
 
@@ -849,11 +854,11 @@
 			transform: translateX(-50%);
 			padding: 8px 18px;
 			border-radius: 999px;
-			background: rgba(14, 14, 22, 0.38);
-			border: 1px solid rgba(255, 255, 255, 0.18);
+			background: rgba(14, 14, 22, 0.45);
+			border: 1px solid rgba(255, 255, 255, 0.22);
 			backdrop-filter: blur(10px);
 			-webkit-backdrop-filter: blur(10px);
-			color: rgba(255, 255, 255, 0.92);
+			color: rgba(255, 255, 255, 0.95);
 			font-size: 13px;
 			letter-spacing: 0.01em;
 			transition: opacity 0.25s ease, transform 0.25s ease;
@@ -874,11 +879,11 @@
 			max-width: 340px;
 			padding: 24px 24px 20px;
 			border-radius: 22px;
-			background: rgba(18, 16, 28, 0.58);
-			border: 1px solid rgba(255, 255, 255, 0.18);
+			background: rgba(18, 16, 28, 0.62);
+			border: 1px solid rgba(255, 255, 255, 0.2);
 			backdrop-filter: blur(22px);
 			-webkit-backdrop-filter: blur(22px);
-			box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+			box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
 			opacity: 0;
 			transform: translateY(28px) scale(0.95);
 			pointer-events: none;
@@ -926,22 +931,22 @@
 			gap: 8px;
 			padding: 7px 11px;
 			border-radius: 11px;
-			background: rgba(255, 255, 255, 0.07);
+			background: rgba(255, 255, 255, 0.08);
 			border: 1px solid rgba(255, 255, 255, 0.16);
 			box-sizing: border-box;
 		}
 
 		.bos-lock-profile-box label {
 			font-size: 12px;
-			color: rgba(255, 255, 255, 0.72);
+			color: rgba(255, 255, 255, 0.78);
 			white-space: nowrap;
 		}
 
 		.bos-lock-profile-box select {
 			flex: 1;
 			min-width: 0;
-			background: rgba(14, 12, 24, 0.85);
-			border: 1px solid rgba(216, 180, 254, 0.32);
+			background: rgba(14, 12, 24, 0.88);
+			border: 1px solid rgba(216, 180, 254, 0.34);
 			color: #ffffff;
 			padding: 5px 8px;
 			border-radius: 8px;
@@ -1155,7 +1160,7 @@
 			<!-- Step 3: Security & PIN -->
 			<div class="bos-oobe-step" data-step="2">
 				<h2 class="bos-oobe-title">Lock screen &amp; PIN</h2>
-				<p class="bos-oobe-sub" style="max-width:none;">Protect your desktop with a 4–8 digit PIN (stored securely as a salted hash), or leave blank to unlock with one click.</p>
+				<p class="bos-oobe-sub" style="max-width:none;">Protect your desktop with a 4–8 digit PIN (stored locally as a salted SHA-256 hash), or leave blank to unlock with one click.</p>
 
 				<div class="bos-oobe-row">
 					<span>New PIN (4–8 digits)</span>
@@ -2340,8 +2345,9 @@
 <!-- Cursor -->
 <div class="fake-cursor hide" id="fakeCursor"></div>
 
-<!-- Windows-Style Lock Screen (Unblurred Curtain -> Blurred Auth + Profile Selector Box + Back Button) -->
+<!-- Windows-Style Lock Screen (Unblurred Wallpaper -> Blurred Auth + Profile Selector Box + Back Button) -->
 <div class="lock-screen" id="lockScreen" tabindex="-1" hidden>
+	<div class="bos-lock-bg" id="bosLockBg"></div>
 	<div class="bos-lock-backdrop" id="bosLockBackdrop"></div>
 
 	<div class="lock-content" id="bosLockContent">
@@ -2445,6 +2451,8 @@
 		// =========================================================
 		// PURE-JS SALTED SHA-256 PIN HASHER (NO EXTERNAL APIS)
 		// =========================================================
+		const HASH_SENTINEL = "__HASHED__";
+
 		function pureSha256Hex(ascii) {
 			function rightRotate(value, amount) {
 				return (value >>> amount) | (value << (32 - amount));
@@ -2541,7 +2549,9 @@
 		}
 
 		function hasPinConfigured() {
-			return Boolean(localStorage.getItem("browos-pin-hash") || localStorage.getItem("browos-pin"));
+			const raw = localStorage.getItem("browos-pin");
+			const hash = localStorage.getItem("browos-pin-hash");
+			return Boolean(hash || (raw && raw !== ""));
 		}
 
 		function setHashedPin(plainPin) {
@@ -2549,8 +2559,8 @@
 			const digest = hashPinWithSalt(plainPin, salt);
 			localStorage.setItem("browos-pin-salt", salt);
 			localStorage.setItem("browos-pin-hash", digest);
-			// Never keep plaintext PIN in localStorage
-			localStorage.removeItem("browos-pin");
+			// Keep sentinel in browos-pin so native lock.js & profiles.js recognize PIN presence without plaintext
+			localStorage.setItem("browos-pin", HASH_SENTINEL);
 		}
 
 		function clearHashedPin() {
@@ -2560,9 +2570,9 @@
 		}
 
 		function verifyHashedPin(candidatePin) {
-			const legacyPlain = localStorage.getItem("browos-pin");
-			if (legacyPlain) {
-				if (candidatePin === legacyPlain) {
+			const raw = localStorage.getItem("browos-pin");
+			if (raw && raw !== HASH_SENTINEL) {
+				if (candidatePin === raw) {
 					setHashedPin(candidatePin);
 					return true;
 				}
@@ -2575,15 +2585,17 @@
 		}
 
 		// Automatically migrate any legacy plaintext PIN to salted hash on load
-		(function migrateLegacyPin() {
+		function migrateLegacyPinIfNeeded() {
 			const legacy = localStorage.getItem("browos-pin");
-			if (legacy) {
+			if (legacy && legacy !== HASH_SENTINEL) {
 				setHashedPin(legacy);
 			}
-		})();
+		}
 
-		// Sync Settings -> Security UI with hashed PIN state
+		migrateLegacyPinIfNeeded();
+
 		function refreshSecurityPinUI() {
+			migrateLegacyPinIfNeeded();
 			const statusEl = document.getElementById("pinStatus");
 			const currentRow = document.getElementById("pinCurrentRow");
 			const removeBtn = document.getElementById("pinRemove");
@@ -2691,7 +2703,6 @@
 				win.style.transform = "none";
 			});
 
-			// Keep widgets above taskbar when taskbar is visible
 			document.querySelectorAll(".widget-layer .widget, .widget-layer .desktop-widget, .widget-layer .sticky-note").forEach(function (el) {
 				const maxBottom = h - tbSpace - 8;
 				const rectBottom = el.offsetTop + el.offsetHeight;
@@ -2791,7 +2802,7 @@
 			};
 		}
 
-		// Taskbar glassy transparency override (also syncs frosted widgets!)
+		// Taskbar glassy transparency override (syncs frosted widgets too)
 		const glassToggle = document.getElementById("taskbarGlassOverrideToggle");
 		const glassRow = document.getElementById("taskbarGlassRow");
 		const glassSlider = document.getElementById("taskbarGlassSlider");
@@ -2960,6 +2971,7 @@
 		// WINDOWS-STYLE LOCK SCREEN + SYSTEM PROFILES SYNC + HASHED PIN
 		// =========================================================
 		const lockScreenEl = document.getElementById("lockScreen");
+		const lockBgEl = document.getElementById("bosLockBg");
 		const lockPinEl = document.getElementById("lockPin");
 		const lockFormEl = document.getElementById("lockForm");
 		const lockMsgEl = document.getElementById("lockMessage");
@@ -2968,7 +2980,7 @@
 		const profSelectEl = document.getElementById("bosLockProfileSelect");
 		const lockBackBtnEl = document.getElementById("bosLockBackBtn");
 
-		// Discover profiles both from #systemPage (rendered by js/profiles.js) and localStorage
+		// Discover profiles from Settings -> System (#systemPage) and localStorage
 		function discoverSystemProfiles() {
 			const found = [];
 			const seenNames = new Set();
@@ -2993,7 +3005,6 @@
 					});
 				}
 
-				// Look for profile rows/cards that have a "Switch" button
 				const switchButtons = Array.from(sysPage.querySelectorAll("button")).filter(function (b) {
 					return /switch/i.test(b.textContent.trim());
 				});
@@ -3009,7 +3020,6 @@
 					});
 				});
 
-				// Also detect active profile label in #systemPage
 				const activeIndicators = Array.from(sysPage.querySelectorAll("span, div, strong")).filter(function (el) {
 					return /\(active\)|\(current\)/i.test(el.textContent);
 				});
@@ -3051,7 +3061,6 @@
 				addProfile("main", "Main", true, null);
 			}
 
-			// Determine active profile ID from localStorage
 			let activeId = null;
 			for (let i = 0; i < localStorage.length; i++) {
 				const k = localStorage.key(i);
@@ -3082,13 +3091,23 @@
 		function syncLockScreenVisuals() {
 			if (!lockScreenEl) return;
 
-			const wp = localStorage.getItem("wallpaper") === "custom"
-				? localStorage.getItem("customWallpaper")
-				: (localStorage.getItem("wallpaper") || "wallpapers/wallpaper.jpg");
-			if (wp) {
-				lockScreenEl.style.backgroundImage = 'url("' + wp + '")';
+			migrateLegacyPinIfNeeded();
+
+			// Sync wallpaper onto .bos-lock-bg from live .desktop-shell or localStorage
+			if (lockBgEl) {
+				const shell = document.querySelector(".desktop-shell");
+				const shellBg = shell ? shell.style.backgroundImage : "";
+				if (shellBg && shellBg !== "none") {
+					lockBgEl.style.backgroundImage = shellBg;
+				} else {
+					const wp = localStorage.getItem("wallpaper") === "custom"
+						? localStorage.getItem("customWallpaper")
+						: (localStorage.getItem("wallpaper") || "wallpapers/wallpaper.jpg");
+					lockBgEl.style.backgroundImage = 'url("' + (wp || "wallpapers/wallpaper.jpg") + '")';
+				}
 			}
 
+			// Show PIN input only if this profile has a PIN; non-PIN profiles still show Stage 2 with Profile switcher + Unlock button
 			const hasPin = hasPinConfigured();
 			lockScreenEl.classList.toggle("no-pin", !hasPin);
 
@@ -3125,12 +3144,10 @@
 
 				localStorage.setItem("browos-reopen-lock", "1");
 
-				// Trigger native switcher from #systemPage if available
 				if (typeof chosen.switchAction === "function") {
 					chosen.switchAction();
 				}
 
-				// Also update any active-profile keys in localStorage and reload
 				for (let i = 0; i < localStorage.length; i++) {
 					const k = localStorage.key(i);
 					if (k && /profile/i.test(k) && /active|current/i.test(k)) {
@@ -3156,6 +3173,7 @@
 		}
 
 		if (lockScreenEl) {
+			// Reset to Stage 1 (unblurred curtain) whenever lock screen opens
 			new MutationObserver(function () {
 				if (!lockScreenEl.hidden) {
 					lockScreenEl.classList.remove("auth-open", "bos-lock-unlocking");
@@ -3165,28 +3183,25 @@
 				}
 			}).observe(lockScreenEl, { attributes: true, attributeFilter: ["hidden"] });
 
-			lockScreenEl.addEventListener("pointerdown", function (e) {
+			// Intercept Stage 1 tap/click/key in capture phase so native lock.js NEVER bypasses Stage 2
+			function openAuthStageFromCurtain(e) {
+				if (lockScreenEl.hidden) return;
 				if (!lockScreenEl.classList.contains("auth-open")) {
-					e.stopPropagation();
+					e.stopImmediatePropagation();
+					e.preventDefault();
 					syncLockScreenVisuals();
 					lockScreenEl.classList.add("auth-open");
 					if (hasPinConfigured() && lockPinEl) {
 						setTimeout(function () { lockPinEl.focus(); }, 120);
 					}
 				}
+			}
+
+			["pointerdown", "mousedown", "touchstart", "click", "keydown"].forEach(function (evtName) {
+				lockScreenEl.addEventListener(evtName, openAuthStageFromCurtain, true);
 			});
 
-			lockScreenEl.addEventListener("keydown", function () {
-				if (!lockScreenEl.classList.contains("auth-open")) {
-					syncLockScreenVisuals();
-					lockScreenEl.classList.add("auth-open");
-					if (hasPinConfigured() && lockPinEl) {
-						setTimeout(function () { lockPinEl.focus(); }, 80);
-					}
-				}
-			});
-
-			// Verify hashed PIN on unlock (intercepts before legacy plaintext lock.js handler)
+			// Verify hashed PIN (or unlock directly if current profile has no PIN)
 			if (lockFormEl) {
 				lockFormEl.addEventListener("submit", function (e) {
 					e.preventDefault();
@@ -3225,18 +3240,22 @@
 				}, true);
 			}
 
-			// If lock-startup is enabled with hashed PIN, ensure lockScreen opens on boot
-			if (localStorage.getItem("browos-lock-startup") === "on" && hasPinConfigured()) {
+			// Ensure lock screen opens on startup if enabled
+			if (localStorage.getItem("browos-lock-startup") === "on") {
 				lockScreenEl.hidden = false;
 				syncLockScreenVisuals();
 			}
 
+			// Keep Stage 2 open when switching profiles directly from the lock screen
 			if (localStorage.getItem("browos-reopen-lock") === "1") {
 				localStorage.removeItem("browos-reopen-lock");
 				setTimeout(function () {
 					lockScreenEl.hidden = false;
 					syncLockScreenVisuals();
 					lockScreenEl.classList.add("auth-open");
+					if (hasPinConfigured() && lockPinEl) {
+						lockPinEl.focus();
+					}
 				}, 80);
 			}
 		}
