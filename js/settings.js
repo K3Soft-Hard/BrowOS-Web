@@ -230,6 +230,137 @@ if (windowBarSizeSelect) {
 	});
 }
 
+// Taskbar scale (0.25x - 2.0x) + Reset to 1x
+
+const taskbarScaleSlider = document.getElementById("taskbarScaleSlider");
+const taskbarScaleText = document.getElementById("taskbarScaleText");
+const taskbarScaleResetBtn = document.getElementById("taskbarScaleResetBtn");
+
+function applyTaskbarScale(scaleVal) {
+	const clamped = Math.min(2, Math.max(0.25, parseFloat(scaleVal) || 1));
+	document.documentElement.style.setProperty("--taskbar-scale", String(clamped));
+	if (taskbarScaleSlider) taskbarScaleSlider.value = String(clamped);
+	if (taskbarScaleText) taskbarScaleText.textContent = clamped.toFixed(2).replace(/\.00$/, "") + "x";
+	if (typeof syncAllMaximizedWindows === "function") {
+		syncAllMaximizedWindows();
+	}
+}
+
+const savedTaskbarScale = localStorage.getItem("browos-taskbar-scale") || "1";
+applyTaskbarScale(savedTaskbarScale);
+
+if (taskbarScaleSlider) {
+	taskbarScaleSlider.addEventListener("input", function () {
+		localStorage.setItem("browos-taskbar-scale", taskbarScaleSlider.value);
+		applyTaskbarScale(taskbarScaleSlider.value);
+	});
+}
+
+if (taskbarScaleResetBtn) {
+	taskbarScaleResetBtn.addEventListener("click", function () {
+		localStorage.setItem("browos-taskbar-scale", "1");
+		applyTaskbarScale(1);
+	});
+}
+
+// Taskbar glassy transparency override (separate from windows)
+
+const taskbarGlassOverrideToggle = document.getElementById("taskbarGlassOverrideToggle");
+const taskbarGlassRow = document.getElementById("taskbarGlassRow");
+const taskbarGlassSlider = document.getElementById("taskbarGlassSlider");
+const taskbarGlassText = document.getElementById("taskbarGlassText");
+
+function applyTaskbarGlass(enabled, opacityPct) {
+	const pct = Math.min(100, Math.max(0, parseInt(opacityPct, 10) || 0));
+	if (taskbarGlassRow) {
+		taskbarGlassRow.style.display = enabled ? "flex" : "none";
+	}
+	if (taskbarGlassText) {
+		taskbarGlassText.textContent = pct + "%";
+	}
+	if (taskbarGlassSlider) {
+		taskbarGlassSlider.value = String(pct);
+	}
+
+	let tag = document.getElementById("bosTaskbarGlassOverride");
+	if (!enabled) {
+		delete document.documentElement.dataset.taskbarGlassOverride;
+		if (tag) tag.remove();
+		return;
+	}
+
+	document.documentElement.dataset.taskbarGlassOverride = "1";
+	if (!tag) {
+		tag = document.createElement("style");
+		tag.id = "bosTaskbarGlassOverride";
+		document.body.appendChild(tag);
+	}
+	const alpha = (0.06 + (pct / 100) * 0.9).toFixed(2);
+	const blurPx = Math.round(28 - (pct / 100) * 14);
+	tag.textContent = `
+		.taskbar,
+		.taskbar-blur {
+			background: rgba(18, 18, 24, ${alpha}) !important;
+			backdrop-filter: blur(${blurPx}px) saturate(180%) !important;
+			-webkit-backdrop-filter: blur(${blurPx}px) saturate(180%) !important;
+			border-color: rgba(255, 255, 255, ${(0.12 + (1 - pct / 100) * 0.16).toFixed(2)}) !important;
+		}
+	`;
+}
+
+const savedTbGlassEnabled = localStorage.getItem("browos-taskbar-glass-override") === "on";
+const savedTbGlassPct = localStorage.getItem("browos-taskbar-glass-pct") || "25";
+
+if (taskbarGlassOverrideToggle) {
+	taskbarGlassOverrideToggle.checked = savedTbGlassEnabled;
+	taskbarGlassOverrideToggle.addEventListener("change", function () {
+		const on = taskbarGlassOverrideToggle.checked;
+		localStorage.setItem("browos-taskbar-glass-override", on ? "on" : "off");
+		applyTaskbarGlass(on, taskbarGlassSlider ? taskbarGlassSlider.value : savedTbGlassPct);
+	});
+}
+
+if (taskbarGlassSlider) {
+	taskbarGlassSlider.addEventListener("input", function () {
+		localStorage.setItem("browos-taskbar-glass-pct", taskbarGlassSlider.value);
+		applyTaskbarGlass(taskbarGlassOverrideToggle ? taskbarGlassOverrideToggle.checked : true, taskbarGlassSlider.value);
+	});
+}
+
+applyTaskbarGlass(savedTbGlassEnabled, savedTbGlassPct);
+
+// Hideable taskbar icons (Start, Virtual Desktops, Clipboard, Notifications, Quick Settings)
+
+const TASKBAR_ICON_TOGGLES = [
+	{ id: "tbShowStartToggle", key: "browos-tb-show-start", attr: "tbHideStart" },
+	{ id: "tbShowDesktopsToggle", key: "browos-tb-show-desktops", attr: "tbHideDesktops" },
+	{ id: "tbShowClipboardToggle", key: "browos-tb-show-clipboard", attr: "tbHideClipboard" },
+	{ id: "tbShowBellToggle", key: "browos-tb-show-bell", attr: "tbHideBell" },
+	{ id: "tbShowQuickToggle", key: "browos-tb-show-quick", attr: "tbHideQuick" },
+];
+
+TASKBAR_ICON_TOGGLES.forEach(function (item) {
+	const el = document.getElementById(item.id);
+	const visible = localStorage.getItem(item.key) !== "off";
+	if (visible) {
+		delete document.documentElement.dataset[item.attr];
+	} else {
+		document.documentElement.dataset[item.attr] = "1";
+	}
+	if (el) {
+		el.checked = visible;
+		el.addEventListener("change", function () {
+			const show = el.checked;
+			localStorage.setItem(item.key, show ? "on" : "off");
+			if (show) {
+				delete document.documentElement.dataset[item.attr];
+			} else {
+				document.documentElement.dataset[item.attr] = "1";
+			}
+		});
+	}
+});
+
 // Taskbar hide button & auto-hide controls (Taskbar settings)
 
 const taskbarHideFeatureToggle = document.getElementById("taskbarHideFeatureToggle");
@@ -287,6 +418,43 @@ if (taskbarRestoreBox) {
 	});
 }
 
+// Data page: Refresh updates (clear HTML/CSS/JS cache only) & Reset all data (wipe entire localStorage)
+
+const refreshUpdatesButton = document.getElementById("refreshUpdatesButton");
+const resetAllDataButton = document.getElementById("resetAllDataButton");
+
+if (refreshUpdatesButton) {
+	refreshUpdatesButton.addEventListener("click", async function () {
+		if (!confirm("Are you sure you want to refresh updates? This will delete cached HTML, CSS, and JS files and reload BrowOS, keeping all your apps, notes, PIN, and settings.")) {
+			return;
+		}
+		try {
+			if ("serviceWorker" in navigator) {
+				const regs = await navigator.serviceWorker.getRegistrations();
+				await Promise.all(regs.map((r) => r.unregister()));
+			}
+			if ("caches" in window) {
+				const keys = await caches.keys();
+				await Promise.all(keys.map((k) => caches.delete(k)));
+			}
+		} catch (e) {}
+		location.reload();
+	});
+}
+
+if (resetAllDataButton) {
+	resetAllDataButton.addEventListener("click", function () {
+		if (!confirm("Are you sure you want to reset ALL data? This will completely erase all localStorage for this website (settings, PIN, notes, files, and installed apps) and start fresh.")) {
+			return;
+		}
+		try {
+			localStorage.clear();
+			sessionStorage.clear();
+		} catch (e) {}
+		location.reload();
+	});
+}
+
 // Reset settings
 
 const resetSettingsButton = document.getElementById("resetSettingsButton");
@@ -311,6 +479,14 @@ resetSettingsButton.addEventListener("click", function () {
 	localStorage.removeItem("browos-desktop-text");
 	localStorage.removeItem("browos-taskbar-auto");
 	localStorage.removeItem("browos-taskbar-width");
+	localStorage.removeItem("browos-taskbar-scale");
+	localStorage.removeItem("browos-taskbar-glass-override");
+	localStorage.removeItem("browos-taskbar-glass-pct");
+	localStorage.removeItem("browos-tb-show-start");
+	localStorage.removeItem("browos-tb-show-desktops");
+	localStorage.removeItem("browos-tb-show-clipboard");
+	localStorage.removeItem("browos-tb-show-bell");
+	localStorage.removeItem("browos-tb-show-quick");
 	localStorage.removeItem("browos-taskbar-hide-enabled");
 	localStorage.removeItem("browos-taskbar-hidden");
 	localStorage.removeItem("browos-window-bar-size");
