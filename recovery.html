@@ -22,7 +22,7 @@
 		}
 
 		main {
-			max-width: 680px;
+			max-width: 720px;
 			margin: 0 auto;
 			padding: 40px 24px 64px;
 		}
@@ -93,6 +93,7 @@
 		.link-import { color: #fbbf24; }
 		.link-emergency { color: #fb923c; }
 		.link-reset { color: #f87171; }
+		.link-tool { color: #a78bfa; }
 
 		.action-desc {
 			font-size: 13px;
@@ -132,6 +133,7 @@
 		}
 
 		input[type="password"],
+		input[type="text"],
 		input[type="file"] {
 			background: #000000;
 			color: #ffffff;
@@ -142,7 +144,8 @@
 			outline: none;
 		}
 
-		input[type="password"]:focus {
+		input[type="password"]:focus,
+		input[type="text"]:focus {
 			border-color: #a855f7;
 		}
 
@@ -171,6 +174,63 @@
 		.log-ok { color: #4ade80; }
 		.log-warn { color: #fbbf24; }
 		.log-err { color: #f87171; }
+
+		/* Scratch Notes Panel (unsaved, resizable, no tools) */
+		.tool-panel {
+			display: none;
+			margin-top: 24px;
+			border: 1px solid #27272a;
+			background: #09090d;
+			padding: 12px;
+		}
+
+		.tool-panel.open {
+			display: block;
+		}
+
+		.tool-panel-header {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			margin-bottom: 8px;
+			font-size: 13px;
+			color: #a78bfa;
+		}
+
+		.scratch-notes {
+			width: 100%;
+			min-width: 240px;
+			min-height: 130px;
+			height: 170px;
+			resize: both;
+			overflow: auto;
+			background: #000000;
+			color: #f3f4f6;
+			border: 1px solid #3f3f46;
+			padding: 10px;
+			font-family: inherit;
+			font-size: 14px;
+			line-height: 1.5;
+			outline: none;
+		}
+
+		.webview-box {
+			width: 100%;
+			min-width: 260px;
+			min-height: 220px;
+			height: 360px;
+			resize: both;
+			overflow: hidden;
+			border: 1px solid #3f3f46;
+			background: #000000;
+		}
+
+		.webview-box iframe {
+			width: 100%;
+			height: 100%;
+			border: none;
+			background: #ffffff;
+		}
 	</style>
 </head>
 <body>
@@ -180,7 +240,8 @@
 
 		<div class="status-block" id="statusBlock">
 			<div id="statusProfile">Profile: checking...</div>
-			<div id="statusPin">PIN protection: checking...</div>
+			<div id="statusPin">Main admin PIN: checking...</div>
+			<div id="statusMaster">Master password reset: checking...</div>
 			<div id="statusStorage">Storage entries: checking...</div>
 			<div id="statusCache">Offline cache: checking...</div>
 		</div>
@@ -198,22 +259,32 @@
 
 			<li>
 				<button type="button" class="action-link link-export" id="actExport">3. Export data backup</button>
-				<span class="action-desc">Download a JSON backup of BrowOS data (requires PIN if set; leave blank if none).</span>
+				<span class="action-desc">Download a JSON backup of BrowOS data (requires Main admin PIN if set; leave blank if none).</span>
 			</li>
 
 			<li>
 				<button type="button" class="action-link link-import" id="actImport">4. Import data backup</button>
-				<span class="action-desc">Restore BrowOS data from a JSON backup file (requires PIN if set; leave blank if none).</span>
+				<span class="action-desc">Restore BrowOS data from a JSON backup file (requires Main admin PIN if set; leave blank if none).</span>
 			</li>
 
 			<li>
-				<button type="button" class="action-link link-emergency" id="actEmergencyReset">5. Remove PIN &amp; wipe personal media / Drive</button>
-				<span class="action-desc">Requires emergency master password. Keeps settings and app data, removes PIN, photos, music, and Drive files.</span>
+				<button type="button" class="action-link link-emergency" id="actRemovePin">5. Remove PIN (keep all data)</button>
+				<span class="action-desc">Requires emergency master password + 5-digit OS Security Code (if enabled). Removes PIN while keeping all data.</span>
 			</li>
 
 			<li>
 				<button type="button" class="action-link link-reset" id="actFactoryReset">6. Full factory reset</button>
-				<span class="action-desc">Completely erase all website localStorage, IndexedDB, and caches (requires PIN or master password).</span>
+				<span class="action-desc">Completely erase all website localStorage, IndexedDB, and caches (requires Main admin PIN or master password).</span>
+			</li>
+
+			<li>
+				<button type="button" class="action-link link-tool" id="actLaunchNotes">7. Launch notes</button>
+				<span class="action-desc">Open a small scalable scratchpad box for temporary notes during recovery (unsaved).</span>
+			</li>
+
+			<li>
+				<button type="button" class="action-link link-tool" id="actLaunchWebView">8. Launch WebView</button>
+				<span class="action-desc">Open a test URL inside an embedded WebView frame.</span>
 			</li>
 		</ul>
 
@@ -228,12 +299,34 @@
 			</div>
 		</div>
 
+		<!-- Scratch Notes Tool -->
+		<div class="tool-panel" id="notesPanel">
+			<div class="tool-panel-header">
+				<span>Scratch Notes (unsaved, drag corner to resize)</span>
+				<button type="button" class="text-btn cancel" id="closeNotesBtn">Close</button>
+			</div>
+			<textarea class="scratch-notes" id="scratchNotesArea" placeholder="Temporary recovery notes..."></textarea>
+		</div>
+
+		<!-- WebView Tool -->
+		<div class="tool-panel" id="webviewPanel">
+			<div class="tool-panel-header">
+				<span id="webviewUrlLabel">WebView</span>
+				<button type="button" class="text-btn cancel" id="closeWebviewBtn">Close</button>
+			</div>
+			<div class="webview-box">
+				<iframe id="recoveryWebviewFrame" sandbox="allow-scripts allow-same-origin allow-forms allow-popups"></iframe>
+			</div>
+		</div>
+
 		<div class="log-output" id="logOutput" role="status"></div>
 	</main>
 
 	<script>
 		(function () {
 			const PIN_KEY = "browos-pin";
+			const OS_CODE_KEY = "browos-os-code";
+			const MASTER_RESET_ENABLED_KEY = "browos-master-reset-enabled";
 			const PIN_ITERATIONS = 150000;
 			const PROFILE_META_KEY = "browos-profiles-meta";
 			const MASTER_PREFIX_HASH = "a75067c9e0f6ee72";
@@ -262,6 +355,105 @@
 				logOutput.innerHTML = "";
 			}
 
+			function getProfileMetaSafe() {
+				try {
+					const meta = JSON.parse(localStorage.getItem(PROFILE_META_KEY) || "null");
+					if (meta && Array.isArray(meta.list) && meta.list.length) {
+						return meta;
+					}
+				} catch (e) {}
+				return { current: "default", list: [{ id: "default", name: "Main" }] };
+			}
+
+			// Read Main ("default") profile snapshot from IndexedDB when another profile is active
+			function readMainProfileSnapshot() {
+				return new Promise(function (resolve) {
+					try {
+						const req = indexedDB.open("browos-profiles", 1);
+						req.onupgradeneeded = function () {
+							req.result.createObjectStore("snapshots");
+						};
+						req.onsuccess = function () {
+							const db = req.result;
+							try {
+								const tx = db.transaction("snapshots", "readonly");
+								const getReq = tx.objectStore("snapshots").get("default");
+								getReq.onsuccess = function () {
+									resolve(getReq.result || {});
+									db.close();
+								};
+								getReq.onerror = function () {
+									resolve({});
+									db.close();
+								};
+							} catch (e) {
+								resolve({});
+								db.close();
+							}
+						};
+						req.onerror = function () {
+							resolve({});
+						};
+					} catch (e) {
+						resolve({});
+					}
+				});
+			}
+
+			function writeMainProfileSnapshot(data) {
+				return new Promise(function (resolve) {
+					try {
+						const req = indexedDB.open("browos-profiles", 1);
+						req.onupgradeneeded = function () {
+							req.result.createObjectStore("snapshots");
+						};
+						req.onsuccess = function () {
+							const db = req.result;
+							try {
+								const tx = db.transaction("snapshots", "readwrite");
+								tx.objectStore("snapshots").put(data, "default");
+								tx.oncomplete = function () {
+									db.close();
+									resolve();
+								};
+								tx.onerror = function () {
+									db.close();
+									resolve();
+								};
+							} catch (e) {
+								db.close();
+								resolve();
+							}
+						};
+						req.onerror = function () {
+							resolve();
+						};
+					} catch (e) {
+						resolve();
+					}
+				});
+			}
+
+			// Retrieve Main admin security values regardless of which profile is currently active
+			async function getMainAdminSecurityState() {
+				const meta = getProfileMetaSafe();
+				if (meta.current === "default") {
+					return {
+						isMainActive: true,
+						pinRaw: localStorage.getItem(PIN_KEY),
+						osCode: localStorage.getItem(OS_CODE_KEY) || "",
+						masterEnabled: localStorage.getItem(MASTER_RESET_ENABLED_KEY) !== "off",
+					};
+				}
+				const snap = await readMainProfileSnapshot();
+				return {
+					isMainActive: false,
+					pinRaw: snap[PIN_KEY] || null,
+					osCode: snap[OS_CODE_KEY] || localStorage.getItem(OS_CODE_KEY) || "",
+					masterEnabled: (snap[MASTER_RESET_ENABLED_KEY] || localStorage.getItem(MASTER_RESET_ENABLED_KEY)) !== "off",
+				};
+			}
+
 			function hashMasterPrefix(str) {
 				let a = 5381;
 				let b = 0;
@@ -273,19 +465,27 @@
 				return a.toString(16).padStart(8, "0") + b.toString(16).padStart(8, "0");
 			}
 
-			// Case-sensitive verification: <hashed-prefix><MM>/<DD>#<HH>[!]
-			function verifyMasterPassword(input) {
+			// Case-sensitive verification: <hashed-prefix><MM>/<DD>#<HH>[!]<5-digit-OS-code>
+			async function verifyMasterPassword(input) {
+				const state = await getMainAdminSecurityState();
+				if (!state.masterEnabled) {
+					return { ok: false, reason: "Master password reset is disabled in BrowOS Settings." };
+				}
+
 				const val = String(input || "").trim();
-				const match = val.match(/^(.+)(\d{2})\/(\d{2})#(\d{1,2})!?$/);
-				if (!match) return false;
+				const match = val.match(/^(.+)(\d{2})\/(\d{2})#(\d{1,2})!?(\d{5})$/);
+				if (!match) {
+					return { ok: false, reason: "Invalid master password format." };
+				}
 
 				const exactPrefix = match[1];
 				const mm = match[2];
 				const dd = match[3];
 				const hh = match[4];
+				const code5 = match[5];
 
 				if (hashMasterPrefix(exactPrefix) !== MASTER_PREFIX_HASH) {
-					return false;
+					return { ok: false, reason: "Invalid master password." };
 				}
 
 				const now = new Date();
@@ -294,14 +494,17 @@
 				const curHH24 = String(now.getHours()).padStart(2, "0");
 				const curHHRaw = String(now.getHours());
 
-				if (mm !== curMM || dd !== curDD) {
-					return false;
+				if (mm !== curMM || dd !== curDD || (hh !== curHH24 && hh !== curHHRaw)) {
+					return { ok: false, reason: "Invalid master password." };
 				}
 
-				return hh === curHH24 || hh === curHHRaw;
+				if (!state.osCode || code5 !== state.osCode) {
+					return { ok: false, reason: "Invalid 5-digit OS Security Code." };
+				}
+
+				return { ok: true, reason: "" };
 			}
 
-			// Native BrowOS PBKDF2-SHA256 PIN verification (matches js/lock.js)
 			function base64ToBytes(text) {
 				return Uint8Array.from(atob(text), function (ch) {
 					return ch.charCodeAt(0);
@@ -316,9 +519,8 @@
 				return btoa(text);
 			}
 
-			function getSavedPinRecord() {
+			function parsePinRecord(raw) {
 				try {
-					const raw = localStorage.getItem(PIN_KEY);
 					if (!raw) return null;
 					const parsed = JSON.parse(raw);
 					if (parsed && typeof parsed.salt === "string" && typeof parsed.hash === "string") {
@@ -328,12 +530,10 @@
 				return null;
 			}
 
-			function hasUserPin() {
-				return getSavedPinRecord() !== null;
-			}
-
-			async function verifyUserPin(enteredPin) {
-				const saved = getSavedPinRecord();
+			// Verifies strictly against the Main ("default") profile's PBKDF2-SHA256 PIN (Duress PIN never authenticates here)
+			async function verifyMainAdminPin(enteredPin) {
+				const state = await getMainAdminSecurityState();
+				const saved = parsePinRecord(state.pinRaw);
 				if (!saved) {
 					return true;
 				}
@@ -365,24 +565,24 @@
 			async function refreshStatus() {
 				const profEl = document.getElementById("statusProfile");
 				const pinEl = document.getElementById("statusPin");
+				const masterEl = document.getElementById("statusMaster");
 				const storeEl = document.getElementById("statusStorage");
 				const cacheEl = document.getElementById("statusCache");
 
-				try {
-					const meta = JSON.parse(localStorage.getItem(PROFILE_META_KEY) || "null");
-					if (meta && Array.isArray(meta.list)) {
-						const active = meta.list.find(function (p) { return p.id === meta.current; }) || meta.list[0];
-						profEl.textContent = "Profile: " + (active ? active.name : "Main") + " (" + meta.list.length + " total)";
-					} else {
-						profEl.textContent = "Profile: Main (default)";
-					}
-				} catch (e) {
-					profEl.textContent = "Profile: Main";
-				}
+				const meta = getProfileMetaSafe();
+				const active = meta.list.find(function (p) { return p.id === meta.current; }) || meta.list[0];
+				profEl.textContent = "Active profile: " + (active ? active.name : "Main") + (meta.current === "default" ? " (Administrator)" : " (Standard user — Main admin auth required)");
 
-				pinEl.textContent = hasUserPin()
-					? "PIN protection: Enabled (PBKDF2-SHA256)"
-					: "PIN protection: Not set (blank allowed)";
+				const state = await getMainAdminSecurityState();
+				const hasMainPin = parsePinRecord(state.pinRaw) !== null;
+
+				pinEl.textContent = hasMainPin
+					? "Main admin PIN: Enabled (PBKDF2-SHA256)"
+					: "Main admin PIN: Not set (blank allowed)";
+
+				masterEl.textContent = state.masterEnabled
+					? "Master password reset: Enabled (requires 5-digit OS code)"
+					: "Master password reset: Disabled in Settings";
 
 				storeEl.textContent = "Storage entries: " + localStorage.length + " keys";
 
@@ -487,21 +687,23 @@
 				}, 900);
 			});
 
-			// 3. Export Data Backup
-			document.getElementById("actExport").addEventListener("click", function () {
+			// 3. Export Data Backup (requires Main admin PIN if set; blank if no PIN set)
+			document.getElementById("actExport").addEventListener("click", async function () {
 				clearLog();
-				const pinSet = hasUserPin();
+				const state = await getMainAdminSecurityState();
+				const pinSet = parsePinRecord(state.pinRaw) !== null;
 				openPrompt({
 					title: "Export Data Backup",
 					hint: pinSet
-						? "Enter your BrowOS PIN to export your data backup."
-						: "No PIN is set. Leave blank and click Continue to export your backup.",
-					placeholder: pinSet ? "Enter PIN" : "Leave blank (no PIN set)",
+						? "Enter your Main administrator PIN to export your data backup."
+						: "No Main PIN is set. Leave blank and click Continue to export your backup.",
+					placeholder: pinSet ? "Enter Main PIN" : "Leave blank (no PIN set)",
 					needsFile: false,
 					onConfirm: async function (pwd) {
-						const ok = (await verifyUserPin(pwd)) || verifyMasterPassword(pwd);
-						if (!ok) {
-							log("Incorrect PIN. Export aborted.", "err");
+						const pinOk = await verifyMainAdminPin(pwd);
+						const masterCheck = pinOk ? { ok: true } : await verifyMasterPassword(pwd);
+						if (!pinOk && !masterCheck.ok) {
+							log("Incorrect Main administrator PIN. Export aborted.", "err");
 							return;
 						}
 
@@ -535,21 +737,23 @@
 				});
 			});
 
-			// 4. Import Data Backup
-			document.getElementById("actImport").addEventListener("click", function () {
+			// 4. Import Data Backup (requires Main admin PIN if set; blank if no PIN set)
+			document.getElementById("actImport").addEventListener("click", async function () {
 				clearLog();
-				const pinSet = hasUserPin();
+				const state = await getMainAdminSecurityState();
+				const pinSet = parsePinRecord(state.pinRaw) !== null;
 				openPrompt({
 					title: "Import Data Backup",
 					hint: pinSet
-						? "Enter your current BrowOS PIN and choose a JSON backup file."
-						: "No PIN is set (leave password blank). Choose a JSON backup file to restore.",
-					placeholder: pinSet ? "Enter PIN" : "Leave blank (no PIN set)",
+						? "Enter your Main administrator PIN and choose a JSON backup file."
+						: "No Main PIN is set (leave password blank). Choose a JSON backup file to restore.",
+					placeholder: pinSet ? "Enter Main PIN" : "Leave blank (no PIN set)",
 					needsFile: true,
 					onConfirm: async function (pwd, file) {
-						const ok = (await verifyUserPin(pwd)) || verifyMasterPassword(pwd);
-						if (!ok) {
-							log("Incorrect PIN. Import aborted.", "err");
+						const pinOk = await verifyMainAdminPin(pwd);
+						const masterCheck = pinOk ? { ok: true } : await verifyMasterPassword(pwd);
+						if (!pinOk && !masterCheck.ok) {
+							log("Incorrect Main administrator PIN. Import aborted.", "err");
 							return;
 						}
 						if (!file) {
@@ -583,93 +787,67 @@
 				});
 			});
 
-			// 5. Emergency Master Password Reset
-			document.getElementById("actEmergencyReset").addEventListener("click", function () {
+			// 5. Remove PIN via Master Password (KEEPS ALL DATA)
+			document.getElementById("actRemovePin").addEventListener("click", async function () {
 				clearLog();
+				const state = await getMainAdminSecurityState();
+				if (!state.masterEnabled) {
+					log("Master password reset is disabled in BrowOS Settings.", "err");
+					return;
+				}
 				openPrompt({
-					title: "Emergency PIN Removal & Media/Drive Wipe",
-					hint: "Enter the emergency master password. This keeps settings and app data, removes the PIN, and wipes photos, music, notes, and Drive storage.",
-					placeholder: "Emergency master password",
+					title: "Remove PIN (Keep All Data)",
+					hint: "Enter the emergency master password followed by your 5-digit OS Security Code. This removes the PIN while keeping all your data, files, photos, and settings.",
+					placeholder: "Master password + 5-digit OS code",
 					needsFile: false,
 					onConfirm: async function (pwd) {
-						if (!verifyMasterPassword(pwd)) {
-							log("Invalid emergency master password.", "err");
+						const check = await verifyMasterPassword(pwd);
+						if (!check.ok) {
+							log(check.reason, "err");
 							return;
 						}
 
-						if (!confirm("Are you sure? This will remove the PIN and permanently delete personal photos, opened music, notes, and Drive files while keeping settings and app data.")) {
+						if (!confirm("Remove PIN lock? All your settings, apps, photos, notes, and Drive files will be kept.")) {
 							return;
 						}
 
+						// Remove PIN on active storage and on Main profile snapshot if another profile is active
 						localStorage.removeItem(PIN_KEY);
 						localStorage.setItem("browos-lock-startup", "off");
 						sessionStorage.removeItem("browos-locked");
 
-						const keysToRemove = [];
-						for (let i = 0; i < localStorage.length; i++) {
-							const k = localStorage.key(i);
-							if (!k) continue;
-							if (
-								k === "customWallpaper" ||
-								k === "browos-custom-cursor" ||
-								k === "browos-notes" ||
-								k === "browos-sticky-notes" ||
-								k === "browos-clipboard" ||
-								/photo|music|audio|media|gallery|drive|file/i.test(k)
-							) {
-								keysToRemove.push(k);
-							}
+						const meta = getProfileMetaSafe();
+						if (meta.current !== "default") {
+							const snap = await readMainProfileSnapshot();
+							delete snap[PIN_KEY];
+							snap["browos-lock-startup"] = "off";
+							await writeMainProfileSnapshot(snap);
 						}
-						if (localStorage.getItem("wallpaper") === "custom") {
-							localStorage.setItem("wallpaper", "wallpapers/wallpaper.jpg");
-						}
-						if (localStorage.getItem("browos-cursor") === "custom") {
-							localStorage.setItem("browos-cursor", "browos");
-						}
-						keysToRemove.forEach(function (k) {
-							localStorage.removeItem(k);
-						});
-
-						try {
-							if (window.indexedDB && indexedDB.databases) {
-								const dbs = await indexedDB.databases();
-								await Promise.all(
-									dbs
-										.filter(function (db) { return db.name && db.name.indexOf("browos-files") === 0; })
-										.map(function (db) {
-											return new Promise(function (resolve) {
-												const req = indexedDB.deleteDatabase(db.name);
-												req.onsuccess = req.onerror = req.onblocked = resolve;
-											});
-										})
-								);
-							} else {
-								indexedDB.deleteDatabase("browos-files");
-							}
-						} catch (e) {}
 
 						closePrompt();
 						await refreshStatus();
-						log("PIN removed and personal media / Drive wiped. Settings and app data kept.", "ok");
+						log("PIN removed. All user data, media, Drive files, and settings were kept.", "ok");
 					},
 				});
 			});
 
-			// 6. Full Factory Reset
-			document.getElementById("actFactoryReset").addEventListener("click", function () {
+			// 6. Full Factory Reset (requires Main admin PIN if set, or master password + 5-digit OS code if enabled)
+			document.getElementById("actFactoryReset").addEventListener("click", async function () {
 				clearLog();
-				const pinSet = hasUserPin();
+				const state = await getMainAdminSecurityState();
+				const pinSet = parsePinRecord(state.pinRaw) !== null;
 				openPrompt({
 					title: "Full Factory Reset",
 					hint: pinSet
-						? "Enter your BrowOS PIN (or emergency master password) to erase ALL website data."
-						: "No PIN is set. Leave blank and click Continue to erase ALL website data.",
-					placeholder: pinSet ? "Enter PIN or master password" : "Leave blank (no PIN set)",
+						? "Enter your Main administrator PIN (or master password + 5-digit OS code if enabled) to erase ALL website data."
+						: "No Main PIN is set. Leave blank and click Continue to erase ALL website data.",
+					placeholder: pinSet ? "Enter Main PIN or master password" : "Leave blank (no PIN set)",
 					needsFile: false,
 					onConfirm: async function (pwd) {
-						const ok = (await verifyUserPin(pwd)) || verifyMasterPassword(pwd);
-						if (!ok) {
-							log("Incorrect password/PIN. Factory reset aborted.", "err");
+						const pinOk = await verifyMainAdminPin(pwd);
+						const masterCheck = pinOk ? { ok: true } : await verifyMasterPassword(pwd);
+						if (!pinOk && !masterCheck.ok) {
+							log("Authentication failed. " + masterCheck.reason, "err");
 							return;
 						}
 
@@ -715,6 +893,40 @@
 						log("Full factory reset complete. All data wiped.", "ok");
 					},
 				});
+			});
+
+			// 7. Launch Scratch Notes (unsaved, scalable, no tools)
+			const notesPanel = document.getElementById("notesPanel");
+			const closeNotesBtn = document.getElementById("closeNotesBtn");
+			document.getElementById("actLaunchNotes").addEventListener("click", function () {
+				notesPanel.classList.add("open");
+				document.getElementById("scratchNotesArea").focus();
+			});
+			closeNotesBtn.addEventListener("click", function () {
+				notesPanel.classList.remove("open");
+			});
+
+			// 8. Launch WebView (asks for URL for testing)
+			const webviewPanel = document.getElementById("webviewPanel");
+			const webviewFrame = document.getElementById("recoveryWebviewFrame");
+			const webviewUrlLabel = document.getElementById("webviewUrlLabel");
+			const closeWebviewBtn = document.getElementById("closeWebviewBtn");
+
+			document.getElementById("actLaunchWebView").addEventListener("click", function () {
+				const rawUrl = prompt("Enter URL to open in WebView:", "https://");
+				if (!rawUrl || !rawUrl.trim()) return;
+				let target = rawUrl.trim();
+				if (!/^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(target)) {
+					target = "https://" + target;
+				}
+				webviewUrlLabel.textContent = "WebView: " + target;
+				webviewFrame.src = target;
+				webviewPanel.classList.add("open");
+			});
+
+			closeWebviewBtn.addEventListener("click", function () {
+				webviewPanel.classList.remove("open");
+				webviewFrame.src = "about:blank";
 			});
 		})();
 	</script>
