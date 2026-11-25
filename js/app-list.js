@@ -131,8 +131,8 @@ const appCatalog = [
 	},
 
 	{
-		id: "Recover Brow",
-		name: "recoveros",
+		id: "recover-brow",
+		name: "Recover Brow",
 		category: "apps",
 		builtIn: true,
 		icon: "icons/recover-brow.png",
