@@ -131,12 +131,12 @@ const appCatalog = [
 	},
 
 	{
-		id: "ytube",
-		name: "ViewTube",
+		id: "Recover Brow",
+		name: "recoveros",
 		category: "apps",
 		builtIn: true,
-		icon: "icons/video-icon.png",
-		page: "apps/ytube/index.html",
+		icon: "icons/recover-brow.png",
+		page: "apps/recoverbrow/index.html",
 		size: [980, 660],
 		credit: "Made for BrowOS",
 	},
