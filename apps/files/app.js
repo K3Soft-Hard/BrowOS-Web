@@ -1,6 +1,4 @@
-// Files: a file manager for the BrowOS file store (kept in this browser)
-
-const os = window.browos;
+// Files: a file manager for the BrowOS file store (kept in this browser's localStorage)
 
 const listEl = document.getElementById("list");
 const emptyEl = document.getElementById("empty");
@@ -19,8 +17,246 @@ let renaming = null;
 let searching = "";
 let renderRun = 0;
 
+// Direct localStorage fallback if parent frame API isn't attached yet or opened standalone
+const localFallbackFilesApi = (function () {
+	function storageKey() {
+		try {
+			const meta = JSON.parse(localStorage.getItem("browos-profiles-meta") || "null");
+			const id = meta && meta.current ? meta.current : "default";
+			return "browos-filestore:" + (id === "default" ? "browos-files" : "browos-files-" + id);
+		} catch (e) {
+			return "browos-filestore:browos-files";
+		}
+	}
+
+	function readMap() {
+		try {
+			return JSON.parse(localStorage.getItem(storageKey()) || "{}") || {};
+		} catch (e) {
+			return {};
+		}
+	}
+
+	function writeMap(map) {
+		localStorage.setItem(storageKey(), JSON.stringify(map));
+		window.dispatchEvent(new Event("files-changed"));
+		try {
+			if (window.parent && window.parent !== window) {
+				window.parent.document.dispatchEvent(new Event("files-changed"));
+			}
+		} catch (e) {}
+	}
+
+	function kind(name, mime) {
+		const dot = String(name).lastIndexOf(".");
+		const ext = dot > 0 ? String(name).slice(dot + 1).toLowerCase() : "";
+		if (/^image\//.test(mime || "") || ["png", "jpg", "jpeg", "gif", "webp", "svg", "bmp", "avif", "ico"].includes(ext)) return "image";
+		if (mime === "application/pdf" || ext === "pdf") return "pdf";
+		if (/^audio\//.test(mime || "") || ["mp3", "wav", "ogg", "m4a", "flac"].includes(ext)) return "audio";
+		if (/^video\//.test(mime || "") || ["mp4", "webm", "mkv", "mov"].includes(ext)) return "video";
+		if (/^text\//.test(mime || "") || ["txt", "md", "json", "js", "ts", "css", "html", "htm", "xml", "csv", "py", "java", "c", "cpp", "h", "go", "rs", "sh", "yml", "yaml", "log", "ini", "sql"].includes(ext)) return "text";
+		return "other";
+	}
+
+	function cleanName(name) {
+		return String(name || "").replace(/[\\/:*?"<>|\u0000-\u001f]/g, "").trim().slice(0, 120);
+	}
+
+	function list(parent) {
+		const map = readMap();
+		const items = Object.values(map).filter((n) => n && n.parent === parent);
+		items.sort((a, b) => (a.type !== b.type ? (a.type === "folder" ? -1 : 1) : a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" })));
+		return Promise.resolve(items);
+	}
+
+	function freeName(parent, wanted) {
+		return list(parent).then((items) => {
+			const used = new Set(items.map((i) => i.name.toLowerCase()));
+			if (!used.has(wanted.toLowerCase())) return wanted;
+			const dot = wanted.lastIndexOf(".");
+			const base = dot > 0 ? wanted.slice(0, dot) : wanted;
+			const ext = dot > 0 ? wanted.slice(dot) : "";
+			let n = 2;
+			while (used.has((base + " (" + n + ")" + ext).toLowerCase())) n++;
+			return base + " (" + n + ")" + ext;
+		});
+	}
+
+	function node(id) {
+		if (id === "root" || id === "trash") {
+			return Promise.resolve({ id: id, type: "folder", name: id === "root" ? "Files" : "Trash", parent: null });
+		}
+		return Promise.resolve(readMap()[id] || null);
+	}
+
+	function mkdir(parent, name) {
+		const clean = cleanName(name);
+		if (!clean) return Promise.reject(new Error("That name can't be used."));
+		return freeName(parent, clean).then((free) => {
+			const item = { id: "f" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8), parent: parent, name: free, type: "folder", created: Date.now(), modified: Date.now() };
+			const map = readMap();
+			map[item.id] = item;
+			writeMap(map);
+			return item;
+		});
+	}
+
+	function write(parent, name, data) {
+		const clean = cleanName(name);
+		if (!clean) return Promise.reject(new Error("That name can't be used."));
+		const isBlob = data && typeof data === "object" && typeof data.arrayBuffer === "function";
+		const blob = isBlob ? data : new Blob([String(data)], { type: "text/plain" });
+		return Promise.all([
+			freeName(parent, clean),
+			new Promise((resolve, reject) => {
+				const r = new FileReader();
+				r.onload = () => resolve(r.result || "");
+				r.onerror = () => reject(r.error);
+				r.readAsDataURL(blob);
+			}),
+		]).then(([free, dataUrl]) => {
+			const item = {
+				id: "f" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
+				parent: parent,
+				name: free,
+				type: "file",
+				mime: blob.type || "",
+				size: blob.size,
+				created: Date.now(),
+				modified: Date.now(),
+				dataUrl: dataUrl,
+			};
+			const map = readMap();
+			map[item.id] = item;
+			writeMap(map);
+			return item;
+		});
+	}
+
+	function rename(id, name) {
+		const clean = cleanName(name);
+		if (!clean) return Promise.reject(new Error("That name can't be used."));
+		const map = readMap();
+		const item = map[id];
+		if (!item) return Promise.reject(new Error("Item not found."));
+		return freeName(item.parent, clean).then((free) => {
+			item.name = free === clean || free.toLowerCase() === item.name.toLowerCase() ? clean : free;
+			item.modified = Date.now();
+			writeMap(map);
+			return item;
+		});
+	}
+
+	function move(id, parent) {
+		const map = readMap();
+		const item = map[id];
+		if (!item || id === parent) return Promise.resolve(item);
+		return freeName(parent, item.name).then((free) => {
+			item.parent = parent;
+			item.name = free;
+			item.modified = Date.now();
+			writeMap(map);
+			return item;
+		});
+	}
+
+	function deleteForever(id) {
+		const map = readMap();
+		const toDelete = new Set([id]);
+		let added = true;
+		while (added) {
+			added = false;
+			Object.values(map).forEach((n) => {
+				if (n && toDelete.has(n.parent) && !toDelete.has(n.id)) {
+					toDelete.add(n.id);
+					added = true;
+				}
+			});
+		}
+		toDelete.forEach((delId) => delete map[delId]);
+		writeMap(map);
+		return Promise.resolve();
+	}
+
+	function remove(id) {
+		const map = readMap();
+		const item = map[id];
+		if (!item) return Promise.resolve();
+		if (item.parent === "trash") return deleteForever(id);
+		item.trashedFrom = item.parent;
+		item.parent = "trash";
+		item.modified = Date.now();
+		writeMap(map);
+		return Promise.resolve();
+	}
+
+	function restore(id) {
+		const map = readMap();
+		const item = map[id];
+		if (!item) return Promise.resolve();
+		const target = item.trashedFrom && map[item.trashedFrom] ? item.trashedFrom : "root";
+		return move(id, target);
+	}
+
+	function emptyTrash() {
+		return list("trash").then((items) => Promise.all(items.map((i) => deleteForever(i.id))));
+	}
+
+	function path(id) {
+		const parts = [];
+		const map = readMap();
+		let cur = id;
+		while (cur && cur !== "root" && map[cur]) {
+			parts.unshift({ id: map[cur].id, name: map[cur].name });
+			cur = map[cur].parent;
+		}
+		return Promise.resolve(parts);
+	}
+
+	function totalSize() {
+		const map = readMap();
+		return Promise.resolve(Object.values(map).reduce((sum, n) => sum + (n && n.size ? n.size : 0), 0));
+	}
+
+	function search(text) {
+		const needle = String(text).toLowerCase();
+		const map = readMap();
+		return Promise.resolve(
+			Object.values(map)
+				.filter((n) => n && n.parent !== "trash" && n.name.toLowerCase().includes(needle))
+				.sort((a, b) => a.name.localeCompare(b.name))
+		);
+	}
+
+	function download(id) {
+		const item = readMap()[id];
+		if (!item) return;
+		const a = document.createElement("a");
+		a.href = item.dataUrl || "data:text/plain;charset=utf-8," + encodeURIComponent(item.text || "");
+		a.download = item.name;
+		document.body.appendChild(a);
+		a.click();
+		a.remove();
+	}
+
+	function open(id) {
+		download(id);
+		return Promise.resolve();
+	}
+
+	return { kind, list, node, mkdir, write, rename, move, remove, restore, emptyTrash, path, totalSize, search, download, open };
+})();
+
 function api() {
-	return os && os.files ? os.files : null;
+	if (window.browos && window.browos.files) {
+		return window.browos.files;
+	}
+	try {
+		if (window.parent && window.parent !== window && window.parent.browosApi && window.parent.browosApi.files) {
+			return window.parent.browosApi.files;
+		}
+	} catch (e) {}
+	return localFallbackFilesApi;
 }
 
 function iconFor(node) {
@@ -28,7 +264,7 @@ function iconFor(node) {
 		return "📁";
 	}
 
-	return { image: "🖼️", pdf: "📕", audio: "🎵", video: "🎞️", text: "📄", other: "📦" }[os.files.kind(node.name, node.mime)];
+	return { image: "🖼️", pdf: "📕", audio: "🎵", video: "🎞️", text: "📄", other: "📦" }[api().kind(node.name, node.mime)];
 }
 
 function sizeText(bytes) {
@@ -107,7 +343,8 @@ function go(id) {
 }
 
 function render() {
-	if (!api()) {
+	const filesApi = api();
+	if (!filesApi) {
 		emptyEl.hidden = false;
 		emptyEl.textContent = "The BrowOS desktop isn't reachable from here.";
 
@@ -121,9 +358,9 @@ function render() {
 
 	const run = ++renderRun;
 
-	const load = searching ? api().search(searching) : api().list(folder);
+	const load = searching ? filesApi.search(searching) : filesApi.list(folder);
 
-	Promise.all([load, renderPath(run), api().totalSize()])
+	Promise.all([load, renderPath(run), filesApi.totalSize()])
 		.then(function (results) {
 			if (run !== renderRun) {
 				return;
@@ -464,12 +701,20 @@ document.addEventListener("keydown", function (event) {
 	}
 });
 
-if (window.parent !== window) {
-	window.parent.document.addEventListener("files-changed", function () {
-		if (!renaming) {
-			render();
-		}
-	});
-}
+try {
+	if (window.parent && window.parent !== window) {
+		window.parent.document.addEventListener("files-changed", function () {
+			if (!renaming) {
+				render();
+			}
+		});
+	}
+} catch (e) {}
+
+window.addEventListener("files-changed", function () {
+	if (!renaming) {
+		render();
+	}
+});
 
 render();
