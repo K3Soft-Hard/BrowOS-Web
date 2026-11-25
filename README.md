@@ -1,6 +1,6 @@
 # BrowOS
 
-A client-side desktop operating system built as a static Progressive Web App (PWA) using vanilla HTML, CSS, and JavaScript. Designed to run locally in any modern browser—across desktop monitors, Samsung DeX, tablets, and mobile portrait screens—with offline caching, multi-profile support, and a `localStorage`-backed virtual file system.
+A client-side desktop operating system built as a static Progressive Web App (PWA) using vanilla HTML, CSS, and JavaScript. Designed to run locally in any modern browser—across desktop monitors, Chrome Books, TVs, tablets, and mobile portrait screens—with offline caching, multi-profile support, and a `localStorage`-backed virtual file system.
 
 ---
 
