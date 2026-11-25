@@ -67,15 +67,15 @@
 		}
 
 		/* =========================================================
-		   FROSTED GLASS WIDGETS & STICKY NOTES (SYNCED WITH TASKBAR)
+		   FROSTED GLASS WIDGETS (STICKY NOTES KEPT NATIVE & COLORFUL)
 		   ========================================================= */
 		.widget-layer {
 			padding-bottom: var(--bos-tb-safe-bottom, 64px);
 			box-sizing: border-box;
 		}
 
-		.widget-layer .widget,
-		.widget-layer .desktop-widget {
+		.widget-layer .widget:not(.sticky-note):not(.note-widget),
+		.widget-layer .desktop-widget:not(.sticky-note):not(.note-widget) {
 			background: var(--bos-glass-bg) !important;
 			backdrop-filter: blur(var(--bos-glass-blur)) saturate(165%) !important;
 			-webkit-backdrop-filter: blur(var(--bos-glass-blur)) saturate(165%) !important;
@@ -87,15 +87,15 @@
 			transition: box-shadow 0.2s ease, border-color 0.2s ease, transform 0.18s ease, background 0.2s ease;
 		}
 
-		.widget-layer .widget:hover,
-		.widget-layer .desktop-widget:hover {
+		.widget-layer .widget:not(.sticky-note):not(.note-widget):hover,
+		.widget-layer .desktop-widget:not(.sticky-note):not(.note-widget):hover {
 			border-color: rgba(255, 255, 255, 0.24) !important;
 			box-shadow: 0 18px 44px rgba(0, 0, 0, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.16) !important;
 		}
 
-		.widget-layer .widget-header,
-		.widget-layer .widget-bar,
-		.widget-layer .widget-titlebar {
+		.widget-layer .widget:not(.sticky-note):not(.note-widget) .widget-header,
+		.widget-layer .widget:not(.sticky-note):not(.note-widget) .widget-bar,
+		.widget-layer .widget:not(.sticky-note):not(.note-widget) .widget-titlebar {
 			background: rgba(255, 255, 255, 0.04) !important;
 			border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
 			padding: 8px 13px !important;
@@ -106,30 +106,70 @@
 			color: rgba(255, 255, 255, 0.72) !important;
 		}
 
-		.widget-layer .widget-body,
-		.widget-layer .widget-content {
+		.widget-layer .widget:not(.sticky-note):not(.note-widget) .widget-body,
+		.widget-layer .widget:not(.sticky-note):not(.note-widget) .widget-content {
 			padding: 14px 16px !important;
 			font-variant-numeric: tabular-nums;
 		}
 
-		.widget-layer .sticky-note,
-		.widget-layer .note-widget {
-			background: rgba(36, 33, 28, 0.56) !important;
-			backdrop-filter: blur(var(--bos-glass-blur)) saturate(160%) !important;
-			-webkit-backdrop-filter: blur(var(--bos-glass-blur)) saturate(160%) !important;
-			border: 1px solid rgba(253, 230, 138, 0.22) !important;
-			border-radius: 16px !important;
-			box-shadow: 0 14px 34px rgba(0, 0, 0, 0.36), inset 0 1px 0 rgba(254, 243, 199, 0.14) !important;
-			color: #fefce8 !important;
+		/* =========================================================
+		   DURESS / WIPE PIN BLACK & WHITE FLASH OVERLAY (0.5s)
+		   ========================================================= */
+		#bosWipeFlashOverlay {
+			position: fixed;
+			inset: 0;
+			z-index: 999999;
+			display: none;
+			background: #ffffff;
+			pointer-events: all;
 		}
 
-		.widget-layer .sticky-note textarea,
-		.widget-layer .note-widget textarea {
-			background: transparent !important;
-			color: #fefce8 !important;
-			font-family: inherit !important;
-			font-size: 13.5px !important;
-			line-height: 1.5 !important;
+		@keyframes bosBwStrobe {
+			0%   { background: #ffffff; }
+			20%  { background: #000000; }
+			40%  { background: #ffffff; }
+			60%  { background: #000000; }
+			80%  { background: #ffffff; }
+			100% { background: #000000; }
+		}
+
+		#bosWipeFlashOverlay.active {
+			display: block;
+			animation: bosBwStrobe 0.5s steps(1, end) forwards;
+		}
+
+		/* =========================================================
+		   ADMIN-ONLY VISIBILITY FOR NON-MAIN PROFILES
+		   ========================================================= */
+		html[data-is-admin="0"] .bos-admin-only {
+			display: none !important;
+		}
+
+		html[data-is-admin="1"] .bos-nonadmin-note {
+			display: none !important;
+		}
+
+		/* =========================================================
+		   OS 5-DIGIT SECURITY CODE DISPLAY BOX
+		   ========================================================= */
+		.bos-code-box {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 12px;
+			padding: 10px 14px;
+			border-radius: 12px;
+			background: rgba(255, 255, 255, 0.06);
+			border: 1px solid rgba(255, 255, 255, 0.16);
+			margin-top: 8px;
+		}
+
+		.bos-code-digits {
+			font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+			font-size: 20px;
+			font-weight: 700;
+			letter-spacing: 0.24em;
+			color: #e9d5ff;
 		}
 
 		/* =========================================================
@@ -414,12 +454,12 @@
 			align-items: center;
 			text-align: center;
 			gap: 14px;
-			padding: 16px 0;
+			padding: 12px 0;
 		}
 
 		.bos-oobe-logo {
-			width: 96px;
-			height: 96px;
+			width: 92px;
+			height: 92px;
 			object-fit: contain;
 			filter: drop-shadow(0 12px 28px rgba(168, 85, 247, 0.6));
 			animation: bosLogoPulse 3.6s ease-in-out infinite;
@@ -431,7 +471,7 @@
 		}
 
 		.bos-oobe-hello {
-			font-size: 48px;
+			font-size: 46px;
 			font-weight: 700;
 			letter-spacing: -0.025em;
 			margin: 0;
@@ -442,10 +482,10 @@
 
 		.bos-oobe-sub {
 			margin: 0;
-			font-size: 15px;
+			font-size: 14.5px;
 			line-height: 1.6;
 			color: rgba(243, 232, 255, 0.86);
-			max-width: 500px;
+			max-width: 520px;
 		}
 
 		.bos-oobe-title {
@@ -609,7 +649,8 @@
 		}
 
 		.bos-oobe-row select,
-		.bos-oobe-row input[type="password"] {
+		.bos-oobe-row input[type="password"],
+		.bos-oobe-row input[type="text"] {
 			background: rgba(15, 8, 28, 0.88);
 			border: 1px solid rgba(216, 180, 254, 0.32);
 			color: #ffffff;
@@ -980,7 +1021,7 @@
 			color: #ffffff !important;
 			font-size: 16px !important;
 			text-align: center !important;
-			letter-spacing: 0.22em;
+			letter-spacing: 0.14em;
 			outline: none !important;
 			transition: border-color 0.15s ease, box-shadow 0.15s ease;
 		}
@@ -1050,6 +1091,9 @@
 </head>
 
 <body>
+	<!-- 0.5s Black & White Flash Overlay for Duress Wipe PIN -->
+	<div id="bosWipeFlashOverlay" aria-hidden="true"></div>
+
 	<!-- Full PC-Like Animated First-Boot Setup Wizard -->
 	<div id="bosOobeOverlay" role="dialog" aria-modal="true" aria-label="BrowOS Setup">
 		<div class="bos-oobe-card">
@@ -1060,12 +1104,30 @@
 				<span class="bos-oobe-dot"></span>
 			</div>
 
-			<!-- Step 1: Hello -->
+			<!-- Step 1: Hello (+ Post-Duress-Wipe Previous 5-Digit Code Gate if triggered) -->
 			<div class="bos-oobe-step active" data-step="0">
 				<div class="bos-oobe-hero">
 					<img class="bos-oobe-logo" src="icons/browos-logo.png" alt="BrowOS">
 					<h1 class="bos-oobe-hello">Hello</h1>
-					<p class="bos-oobe-sub">Welcome to BrowOS. Choose your wallpaper, adjust glassy transparency, set up an optional PIN lock, and jump right in.</p>
+					<p class="bos-oobe-sub" id="bosOobeWelcomeSub">Welcome to BrowOS. Choose your wallpaper, adjust glassy transparency, set up PIN security, and save your 5-digit OS Security Code.</p>
+				</div>
+
+				<!-- Shown ONLY after a Duress Wipe PIN reset -->
+				<div id="bosOobePrevCodeGate" style="display:none;flex-direction:column;gap:8px;">
+					<div class="bos-oobe-row" style="border-color:rgba(248,113,113,0.45);background:rgba(127,29,29,0.28);">
+						<span>Previous 5-digit OS Security Code</span>
+						<input type="text" id="bosOobePrevCodeInput" inputmode="numeric" maxlength="5" placeholder="5 digits" autocomplete="off">
+					</div>
+					<div class="bos-oobe-pin-msg" id="bosOobePrevCodeMsg"></div>
+				</div>
+
+				<!-- New 5-Digit OS Security Code Display + Copy Button -->
+				<div class="bos-code-box" id="bosOobeNewCodeBox">
+					<div>
+						<div style="font-size:12px;color:rgba(233,213,255,0.78);">Your 5-digit OS Security Code (required at the end of recovery master password)</div>
+						<div class="bos-code-digits" id="bosOobeOsCodeDisplay">-----</div>
+					</div>
+					<button type="button" class="bos-oobe-btn" id="bosOobeCopyCodeBtn">Copy</button>
 				</div>
 
 				<div class="bos-oobe-actions">
@@ -1160,24 +1222,38 @@
 				</div>
 			</div>
 
-			<!-- Step 3: Security & PIN -->
+			<!-- Step 3: Security, PIN (up to 128 chars), PIN Try Limits & Master Reset Toggle -->
 			<div class="bos-oobe-step" data-step="2">
-				<h2 class="bos-oobe-title">Lock screen &amp; PIN</h2>
-				<p class="bos-oobe-sub" style="max-width:none;">Protect your desktop with a 4–8 digit PIN (encrypted with PBKDF2-SHA256), or leave blank to unlock with one click.</p>
+				<h2 class="bos-oobe-title">Lock screen, PIN &amp; Recovery</h2>
+				<p class="bos-oobe-sub" style="max-width:none;">Protect your desktop with a 4–128 character PIN/password (encrypted with PBKDF2-SHA256), configure failed attempt limits, and choose whether recovery master password reset is allowed.</p>
 
 				<div class="bos-oobe-row">
-					<span>New PIN (4–8 digits)</span>
-					<input type="password" id="bosOobePin1" inputmode="numeric" maxlength="8" placeholder="Optional" autocomplete="off">
+					<span>New PIN / Password (4–128 chars)</span>
+					<input type="password" id="bosOobePin1" maxlength="128" placeholder="Optional" autocomplete="off">
 				</div>
 
 				<div class="bos-oobe-row">
-					<span>Confirm PIN</span>
-					<input type="password" id="bosOobePin2" inputmode="numeric" maxlength="8" placeholder="Repeat PIN" autocomplete="off">
+					<span>Confirm PIN / Password</span>
+					<input type="password" id="bosOobePin2" maxlength="128" placeholder="Repeat PIN" autocomplete="off">
+				</div>
+
+				<div class="bos-oobe-row">
+					<span>PIN try limit</span>
+					<select id="bosOobeLimitMode">
+						<option value="off">Off (unlimited tries)</option>
+						<option value="normal" selected>Normal (5 tries → 1 min)</option>
+						<option value="strict">Strict (3 tries → 1m, 5m, 15m)</option>
+					</select>
 				</div>
 
 				<div class="bos-oobe-row">
 					<span>Lock when BrowOS opens</span>
 					<input type="checkbox" id="bosOobeLockStartup">
+				</div>
+
+				<div class="bos-oobe-row">
+					<span>Allow recovery master password reset</span>
+					<input type="checkbox" id="bosOobeMasterResetToggle" checked>
 				</div>
 
 				<div class="bos-oobe-pin-msg" id="bosOobePinMsg"></div>
@@ -1684,7 +1760,7 @@
 
 					<h3>Lock screen &amp; Privacy</h3>
 
-					<p class="settings-note">The lock screen covers your desktop. Your PIN is encrypted locally with PBKDF2-SHA256 (150,000 iterations + random salt) and never stored in plain text.</p>
+					<p class="settings-note">The lock screen covers your desktop. Your PIN/password is encrypted locally with PBKDF2-SHA256 (150,000 iterations + random salt) and never stored in plain text.</p>
 
 					<div class="setting-row">
 						<span>Blur lock screen background</span>
@@ -1696,22 +1772,32 @@
 					</div>
 
 					<div class="setting-row">
+						<span>PIN try limit</span>
+
+						<select id="pinLimitModeSelect">
+							<option value="off">Off (unlimited)</option>
+							<option value="normal" selected>Normal (5 tries → 1 min)</option>
+							<option value="strict">Strict (3 tries → 1m, 5m, 15m)</option>
+						</select>
+					</div>
+
+					<div class="setting-row">
 						<span id="pinStatus">No PIN is set</span>
 					</div>
 
 					<div class="setting-row" id="pinCurrentRow" hidden>
-						<span>Current PIN</span>
-						<input class="pin-input" type="password" id="pinCurrent" inputmode="numeric" maxlength="8" autocomplete="off">
+						<span>Current PIN / Password</span>
+						<input class="pin-input" type="password" id="pinCurrent" maxlength="128" autocomplete="off">
 					</div>
 
 					<div class="setting-row">
-						<span>New PIN (4 to 8 digits)</span>
-						<input class="pin-input" type="password" id="pinNew" inputmode="numeric" maxlength="8" autocomplete="off">
+						<span>New PIN / Password (4 to 128 chars)</span>
+						<input class="pin-input" type="password" id="pinNew" maxlength="128" autocomplete="off">
 					</div>
 
 					<div class="setting-row">
-						<span>Repeat the new PIN</span>
-						<input class="pin-input" type="password" id="pinConfirm" inputmode="numeric" maxlength="8" autocomplete="off">
+						<span>Repeat new PIN / Password</span>
+						<input class="pin-input" type="password" id="pinConfirm" maxlength="128" autocomplete="off">
 					</div>
 
 					<div class="button-row">
@@ -1728,6 +1814,44 @@
 							<input type="checkbox" id="lockStartupToggle">
 							<span class="slider"></span>
 						</label>
+					</div>
+
+					<h3>Recovery &amp; Duress PIN (Administrator)</h3>
+
+					<p class="settings-note bos-nonadmin-note">Switch to the <strong>Main</strong> profile to manage recovery master password settings, Duress (Wipe) PIN, or view the OS Security Code.</p>
+
+					<div class="bos-admin-only">
+						<div class="setting-row">
+							<span>Allow recovery master password reset</span>
+
+							<label class="switch">
+								<input type="checkbox" id="masterResetEnabledToggle" checked>
+								<span class="slider"></span>
+							</label>
+						</div>
+
+						<p class="settings-note"><strong>Duress / Instant Wipe PIN:</strong> Entering this secondary PIN on the lock screen flashes the screen and immediately wipes all website data, then requires your 5-digit OS Security Code before setup can continue.</p>
+
+						<div class="setting-row">
+							<span id="wipePinStatus">No Duress PIN is set</span>
+						</div>
+
+						<div class="setting-row">
+							<span>Duress PIN / Password (4 to 128 chars)</span>
+							<input class="pin-input" type="password" id="wipePinNew" maxlength="128" autocomplete="off">
+						</div>
+
+						<div class="setting-row">
+							<span>Repeat Duress PIN / Password</span>
+							<input class="pin-input" type="password" id="wipePinConfirm" maxlength="128" autocomplete="off">
+						</div>
+
+						<div class="button-row">
+							<button class="app-button" id="wipePinSave">Set Duress PIN</button>
+							<button class="app-button" id="wipePinRemove" hidden>Remove Duress PIN</button>
+						</div>
+
+						<div class="pin-message" id="wipePinMessage" role="status"></div>
 					</div>
 
 					<h3>Screensaver</h3>
@@ -1880,11 +2004,20 @@
 
 					<h3>Updates &amp; reset</h3>
 
-					<p class="settings-note"><strong>Refresh updates</strong> clears only cached HTML, CSS, and JS files and reloads BrowOS while keeping your apps, notes, PIN, and settings. <strong>Reset all data</strong> completely erases all website data and restarts initial setup.</p>
+					<p class="settings-note"><strong>Refresh updates</strong> clears only cached HTML, CSS, and JS files and reloads BrowOS while keeping your apps, notes, PIN, and settings. <strong>Reset all data</strong> completely erases all website data and restarts initial setup (Main profile only).</p>
 
 					<div class="button-row">
 						<button class="app-button" id="refreshUpdatesButton">Refresh updates</button>
-						<button class="reset-button" id="resetAllDataButton">Reset all data</button>
+						<button class="reset-button bos-admin-only" id="resetAllDataButton">Reset all data</button>
+					</div>
+
+					<div class="bos-admin-only" style="margin-top:16px;">
+						<h3>OS Security Code</h3>
+						<p class="settings-note">Append this 5-digit code to the end of your recovery master password when unlocking or resetting via <code>recovery.html</code>.</p>
+						<div class="bos-code-box">
+							<span class="bos-code-digits" id="settingsOsCodeDisplay">-----</span>
+							<button type="button" class="app-button" id="settingsCopyOsCodeBtn">Copy code</button>
+						</div>
 					</div>
 				</div>
 
@@ -2374,7 +2507,7 @@
 			</div>
 
 			<form class="lock-form" id="lockForm" autocomplete="off">
-				<input type="password" id="lockPin" inputmode="numeric" maxlength="8" placeholder="PIN" aria-label="PIN" autocomplete="off">
+				<input type="password" id="lockPin" maxlength="128" placeholder="PIN / Password" aria-label="PIN" autocomplete="off">
 				<div class="bos-lock-btn-row">
 					<button type="button" class="bos-lock-back-btn" id="bosLockBackBtn">Back</button>
 					<button type="submit" id="bosLockSubmitBtn">Unlock</button>
@@ -2451,6 +2584,266 @@
 
 <script>
 	(function () {
+		const OS_CODE_KEY = "browos-os-code";
+		const WIPE_PIN_KEY = "browos-wipe-pin";
+		const WIPE_PENDING_CODE_KEY = "browos-wipe-pending-code";
+		const MASTER_RESET_ENABLED_KEY = "browos-master-reset-enabled";
+
+		function getProfilesMetaSafe() {
+			if (typeof profileMeta === "function") {
+				return profileMeta();
+			}
+			try {
+				const meta = JSON.parse(localStorage.getItem("browos-profiles-meta"));
+				if (meta && Array.isArray(meta.list) && meta.list.length) {
+					return meta;
+				}
+			} catch (e) {}
+			return { current: "default", list: [{ id: "default", name: "Main" }] };
+		}
+
+		function isMainAdmin() {
+			return getProfilesMetaSafe().current === "default";
+		}
+
+		function applyAdminRoleState() {
+			document.documentElement.dataset.isAdmin = isMainAdmin() ? "1" : "0";
+		}
+
+		applyAdminRoleState();
+
+		// Ensure 5-digit OS Security Code exists (random on first boot)
+		function getOrCreateOsCode() {
+			let code = localStorage.getItem(OS_CODE_KEY);
+			if (!code || !/^\d{5}$/.test(code)) {
+				const arr = new Uint32Array(1);
+				if (window.crypto && crypto.getRandomValues) {
+					crypto.getRandomValues(arr);
+					code = String(arr[0] % 100000).padStart(5, "0");
+				} else {
+					code = String(Math.floor(Math.random() * 100000)).padStart(5, "0");
+				}
+				localStorage.setItem(OS_CODE_KEY, code);
+			}
+			return code;
+		}
+
+		const currentOsCode = getOrCreateOsCode();
+
+		// Populate 5-digit OS Security Code displays & copy buttons
+		const settingsCodeDisp = document.getElementById("settingsOsCodeDisplay");
+		const settingsCopyBtn = document.getElementById("settingsCopyOsCodeBtn");
+		if (settingsCodeDisp) {
+			settingsCodeDisp.textContent = isMainAdmin() ? currentOsCode : "•••••";
+		}
+		if (settingsCopyBtn) {
+			settingsCopyBtn.onclick = function () {
+				if (!isMainAdmin()) return;
+				if (navigator.clipboard && navigator.clipboard.writeText) {
+					navigator.clipboard.writeText(currentOsCode).catch(function () {});
+				}
+				const orig = settingsCopyBtn.textContent;
+				settingsCopyBtn.textContent = "Copied!";
+				setTimeout(function () { settingsCopyBtn.textContent = orig; }, 1400);
+			};
+		}
+
+		// Sync PIN Try Limit selector in Settings -> Security
+		const pinLimitSelect = document.getElementById("pinLimitModeSelect");
+		const oobeLimitSelect = document.getElementById("bosOobeLimitMode");
+		const initialLimitMode = typeof getPinLimitMode === "function"
+			? getPinLimitMode()
+			: (localStorage.getItem("browos-pin-limit-mode") || "normal");
+
+		if (pinLimitSelect) {
+			pinLimitSelect.value = initialLimitMode;
+			pinLimitSelect.addEventListener("change", function () {
+				if (typeof setPinLimitMode === "function") {
+					setPinLimitMode(pinLimitSelect.value);
+				} else {
+					localStorage.setItem("browos-pin-limit-mode", pinLimitSelect.value);
+				}
+				if (oobeLimitSelect) {
+					oobeLimitSelect.value = pinLimitSelect.value;
+				}
+			});
+		}
+
+		// Master password reset enable/disable setting (Admin only)
+		const masterResetToggle = document.getElementById("masterResetEnabledToggle");
+		const masterResetOn = localStorage.getItem(MASTER_RESET_ENABLED_KEY) !== "off";
+		if (masterResetToggle) {
+			masterResetToggle.checked = masterResetOn;
+			masterResetToggle.onchange = function () {
+				if (!isMainAdmin()) {
+					masterResetToggle.checked = masterResetOn;
+					return;
+				}
+				localStorage.setItem(MASTER_RESET_ENABLED_KEY, masterResetToggle.checked ? "on" : "off");
+			};
+		}
+
+		// =========================================================
+		// DURESS / INSTANT WIPE PIN (PBKDF2-SHA256, ADMIN ONLY, 4-128 CHARS)
+		// =========================================================
+		function getSavedWipePin() {
+			try {
+				const raw = localStorage.getItem(WIPE_PIN_KEY);
+				if (!raw) return null;
+				const parsed = JSON.parse(raw);
+				if (parsed && typeof parsed.salt === "string" && typeof parsed.hash === "string") {
+					return parsed;
+				}
+			} catch (e) {}
+			return null;
+		}
+
+		function hasWipePin() {
+			return getSavedWipePin() !== null;
+		}
+
+		async function setWipePin(pin) {
+			const salt = crypto.getRandomValues(new Uint8Array(16));
+			const hash = await derivePinHash(pin, salt, 150000);
+			localStorage.setItem(
+				WIPE_PIN_KEY,
+				JSON.stringify({
+					salt: bytesToBase64(salt),
+					iterations: 150000,
+					hash: hash,
+				})
+			);
+		}
+
+		async function checkWipePin(pin) {
+			const saved = getSavedWipePin();
+			if (!saved || !pin) return false;
+			const hash = await derivePinHash(pin, base64ToBytes(saved.salt), saved.iterations || 150000);
+			return hash === saved.hash;
+		}
+
+		async function triggerDuressWipe() {
+			const prevCode = getOrCreateOsCode();
+			const flash = document.getElementById("bosWipeFlashOverlay");
+			if (flash) {
+				flash.classList.add("active");
+			}
+
+			// Wait 0.5 seconds during black/white strobe flash while wiping all data
+			await new Promise(function (resolve) { setTimeout(resolve, 500); });
+
+			try {
+				localStorage.clear();
+				sessionStorage.clear();
+			} catch (e) {}
+
+			try {
+				if (window.indexedDB && indexedDB.databases) {
+					const dbs = await indexedDB.databases();
+					await Promise.all(
+						dbs.map(function (db) {
+							return new Promise(function (res) {
+								const req = indexedDB.deleteDatabase(db.name);
+								req.onsuccess = req.onerror = req.onblocked = res;
+							});
+						})
+					);
+				} else {
+					indexedDB.deleteDatabase("browos-profiles");
+					indexedDB.deleteDatabase("browos-files");
+				}
+			} catch (e) {}
+
+			// Store previous 5-digit code so Setup requires it before continuing
+			localStorage.setItem(WIPE_PENDING_CODE_KEY, prevCode);
+			location.reload();
+		}
+
+		// Settings -> Security Duress PIN UI
+		const wipePinStatus = document.getElementById("wipePinStatus");
+		const wipePinNew = document.getElementById("wipePinNew");
+		const wipePinConfirm = document.getElementById("wipePinConfirm");
+		const wipePinSave = document.getElementById("wipePinSave");
+		const wipePinRemove = document.getElementById("wipePinRemove");
+		const wipePinMessage = document.getElementById("wipePinMessage");
+
+		function refreshWipePinUI() {
+			const has = hasWipePin();
+			if (wipePinStatus) {
+				wipePinStatus.textContent = has ? "A Duress (Wipe) PIN is set" : "No Duress PIN is set";
+			}
+			if (wipePinRemove) {
+				wipePinRemove.hidden = !has;
+			}
+			if (wipePinSave) {
+				wipePinSave.textContent = has ? "Change Duress PIN" : "Set Duress PIN";
+			}
+		}
+
+		refreshWipePinUI();
+
+		[wipePinNew, wipePinConfirm].forEach(function (field) {
+			if (!field) return;
+			field.addEventListener("input", function () {
+				if (field.value.length > 128) {
+					field.value = field.value.slice(0, 128);
+				}
+			});
+		});
+
+		if (wipePinSave) {
+			wipePinSave.addEventListener("click", async function () {
+				if (!isMainAdmin()) return;
+				const p1 = wipePinNew ? wipePinNew.value : "";
+				const p2 = wipePinConfirm ? wipePinConfirm.value : "";
+
+				if (p1.length < 4 || p1.length > 128) {
+					if (wipePinMessage) {
+						wipePinMessage.textContent = "Duress PIN must be 4 to 128 characters.";
+						wipePinMessage.className = "pin-message";
+					}
+					return;
+				}
+				if (p1 !== p2) {
+					if (wipePinMessage) {
+						wipePinMessage.textContent = "The two Duress PINs do not match.";
+						wipePinMessage.className = "pin-message";
+					}
+					return;
+				}
+				if (typeof checkPin === "function" && typeof hasPin === "function" && hasPin() && (await checkPin(p1))) {
+					if (wipePinMessage) {
+						wipePinMessage.textContent = "Duress PIN must be different from your normal PIN.";
+						wipePinMessage.className = "pin-message";
+					}
+					return;
+				}
+
+				await setWipePin(p1);
+				if (wipePinNew) wipePinNew.value = "";
+				if (wipePinConfirm) wipePinConfirm.value = "";
+				refreshWipePinUI();
+				if (wipePinMessage) {
+					wipePinMessage.textContent = "Duress PIN saved.";
+					wipePinMessage.className = "pin-message good";
+				}
+			});
+		}
+
+		if (wipePinRemove) {
+			wipePinRemove.addEventListener("click", function () {
+				if (!isMainAdmin()) return;
+				localStorage.removeItem(WIPE_PIN_KEY);
+				if (wipePinNew) wipePinNew.value = "";
+				if (wipePinConfirm) wipePinConfirm.value = "";
+				refreshWipePinUI();
+				if (wipePinMessage) {
+					wipePinMessage.textContent = "Duress PIN removed.";
+					wipePinMessage.className = "pin-message good";
+				}
+			});
+		}
+
 		// =========================================================
 		// VIEWPORT, MAXIMIZE & FROSTED WIDGETS SYNC
 		// =========================================================
@@ -2715,50 +3108,8 @@
 			};
 		}
 
-		// Data buttons
-		const refBtn = document.getElementById("refreshUpdatesButton");
-		const rstAllBtn = document.getElementById("resetAllDataButton");
-		if (refBtn) {
-			refBtn.onclick = async function () {
-				if (!confirm("Are you sure you want to refresh updates? This will delete cached HTML, CSS, and JS files and reload BrowOS, keeping all your apps, notes, PIN, and settings.")) return;
-				try {
-					if ("serviceWorker" in navigator) {
-						const regs = await navigator.serviceWorker.getRegistrations();
-						await Promise.all(regs.map(function (r) { return r.unregister(); }));
-					}
-					if ("caches" in window) {
-						const keys = await caches.keys();
-						await Promise.all(keys.map(function (k) { return caches.delete(k); }));
-					}
-				} catch (e) {}
-				location.reload();
-			};
-		}
-		if (rstAllBtn) {
-			rstAllBtn.onclick = async function () {
-				if (!confirm("Are you sure you want to reset ALL data? This will completely erase all localStorage and profiles for this website and start fresh.")) return;
-				try {
-					localStorage.clear();
-					sessionStorage.clear();
-					if (window.indexedDB && indexedDB.databases) {
-						const dbs = await indexedDB.databases();
-						await Promise.all(dbs.map(function (db) {
-							return new Promise(function (res) {
-								const req = indexedDB.deleteDatabase(db.name);
-								req.onsuccess = req.onerror = req.onblocked = res;
-							});
-						}));
-					} else {
-						indexedDB.deleteDatabase("browos-profiles");
-						indexedDB.deleteDatabase("browos-files");
-					}
-				} catch (e) {}
-				location.reload();
-			};
-		}
-
 		// =========================================================
-		// WINDOWS-STYLE LOCK SCREEN + NATIVE PROFILES + NATIVE PBKDF2 PIN
+		// WINDOWS-STYLE LOCK SCREEN + NATIVE PROFILES + DURESS WIPE PIN
 		// =========================================================
 		const lockScreenEl = document.getElementById("lockScreen");
 		const lockBgEl = document.getElementById("bosLockBg");
@@ -2769,19 +3120,6 @@
 		const profNameEl = document.getElementById("bosLockProfileName");
 		const profSelectEl = document.getElementById("bosLockProfileSelect");
 		const lockBackBtnEl = document.getElementById("bosLockBackBtn");
-
-		function getProfilesMetaSafe() {
-			if (typeof profileMeta === "function") {
-				return profileMeta();
-			}
-			try {
-				const meta = JSON.parse(localStorage.getItem("browos-profiles-meta"));
-				if (meta && Array.isArray(meta.list) && meta.list.length) {
-					return meta;
-				}
-			} catch (e) {}
-			return { current: "default", list: [{ id: "default", name: "Main" }] };
-		}
 
 		function syncLockWallpaper() {
 			if (!lockBgEl) return;
@@ -2802,11 +3140,9 @@
 
 			syncLockWallpaper();
 
-			// Uses BrowOS's native hasPin() from js/lock.js
-			const withPin = typeof hasPin === "function" ? hasPin() : Boolean(localStorage.getItem("browos-pin"));
+			const withPin = (typeof hasPin === "function" ? hasPin() : Boolean(localStorage.getItem("browos-pin"))) || hasWipePin();
 			lockScreenEl.classList.toggle("no-pin", !withPin);
 
-			// Uses BrowOS's native profileMeta() from js/profiles.js
 			const meta = getProfilesMetaSafe();
 			const activeProf = meta.list.find(function (p) { return p.id === meta.current; }) || meta.list[0];
 
@@ -2828,7 +3164,6 @@
 			}
 		}
 
-		// Switch profiles directly on the lock screen using native switchProfile(id)
 		if (profSelectEl) {
 			["pointerdown", "mousedown", "touchstart", "click"].forEach(function (ev) {
 				profSelectEl.addEventListener(ev, function (e) { e.stopPropagation(); });
@@ -2839,7 +3174,6 @@
 				const meta = getProfilesMetaSafe();
 				if (!targetId || targetId === meta.current) return;
 
-				// Keep lock screen open on Stage 2 after switchProfile() reloads the page
 				sessionStorage.setItem("browos-locked", "1");
 				sessionStorage.setItem("browos-lock-auth-open", "1");
 
@@ -2849,7 +3183,6 @@
 			});
 		}
 
-		// Back button inside PIN / Unlock card returns to Stage 1 (curtain)
 		if (lockBackBtnEl) {
 			["pointerdown", "mousedown", "touchstart", "click"].forEach(function (ev) {
 				lockBackBtnEl.addEventListener(ev, function (e) { e.stopPropagation(); });
@@ -2866,7 +3199,6 @@
 		}
 
 		if (lockScreenEl) {
-			// Reset to Stage 1 (unblurred curtain) whenever lockScreen opens
 			new MutationObserver(function () {
 				if (!lockScreenEl.hidden) {
 					if (sessionStorage.getItem("browos-lock-auth-open") === "1") {
@@ -2875,13 +3207,14 @@
 					} else {
 						lockScreenEl.classList.remove("auth-open", "bos-lock-unlocking");
 					}
-					if (lockMsgEl) lockMsgEl.textContent = "";
+					if (lockMsgEl && (typeof lockoutLeft !== "function" || lockoutLeft() <= 0)) {
+						lockMsgEl.textContent = "";
+					}
 					if (lockPinEl) lockPinEl.value = "";
 					syncLockScreenVisuals();
 				}
 			}).observe(lockScreenEl, { attributes: true, attributeFilter: ["hidden"] });
 
-			// Stage 1 -> Stage 2 on click/tap/keypress (intercepted in capture phase so non-PIN profiles don't skip Stage 2)
 			function openAuthStageFromCurtain(e) {
 				if (lockScreenEl.hidden) return;
 				if (!lockScreenEl.classList.contains("auth-open")) {
@@ -2889,8 +3222,8 @@
 					e.preventDefault();
 					syncLockScreenVisuals();
 					lockScreenEl.classList.add("auth-open");
-					const withPin = typeof hasPin === "function" ? hasPin() : false;
-					if (withPin && lockPinEl) {
+					const withPin = (typeof hasPin === "function" ? hasPin() : false) || hasWipePin();
+					if (withPin && lockPinEl && !lockPinEl.disabled) {
 						setTimeout(function () { lockPinEl.focus(); }, 100);
 					}
 				}
@@ -2900,16 +3233,25 @@
 				lockScreenEl.addEventListener(evtName, openAuthStageFromCurtain, true);
 			});
 
-			// Block document-level quickUnlock from bypassing Stage 2 on non-PIN profiles
 			document.addEventListener("keydown", function (e) {
 				if (!lockScreenEl.hidden && !lockScreenEl.classList.contains("auth-open")) {
 					openAuthStageFromCurtain(e);
 				}
 			}, true);
 
-			// Handle Unlock button for BOTH PIN and non-PIN profiles
+			// Intercept PIN submit to check Duress (Wipe) PIN first, then normal PIN / non-PIN unlock
 			if (lockFormEl) {
-				lockFormEl.addEventListener("submit", function (e) {
+				lockFormEl.addEventListener("submit", async function (e) {
+					const entered = lockPinEl ? lockPinEl.value : "";
+
+					if (hasWipePin() && (await checkWipePin(entered))) {
+						e.preventDefault();
+						e.stopImmediatePropagation();
+						if (lockPinEl) lockPinEl.value = "";
+						await triggerDuressWipe();
+						return;
+					}
+
 					const withPin = typeof hasPin === "function" ? hasPin() : false;
 					if (!withPin) {
 						e.preventDefault();
@@ -2924,11 +3266,9 @@
 							lockScreenEl.classList.remove("auth-open", "bos-lock-unlocking");
 						}, 220);
 					}
-					// When withPin is true, native lockForm listener in js/lock.js checks PBKDF2 PIN and calls unlockScreen()!
 				}, true);
 			}
 
-			// Mirror shake animation onto auth card if native lock.js shakes #lockScreen on wrong PIN
 			new MutationObserver(function () {
 				if (lockScreenEl.classList.contains("shake") && authBoxEl) {
 					authBoxEl.classList.remove("shake");
@@ -2937,13 +3277,13 @@
 				}
 			}).observe(lockScreenEl, { attributes: true, attributeFilter: ["class"] });
 
-			// If lockScreen is already visible on startup (e.g. lock-startup or profile switch), sync visuals immediately
 			if (!lockScreenEl.hidden) {
 				syncLockScreenVisuals();
 				if (sessionStorage.getItem("browos-lock-auth-open") === "1") {
 					sessionStorage.removeItem("browos-lock-auth-open");
 					lockScreenEl.classList.add("auth-open");
-					if (typeof hasPin === "function" && hasPin() && lockPinEl) {
+					const withPin = (typeof hasPin === "function" ? hasPin() : false) || hasWipePin();
+					if (withPin && lockPinEl && !lockPinEl.disabled) {
 						setTimeout(function () { lockPinEl.focus(); }, 100);
 					}
 				}
@@ -2951,11 +3291,57 @@
 		}
 
 		// =========================================================
-		// FULL PC-LIKE FIRST-BOOT OOBE SETUP WIZARD
+		// FULL PC-LIKE FIRST-BOOT OOBE SETUP WIZARD (+ POST-WIPE CODE GATE)
 		// =========================================================
 		const oobeOverlay = document.getElementById("bosOobeOverlay");
 		if (oobeOverlay && localStorage.getItem("browos-setup-done") !== "1") {
 			oobeOverlay.classList.add("open");
+
+			const pendingPrevCode = localStorage.getItem(WIPE_PENDING_CODE_KEY);
+			const prevGateEl = document.getElementById("bosOobePrevCodeGate");
+			const prevInputEl = document.getElementById("bosOobePrevCodeInput");
+			const prevMsgEl = document.getElementById("bosOobePrevCodeMsg");
+			const newCodeBoxEl = document.getElementById("bosOobeNewCodeBox");
+			const oobeCodeDisp = document.getElementById("bosOobeOsCodeDisplay");
+			const oobeCopyCodeBtn = document.getElementById("bosOobeCopyCodeBtn");
+
+			if (oobeCodeDisp) {
+				oobeCodeDisp.textContent = currentOsCode;
+			}
+			if (oobeCopyCodeBtn) {
+				oobeCopyCodeBtn.onclick = function () {
+					if (navigator.clipboard && navigator.clipboard.writeText) {
+						navigator.clipboard.writeText(currentOsCode).catch(function () {});
+					}
+					const orig = oobeCopyCodeBtn.textContent;
+					oobeCopyCodeBtn.textContent = "Copied!";
+					setTimeout(function () { oobeCopyCodeBtn.textContent = orig; }, 1400);
+				};
+			}
+
+			if (pendingPrevCode && prevGateEl) {
+				prevGateEl.style.display = "flex";
+				if (newCodeBoxEl) newCodeBoxEl.style.display = "none";
+				const welcomeSub = document.getElementById("bosOobeWelcomeSub");
+				if (welcomeSub) {
+					welcomeSub.textContent = "System data was wiped. Enter your previous 5-digit OS Security Code below to unlock initial setup.";
+				}
+			}
+
+			function verifyPostWipeGate() {
+				const reqCode = localStorage.getItem(WIPE_PENDING_CODE_KEY);
+				if (!reqCode) return true;
+				const typed = prevInputEl ? prevInputEl.value.trim() : "";
+				if (typed !== reqCode) {
+					if (prevMsgEl) prevMsgEl.textContent = "Incorrect previous 5-digit OS Security Code.";
+					return false;
+				}
+				localStorage.removeItem(WIPE_PENDING_CODE_KEY);
+				if (prevGateEl) prevGateEl.style.display = "none";
+				if (newCodeBoxEl) newCodeBoxEl.style.display = "flex";
+				if (prevMsgEl) prevMsgEl.textContent = "";
+				return true;
+			}
 
 			const steps = Array.from(oobeOverlay.querySelectorAll(".bos-oobe-step"));
 			const dots = Array.from(document.querySelectorAll("#bosOobeDots .bos-oobe-dot"));
@@ -2995,11 +3381,19 @@
 
 			const skipAllBtn = document.getElementById("bosOobeSkipAllBtn");
 			if (skipAllBtn) {
-				skipAllBtn.onclick = function () { closeOobeWizard(false); };
+				skipAllBtn.onclick = function () {
+					if (!verifyPostWipeGate()) return;
+					closeOobeWizard(false);
+				};
 			}
 
 			const next0 = document.getElementById("bosOobeNext0");
-			if (next0) next0.onclick = function () { showOobeStep(1); };
+			if (next0) {
+				next0.onclick = function () {
+					if (!verifyPostWipeGate()) return;
+					showOobeStep(1);
+				};
+			}
 
 			const previewStage = document.getElementById("bosOobePreviewStage");
 			const previewWin = document.getElementById("bosOobePreviewWin");
@@ -3121,28 +3515,33 @@
 			if (back1) back1.onclick = function () { showOobeStep(0); };
 			if (next1) next1.onclick = function () { showOobeStep(2); };
 
-			// Step 2: PIN Setup using native PBKDF2-SHA256 setPin() from js/lock.js
+			// Step 2: PIN Setup (4-128 chars) + PIN Try Limit + Master Reset Enable Toggle
 			const back2 = document.getElementById("bosOobeBack2");
 			const next2 = document.getElementById("bosOobeNext2");
 			const pin1El = document.getElementById("bosOobePin1");
 			const pin2El = document.getElementById("bosOobePin2");
 			const lockStartEl = document.getElementById("bosOobeLockStartup");
+			const oobeMasterToggle = document.getElementById("bosOobeMasterResetToggle");
 			const pinMsgEl = document.getElementById("bosOobePinMsg");
+
+			if (oobeLimitSelect) {
+				oobeLimitSelect.value = initialLimitMode;
+			}
 
 			if (back2) back2.onclick = function () { showOobeStep(1); };
 			if (next2) {
 				next2.onclick = async function () {
-					const p1 = pin1El ? pin1El.value.trim() : "";
-					const p2 = pin2El ? pin2El.value.trim() : "";
+					const p1 = pin1El ? pin1El.value : "";
+					const p2 = pin2El ? pin2El.value : "";
 					if (pinMsgEl) pinMsgEl.textContent = "";
 
 					if (p1 !== "" || p2 !== "") {
-						if (!/^\d{4,8}$/.test(p1)) {
-							if (pinMsgEl) pinMsgEl.textContent = "PIN must be 4 to 8 digits.";
+						if (p1.length < 4 || p1.length > 128) {
+							if (pinMsgEl) pinMsgEl.textContent = "PIN / Password must be 4 to 128 characters.";
 							return;
 						}
 						if (p1 !== p2) {
-							if (pinMsgEl) pinMsgEl.textContent = "PINs do not match.";
+							if (pinMsgEl) pinMsgEl.textContent = "PINs / Passwords do not match.";
 							return;
 						}
 						if (typeof setPin === "function") {
@@ -3157,6 +3556,24 @@
 							if (mainLockToggle) mainLockToggle.checked = true;
 						}
 					}
+
+					if (oobeLimitSelect) {
+						if (typeof setPinLimitMode === "function") {
+							setPinLimitMode(oobeLimitSelect.value);
+						} else {
+							localStorage.setItem("browos-pin-limit-mode", oobeLimitSelect.value);
+						}
+						if (pinLimitSelect) {
+							pinLimitSelect.value = oobeLimitSelect.value;
+						}
+					}
+
+					const allowMaster = oobeMasterToggle ? oobeMasterToggle.checked : true;
+					localStorage.setItem(MASTER_RESET_ENABLED_KEY, allowMaster ? "on" : "off");
+					if (masterResetToggle) {
+						masterResetToggle.checked = allowMaster;
+					}
+
 					showOobeStep(3);
 				};
 			}
