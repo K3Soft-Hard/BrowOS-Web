@@ -3,45 +3,43 @@
 <head>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>Root &amp; Cache Manager</title>
+	<title>BrowOS Root &amp; Cache Explorer</title>
 	<link rel="stylesheet" href="style.css">
-	<script src="../shared/theme.js"></script>
 	<script src="../../sdk/browos-sdk.js"></script>
 </head>
 <body>
-
-	<!-- PIN Check Overlay -->
+	<!-- PIN Lock Overlay -->
 	<div class="overlay" id="pinOverlay">
 		<div class="modal-card pin-card">
-			<div class="modal-eyebrow">System Files</div>
-			<h2>Enter PIN to continue</h2>
-			<p>This check is not for security — it just prevents someone who doesn't know what they're doing from accidentally breaking cached BrowOS files.</p>
+			<div class="lock-badge">ROOT ACCESS</div>
+			<h2>Developer Authentication</h2>
+			<p>Enter the Root PIN to inspect and modify cached BrowOS system files.</p>
 			<form id="pinForm" autocomplete="off">
-				<input type="password" id="pinInput" inputmode="numeric" maxlength="12" placeholder="PIN" autofocus>
+				<input type="password" id="pinInput" inputmode="numeric" maxlength="12" placeholder="•••••••" autofocus>
 				<div class="pin-error" id="pinError" hidden>Incorrect PIN</div>
-				<button type="submit" class="btn primary full">Continue</button>
+				<button type="submit" class="btn primary full">Unlock Root Shell</button>
 			</form>
 		</div>
 	</div>
 
-	<!-- Confirmation Modal -->
+	<!-- Warning / Confirmation Modal -->
 	<div class="overlay" id="confirmOverlay" hidden>
 		<div class="modal-card warn-card">
-			<div class="modal-eyebrow warn" id="confirmBadge">Confirm change</div>
-			<h2 id="confirmTitle">Modify cached files</h2>
+			<div class="warn-badge" id="confirmBadge">SYSTEM WARNING</div>
+			<h2 id="confirmTitle">Root Cache Modification</h2>
 			<p id="confirmMessage"></p>
 			<div class="modal-actions">
-				<button type="button" class="btn secondary" id="confirmCancelBtn">Cancel</button>
-				<button type="button" class="btn danger" id="confirmProceedBtn">Continue</button>
+				<button class="btn secondary" id="confirmCancelBtn">Cancel</button>
+				<button class="btn danger" id="confirmProceedBtn">Continue</button>
 			</div>
 		</div>
 	</div>
 
-	<!-- Cache Patch Progress Overlay -->
+	<!-- Rooting Progress Animation Overlay -->
 	<div class="overlay" id="bootAnimOverlay" hidden>
 		<div class="modal-card anim-card">
 			<div class="spinner-ring"></div>
-			<h2 id="animTitle">Updating offline cache…</h2>
+			<h2 id="animTitle">Patching Offline PWA Cache…</h2>
 			<div class="progress-track">
 				<div class="progress-fill" id="animProgress"></div>
 			</div>
@@ -53,55 +51,51 @@
 	<div class="app">
 		<header class="topbar">
 			<div class="brand">
-				<span id="statusDot" hidden></span>
+				<div class="status-dot" id="statusDot"></div>
 				<div>
-					<h1>Root &amp; Cache Manager</h1>
-					<p id="statusText">Scanning offline cache…</p>
+					<h1>BrowOS Root &amp; Cache Manager</h1>
+					<p id="statusText">Scanning Offline PWA Storage…</p>
 				</div>
 			</div>
 
-			<div class="nav-switch" role="tablist">
-				<button type="button" class="nav-pill active" data-view="explorerView">Cache Explorer</button>
-				<button type="button" class="nav-pill" data-view="modsView">Mod Patcher</button>
+			<div class="nav-switch">
+				<button class="nav-pill active" data-view="explorerView">Cache Explorer</button>
+				<button class="nav-pill" data-view="modsView">Mod Patcher</button>
 			</div>
 
 			<div class="top-actions">
-				<button type="button" class="btn secondary" id="backupFilesBtn" title="Export modules to BrowOS Files">Sync Files</button>
-				<button type="button" class="btn danger" id="unrootBtn" disabled>Restore Stock</button>
-				<button type="button" class="btn primary" id="applyBtn">Patch &amp; Reboot</button>
+				<button class="btn secondary" id="backupFilesBtn" title="Export mods to BrowOS Files">Sync Files</button>
+				<button class="btn danger" id="unrootBtn" disabled>Restore Stock</button>
+				<button class="btn primary" id="applyBtn">Patch &amp; Reboot</button>
 			</div>
 		</header>
 
 		<div class="toast-banner" id="banner" hidden></div>
 
-		<!-- VIEW 1: CACHE FILE EXPLORER -->
+		<!-- VIEW 1: REAL CACHE FILE EXPLORER -->
 		<main class="view active" id="explorerView">
 			<aside class="tree-sidebar">
 				<div class="panel-header">
 					<span>Cached Files (<span id="fileCount">0</span>)</span>
-					<button type="button" class="btn small secondary" id="refreshCacheBtn" title="Refresh list">↻</button>
+					<button class="btn small secondary" id="refreshCacheBtn">↻</button>
 				</div>
-
 				<input type="text" class="search-box" id="treeSearch" placeholder="Filter path (e.g. icons/ or js/)…" spellcheck="false">
-
 				<div class="file-tree" id="fileTree"></div>
-
 				<div class="sidebar-footer">
-					<div class="info-line"><span>Cache</span> <strong id="cacheName">—</strong></div>
-					<div class="info-line"><span>SDK</span> <strong id="sdkStatus">—</strong></div>
+					<div class="info-line"><span>Active Cache:</span> <strong id="cacheName">—</strong></div>
+					<div class="info-line"><span>SDK Bridge:</span> <strong id="sdkStatus">—</strong></div>
 				</div>
 			</aside>
 
 			<section class="inspector-panel">
 				<div class="inspector-bar">
 					<div class="path-pill">
-						<span class="path-label">Path</span>
-						<code id="selectedFilePath">Select a file from the cache list</code>
+						<span class="path-label">PATH:</span>
+						<code id="selectedFilePath">Select a file from the cache tree</code>
 					</div>
-
 					<div class="inspector-actions">
-						<button type="button" class="btn small secondary" id="copyPathBtn" disabled>Copy Path</button>
-						<button type="button" class="btn small secondary" id="useInModBtn" disabled>Target in Mod</button>
+						<button class="btn small secondary" id="copyPathBtn" disabled>Copy Path</button>
+						<button class="btn small secondary" id="useInModBtn" disabled>Target in Mod</button>
 						<label class="btn small primary upload-label disabled" id="replaceUploadLabel">
 							Replace File…
 							<input type="file" id="replaceFileInput" hidden disabled>
@@ -110,12 +104,10 @@
 				</div>
 
 				<div class="file-meta" id="fileMeta">No file selected</div>
-
 				<div class="image-preview-box" id="imagePreviewBox" hidden>
 					<img id="imagePreviewImg" alt="Cached asset preview">
 				</div>
-
-				<textarea id="filePreview" readonly spellcheck="false" placeholder="Select any cached file or image on the left to inspect its contents or copy its path…"></textarea>
+				<textarea id="filePreview" readonly spellcheck="false" placeholder="Click any cached file or image on the left to inspect its offline PWA contents or copy its path…"></textarea>
 			</section>
 		</main>
 
@@ -124,13 +116,11 @@
 			<aside class="mod-sidebar">
 				<div class="panel-header">
 					<span>Modules</span>
-					<button type="button" class="btn small primary" id="newModBtn">+ New</button>
+					<button class="btn small primary" id="newModBtn">+ New</button>
 				</div>
-
 				<div class="mod-list" id="modList"></div>
-
 				<div class="sidebar-footer">
-					<div class="info-line"><span>Safe Mode</span> <code>?safemode=1</code></div>
+					<div class="info-line"><span>Safe Mode URL:</span> <code>?safemode=1</code></div>
 				</div>
 			</aside>
 
@@ -141,15 +131,15 @@
 						<input type="checkbox" id="modEnabledInput">
 						<span>Enabled</span>
 					</label>
-					<button type="button" class="btn small danger" id="deleteModBtn">Delete</button>
+					<button class="btn small danger" id="deleteModBtn">Delete</button>
 				</div>
 
 				<div class="target-bar">
 					<label class="target-field">
-						<span>Target</span>
+						<span>Target File Path:</span>
 						<input type="text" id="modTargetInput" placeholder="e.g. index.html or icons/settings-icon.png" spellcheck="false">
 					</label>
-					<button type="button" class="btn small secondary" id="pastePathBtn">Paste Path</button>
+					<button class="btn small secondary" id="pastePathBtn">Paste Path</button>
 					<select id="modModeSelect">
 						<option value="inject">Inject (JS / CSS)</option>
 						<option value="append">Append to File</option>
@@ -158,8 +148,8 @@
 				</div>
 
 				<div class="tabs" id="editorTabs">
-					<button type="button" class="tab active" data-tab="js">JavaScript</button>
-					<button type="button" class="tab" data-tab="css">CSS</button>
+					<button class="tab active" data-tab="js">JavaScript</button>
+					<button class="tab" data-tab="css">CSS</button>
 				</div>
 
 				<div class="mod-image-preview" id="modImagePreviewBox" hidden>
@@ -176,7 +166,7 @@
 							Load Image / File…
 							<input type="file" id="loadModFileInput" hidden>
 						</label>
-						<button type="button" class="btn small primary" id="saveModBtn">Save Module</button>
+						<button class="btn small primary" id="saveModBtn">Save Module</button>
 					</div>
 				</div>
 			</section>
