@@ -11,6 +11,11 @@ const lockMessage = document.getElementById("lockMessage");
 
 const PIN_KEY = "browos-pin";
 const PIN_ITERATIONS = 150000;
+const PIN_MIN_LENGTH = 4;
+const PIN_MAX_LENGTH = 128;
+const PIN_LIMIT_MODE_KEY = "browos-pin-limit-mode";
+const PIN_FAILS_KEY = "browos-pin-fails";
+const PIN_LOCKOUT_UNTIL_KEY = "browos-pin-lockout-until";
 
 // PIN
 
@@ -77,6 +82,8 @@ async function setPin(pin) {
 			hash: await derivePinHash(pin, salt, PIN_ITERATIONS),
 		})
 	);
+
+	resetPinAttemptState();
 }
 
 async function checkPin(pin) {
@@ -91,12 +98,99 @@ async function checkPin(pin) {
 	return hash === saved.hash;
 }
 
+// PIN Try Limits (off | normal | strict)
+
+function getPinLimitMode() {
+	const mode = localStorage.getItem(PIN_LIMIT_MODE_KEY);
+	if (mode === "off" || mode === "normal" || mode === "strict") {
+		return mode;
+	}
+	return "normal";
+}
+
+function setPinLimitMode(mode) {
+	const valid = mode === "off" || mode === "normal" || mode === "strict" ? mode : "normal";
+	localStorage.setItem(PIN_LIMIT_MODE_KEY, valid);
+	if (valid === "off") {
+		resetPinAttemptState();
+	}
+}
+
+function getFailedTries() {
+	return Math.max(0, parseInt(localStorage.getItem(PIN_FAILS_KEY) || "0", 10) || 0);
+}
+
+function setFailedTries(count) {
+	localStorage.setItem(PIN_FAILS_KEY, String(Math.max(0, count)));
+}
+
+function getLockoutUntil() {
+	return Math.max(0, parseInt(localStorage.getItem(PIN_LOCKOUT_UNTIL_KEY) || "0", 10) || 0);
+}
+
+function setLockoutUntil(timestampMs) {
+	if (timestampMs > 0) {
+		localStorage.setItem(PIN_LOCKOUT_UNTIL_KEY, String(timestampMs));
+	} else {
+		localStorage.removeItem(PIN_LOCKOUT_UNTIL_KEY);
+	}
+}
+
+function resetPinAttemptState() {
+	localStorage.removeItem(PIN_FAILS_KEY);
+	localStorage.removeItem(PIN_LOCKOUT_UNTIL_KEY);
+	clearInterval(lockoutTimer);
+	if (lockPin) {
+		lockPin.disabled = false;
+	}
+}
+
+function evaluateFailureLockout(totalFails) {
+	const mode = getPinLimitMode();
+
+	if (mode === "off") {
+		return { lockoutSeconds: 0, remainingBeforeLock: null };
+	}
+
+	if (mode === "strict") {
+		// Strict: 3 tries -> 60s, then 2 tries (total 5) -> 300s (5 min), then every 1 try -> 900s (15 min)
+		if (totalFails === 3) {
+			return { lockoutSeconds: 60, remainingBeforeLock: 0 };
+		}
+		if (totalFails === 5) {
+			return { lockoutSeconds: 300, remainingBeforeLock: 0 };
+		}
+		if (totalFails >= 6) {
+			return { lockoutSeconds: 900, remainingBeforeLock: 0 };
+		}
+		const nextMilestone = totalFails < 3 ? 3 : 5;
+		return { lockoutSeconds: 0, remainingBeforeLock: nextMilestone - totalFails };
+	}
+
+	// Normal: 5 tries -> 60s (1 minute), then 5 more tries -> 60s, repeating every 5 tries
+	if (totalFails > 0 && totalFails % 5 === 0) {
+		return { lockoutSeconds: 60, remainingBeforeLock: 0 };
+	}
+	const rem = 5 - (totalFails % 5);
+	return { lockoutSeconds: 0, remainingBeforeLock: rem };
+}
+
+function formatDurationSeconds(sec) {
+	if (sec >= 60) {
+		const mins = Math.floor(sec / 60);
+		const remSec = sec % 60;
+		if (remSec === 0) {
+			return mins + (mins === 1 ? " minute" : " minutes");
+		}
+		return mins + "m " + remSec + "s";
+	}
+	return sec + " s";
+}
+
 // Lock screen
 
 let locked = false;
 let lockedAt = 0;
-let failedTries = 0;
-let lockedOutUntil = 0;
 let lockoutTimer = null;
 
 function updateLockClock() {
@@ -119,6 +213,38 @@ setInterval(function () {
 
 function showLockMessage(text) {
 	lockMessage.textContent = text;
+}
+
+function lockoutLeft() {
+	if (getPinLimitMode() === "off") {
+		return 0;
+	}
+	return Math.max(0, Math.ceil((getLockoutUntil() - Date.now()) / 1000));
+}
+
+function showLockout() {
+	clearInterval(lockoutTimer);
+
+	function update() {
+		const left = lockoutLeft();
+
+		if (left <= 0) {
+			clearInterval(lockoutTimer);
+			setLockoutUntil(0);
+			lockPin.disabled = false;
+			showLockMessage("Enter your PIN");
+			if (!lockScreenElement.hidden) {
+				lockPin.focus();
+			}
+			return;
+		}
+
+		lockPin.disabled = true;
+		showLockMessage("Too many tries. Try again in " + formatDurationSeconds(left));
+	}
+
+	update();
+	lockoutTimer = setInterval(update, 500);
 }
 
 function lockScreen() {
@@ -147,17 +273,22 @@ function lockScreen() {
 
 	lockForm.classList.toggle("with-pin", withPin);
 
-	showLockMessage(withPin ? "Enter your PIN" : "Click or press any key to unlock");
-
 	lockScreenElement.hidden = false;
 
 	// nothing behind the lock screen can be reached with the keyboard
 	desktopShell.inert = true;
 
-	if (withPin) {
-		lockPin.focus();
+	if (withPin && lockoutLeft() > 0) {
+		showLockout();
 	} else {
-		lockScreenElement.focus();
+		lockPin.disabled = false;
+		showLockMessage(withPin ? "Enter your PIN" : "Click or press any key to unlock");
+
+		if (withPin) {
+			lockPin.focus();
+		} else {
+			lockScreenElement.focus();
+		}
 	}
 }
 
@@ -166,43 +297,11 @@ function unlockScreen() {
 
 	sessionStorage.removeItem("browos-locked");
 
-	failedTries = 0;
+	resetPinAttemptState();
 
 	lockScreenElement.hidden = true;
 
 	desktopShell.inert = false;
-}
-
-function lockoutLeft() {
-	return Math.max(0, Math.ceil((lockedOutUntil - Date.now()) / 1000));
-}
-
-function showLockout() {
-	clearInterval(lockoutTimer);
-
-	function update() {
-		const left = lockoutLeft();
-
-		if (left <= 0) {
-			clearInterval(lockoutTimer);
-
-			lockPin.disabled = false;
-
-			showLockMessage("Enter your PIN");
-
-			lockPin.focus();
-
-			return;
-		}
-
-		lockPin.disabled = true;
-
-		showLockMessage("Too many tries. Try again in " + left + " s");
-	}
-
-	update();
-
-	lockoutTimer = setInterval(update, 500);
 }
 
 lockForm.addEventListener("submit", async function (event) {
@@ -232,7 +331,8 @@ lockForm.addEventListener("submit", async function (event) {
 		return;
 	}
 
-	failedTries++;
+	const totalFails = getFailedTries() + 1;
+	setFailedTries(totalFails);
 
 	lockScreenElement.classList.remove("shake");
 
@@ -241,12 +341,17 @@ lockForm.addEventListener("submit", async function (event) {
 
 	lockScreenElement.classList.add("shake");
 
-	if (failedTries >= 5) {
-		failedTries = 0;
+	const result = evaluateFailureLockout(totalFails);
 
-		lockedOutUntil = Date.now() + 30000;
-
+	if (result.lockoutSeconds > 0) {
+		setLockoutUntil(Date.now() + result.lockoutSeconds * 1000);
 		showLockout();
+	} else if (result.remainingBeforeLock !== null) {
+		showLockMessage(
+			"Wrong PIN (" +
+				result.remainingBeforeLock +
+				(result.remainingBeforeLock === 1 ? " try left)" : " tries left)")
+		);
 	} else {
 		showLockMessage("Wrong PIN");
 	}
@@ -269,10 +374,12 @@ lockScreenElement.addEventListener("pointerdown", quickUnlock);
 
 document.addEventListener("keydown", quickUnlock);
 
-// PIN digits only
+// Enforce 128-character limit without restricting to digits
 
 lockPin.addEventListener("input", function () {
-	lockPin.value = lockPin.value.replace(/\D/g, "").slice(0, 8);
+	if (lockPin.value.length > PIN_MAX_LENGTH) {
+		lockPin.value = lockPin.value.slice(0, PIN_MAX_LENGTH);
+	}
 });
 
 // Idle detection and the screensaver
@@ -613,7 +720,9 @@ function pinFeedback(text, good) {
 
 [pinCurrent, pinNew, pinConfirm].forEach(function (field) {
 	field.addEventListener("input", function () {
-		field.value = field.value.replace(/\D/g, "").slice(0, 8);
+		if (field.value.length > PIN_MAX_LENGTH) {
+			field.value = field.value.slice(0, PIN_MAX_LENGTH);
+		}
 	});
 });
 
@@ -624,8 +733,8 @@ pinSave.addEventListener("click", async function () {
 		return;
 	}
 
-	if (!/^\d{4,8}$/.test(pinNew.value)) {
-		pinFeedback("A PIN is 4 to 8 digits.");
+	if (pinNew.value.length < PIN_MIN_LENGTH || pinNew.value.length > PIN_MAX_LENGTH) {
+		pinFeedback("A PIN must be 4 to 128 characters.");
 
 		return;
 	}
@@ -661,6 +770,7 @@ pinRemove.addEventListener("click", async function () {
 	}
 
 	localStorage.removeItem(PIN_KEY);
+	resetPinAttemptState();
 
 	pinCurrent.value = "";
 
