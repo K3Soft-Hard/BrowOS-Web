@@ -68,7 +68,11 @@ const appCatalog = [
 		license: "MIT License",
 		dataKeys: ["neocalc_history", "neocalc_theme"],
 	},
+<<<<<<< HEAD
 
+=======
+	
+>>>>>>> a0ca32a (Add Recover Brow and changed Mod Manager design)
 	{
 		id: "clock",
 		name: "Clock",

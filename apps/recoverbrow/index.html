@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Recover Brow</title>
+	<script src="../shared/theme.js"></script>
+	<style>
+		:root {
+			--accent: #3b82f6;
+			--bg-base: rgba(16, 17, 23, 0.72);
+			--bg-card: rgba(26, 28, 38, 0.58);
+			--bg-card-hover: rgba(34, 37, 50, 0.68);
+			--bg-input: rgba(12, 13, 18, 0.65);
+			--border: rgba(255, 255, 255, 0.12);
+			--border-strong: rgba(255, 255, 255, 0.2);
+			--text-primary: #f3f4f6;
+			--text-secondary: #9ca3af;
+			--warn-text: #fbbf24;
+			--ok-text: #4ade80;
+			--err-text: #f87171;
+		}
+
+		html.light-mode {
+			--bg-base: rgba(244, 245, 249, 0.78);
+			--bg-card: rgba(255, 255, 255, 0.68);
+			--bg-card-hover: rgba(255, 255, 255, 0.86);
+			--bg-input: rgba(241, 243, 248, 0.88);
+			--border: rgba(15, 23, 42, 0.1);
+			--border-strong: rgba(15, 23, 42, 0.18);
+			--text-primary: #111827;
+			--text-secondary: #4b5563;
+			--warn-text: #b45309;
+			--ok-text: #15803d;
+			--err-text: #dc2626;
+		}
+
+		* {
+			box-sizing: border-box;
+		}
+
+		html, body {
+			margin: 0;
+			padding: 0;
+			width: 100%;
+			min-height: 100%;
+			background: var(--bg-base);
+			backdrop-filter: blur(24px) saturate(165%);
+			-webkit-backdrop-filter: blur(24px) saturate(165%);
+			color: var(--text-primary);
+			font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif;
+			font-size: 14px;
+			line-height: 1.5;
+		}
+
+		.container {
+			max-width: 760px;
+			margin: 0 auto;
+			padding: 24px 20px 36px;
+			display: flex;
+			flex-direction: column;
+			gap: 18px;
+		}
+
+		.header {
+			display: flex;
+			flex-direction: column;
+			gap: 2px;
+			padding-bottom: 6px;
+			border-bottom: 1px solid var(--border);
+		}
+
+		.header h1 {
+			margin: 0;
+			font-size: 20px;
+			font-weight: 600;
+			letter-spacing: -0.015em;
+		}
+
+		.header p {
+			margin: 0;
+			font-size: 13px;
+			color: var(--text-secondary);
+		}
+
+		.section-label {
+			font-size: 12px;
+			font-weight: 600;
+			color: var(--text-secondary);
+			margin-bottom: -8px;
+		}
+
+		.cards {
+			display: flex;
+			flex-direction: column;
+			gap: 14px;
+		}
+
+		.card {
+			padding: 18px 20px;
+			border-radius: 16px;
+			background: var(--bg-card);
+			border: 1px solid var(--border);
+			backdrop-filter: blur(20px) saturate(160%);
+			-webkit-backdrop-filter: blur(20px) saturate(160%);
+			box-shadow: 0 10px 28px rgba(0, 0, 0, 0.16);
+			display: flex;
+			flex-direction: column;
+			gap: 12px;
+			transition: background 0.15s ease, border-color 0.15s ease;
+		}
+
+		.card:hover {
+			background: var(--bg-card-hover);
+			border-color: var(--border-strong);
+		}
+
+		.card-top {
+			display: flex;
+			align-items: flex-start;
+			justify-content: space-between;
+			gap: 14px;
+		}
+
+		.card-title {
+			margin: 0 0 3px;
+			font-size: 15.5px;
+			font-weight: 600;
+		}
+
+		.card-desc {
+			margin: 0;
+			font-size: 13px;
+			color: var(--text-secondary);
+		}
+
+		.btn {
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			gap: 6px;
+			padding: 8px 14px;
+			border-radius: 10px;
+			border: 1px solid var(--border-strong);
+			background: var(--bg-input);
+			color: var(--text-primary);
+			font-family: inherit;
+			font-size: 13px;
+			font-weight: 500;
+			cursor: pointer;
+			white-space: nowrap;
+			transition: filter 0.15s ease, background 0.15s ease;
+		}
+
+		.btn:hover:not(:disabled) {
+			filter: brightness(1.08);
+		}
+
+		.btn:disabled {
+			opacity: 0.45;
+			cursor: not-allowed;
+		}
+
+		.btn.primary {
+			background: var(--accent);
+			border-color: transparent;
+			color: #ffffff;
+		}
+
+		.inline-panel {
+			display: none;
+			flex-direction: column;
+			gap: 10px;
+			padding-top: 10px;
+			border-top: 1px solid var(--border);
+		}
+
+		.inline-panel.open {
+			display: flex;
+		}
+
+		.input-row {
+			display: flex;
+			flex-wrap: wrap;
+			align-items: center;
+			gap: 8px;
+		}
+
+		.code-input {
+			width: 150px;
+			padding: 8px 12px;
+			border-radius: 10px;
+			border: 1px solid var(--border-strong);
+			background: var(--bg-input);
+			color: var(--text-primary);
+			font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+			font-size: 15px;
+			letter-spacing: 0.2em;
+			text-align: center;
+			outline: none;
+		}
+
+		.code-input:focus {
+			border-color: var(--accent);
+		}
+
+		.result-box {
+			display: none;
+			align-items: center;
+			justify-content: space-between;
+			gap: 10px;
+			padding: 10px 14px;
+			border-radius: 11px;
+			background: var(--bg-input);
+			border: 1px solid var(--border-strong);
+		}
+
+		.result-box.open {
+			display: flex;
+		}
+
+		.generated-passwd {
+			font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+			font-size: 14.5px;
+			font-weight: 600;
+			word-break: break-all;
+			user-select: all;
+		}
+
+		.status-note {
+			font-size: 12.5px;
+			color: var(--text-secondary);
+			min-height: 18px;
+		}
+
+		.status-note.err {
+			color: var(--err-text);
+		}
+
+		.status-note.warn {
+			color: var(--warn-text);
+		}
+
+		.status-note.ok {
+			color: var(--ok-text);
+		}
+	</style>
+</head>
+<body>
+	<div class="container">
+		<header class="header">
+			<h1>Recover Brow</h1>
+			<p>Recovery tools, master password generator, and offline cache refresh</p>
+		</header>
+
+		<div class="section-label">Tools</div>
+
+		<div class="cards">
+			<!-- Card 1: Recover Password -->
+			<div class="card">
+				<div class="card-top">
+					<div>
+						<h2 class="card-title">Recover Password</h2>
+						<p class="card-desc">Verify your 5-digit OS Security Code to generate the current time-based recovery master password.</p>
+					</div>
+					<button type="button" class="btn primary" id="openRecoverPasswdBtn">Recover Password</button>
+				</div>
+
+				<div class="inline-panel" id="recoverPasswdPanel">
+					<div class="input-row">
+						<input type="text" class="code-input" id="osCodeInput" inputmode="numeric" maxlength="5" placeholder="5-digit code" autocomplete="off">
+						<button type="button" class="btn primary" id="generatePasswdBtn">Generate</button>
+					</div>
+
+					<div class="result-box" id="passwdResultBox">
+						<span class="generated-passwd" id="generatedPasswdText"></span>
+						<button type="button" class="btn" id="copyPasswdBtn">Copy</button>
+					</div>
+
+					<div class="status-note" id="recoverPasswdStatus"></div>
+				</div>
+			</div>
+
+			<!-- Card 2: Reboot to Recovery -->
+			<div class="card">
+				<div class="card-top">
+					<div>
+						<h2 class="card-title">Reboot to Recovery</h2>
+						<p class="card-desc">Exit the desktop and open the standalone BrowOS Recovery console in this window.</p>
+					</div>
+					<button type="button" class="btn" id="rebootRecoveryBtn">Reboot to Recovery</button>
+				</div>
+			</div>
+
+			<!-- Card 3: Refresh Updates -->
+			<div class="card">
+				<div class="card-top">
+					<div>
+						<h2 class="card-title">Refresh Updates</h2>
+						<p class="card-desc">Clear cached HTML, CSS, and JS files and reload BrowOS while keeping all apps, notes, PIN, and settings.</p>
+					</div>
+					<button type="button" class="btn" id="refreshUpdatesBtn">Refresh Updates</button>
+				</div>
+				<div class="status-note" id="refreshStatus" hidden></div>
+			</div>
+		</div>
+	</div>
+
+	<script>
+		(function () {
+			const OS_CODE_KEY = "browos-os-code";
+			const MASTER_RESET_ENABLED_KEY = "browos-master-reset-enabled";
+
+			function getHostStorage() {
+				try {
+					if (window.parent && window.parent !== window && window.parent.localStorage) {
+						return window.parent.localStorage;
+					}
+				} catch (e) {}
+				return window.localStorage;
+			}
+
+			// Card 1: Recover Password
+			const openRecoverPasswdBtn = document.getElementById("openRecoverPasswdBtn");
+			const recoverPasswdPanel = document.getElementById("recoverPasswdPanel");
+			const osCodeInput = document.getElementById("osCodeInput");
+			const generatePasswdBtn = document.getElementById("generatePasswdBtn");
+			const passwdResultBox = document.getElementById("passwdResultBox");
+			const generatedPasswdText = document.getElementById("generatedPasswdText");
+			const copyPasswdBtn = document.getElementById("copyPasswdBtn");
+			const recoverPasswdStatus = document.getElementById("recoverPasswdStatus");
+
+			let verifiedCode = null;
+			let expiryTimer = null;
+
+			function buildMasterPassword(code5) {
+				const now = new Date();
+				const mm = String(now.getMonth() + 1).padStart(2, "0");
+				const dd = String(now.getDate()).padStart(2, "0");
+				const hh = String(now.getHours()).padStart(2, "0");
+				return "idkPASSWD!!" + mm + "/" + dd + "#" + hh + "!" + code5;
+			}
+
+			function updateGeneratedOutput() {
+				if (!verifiedCode) return;
+				const store = getHostStorage();
+				const masterEnabled = store.getItem(MASTER_RESET_ENABLED_KEY) !== "off";
+				const pwd = buildMasterPassword(verifiedCode);
+				generatedPasswdText.textContent = pwd;
+				passwdResultBox.classList.add("open");
+
+				const now = new Date();
+				const minsLeft = 60 - now.getMinutes();
+
+				if (!masterEnabled) {
+					recoverPasswdStatus.className = "status-note warn";
+					recoverPasswdStatus.textContent = "Note: Master password reset is currently disabled in Settings → Security. Valid for " + minsLeft + " more min.";
+				} else {
+					recoverPasswdStatus.className = "status-note ok";
+					recoverPasswdStatus.textContent = "Valid for the current hour (" + minsLeft + " min remaining).";
+				}
+			}
+
+			openRecoverPasswdBtn.addEventListener("click", function () {
+				recoverPasswdPanel.classList.toggle("open");
+				if (recoverPasswdPanel.classList.contains("open")) {
+					osCodeInput.focus();
+				}
+			});
+
+			osCodeInput.addEventListener("input", function () {
+				osCodeInput.value = osCodeInput.value.replace(/\D/g, "").slice(0, 5);
+			});
+
+			osCodeInput.addEventListener("keydown", function (e) {
+				if (e.key === "Enter") {
+					e.preventDefault();
+					generatePasswdBtn.click();
+				}
+			});
+
+			generatePasswdBtn.addEventListener("click", function () {
+				const entered = osCodeInput.value.trim();
+				const store = getHostStorage();
+				const actualCode = store.getItem(OS_CODE_KEY) || "";
+
+				if (!/^\d{5}$/.test(entered)) {
+					passwdResultBox.classList.remove("open");
+					recoverPasswdStatus.className = "status-note err";
+					recoverPasswdStatus.textContent = "Enter your 5-digit OS Security Code.";
+					return;
+				}
+
+				if (!actualCode || entered !== actualCode) {
+					verifiedCode = null;
+					passwdResultBox.classList.remove("open");
+					recoverPasswdStatus.className = "status-note err";
+					recoverPasswdStatus.textContent = "Incorrect 5-digit OS Security Code.";
+					return;
+				}
+
+				verifiedCode = actualCode;
+				updateGeneratedOutput();
+
+				clearInterval(expiryTimer);
+				expiryTimer = setInterval(updateGeneratedOutput, 15000);
+			});
+
+			copyPasswdBtn.addEventListener("click", function () {
+				const text = generatedPasswdText.textContent;
+				if (!text) return;
+				if (navigator.clipboard && navigator.clipboard.writeText) {
+					navigator.clipboard.writeText(text).catch(function () {});
+				}
+				const prev = copyPasswdBtn.textContent;
+				copyPasswdBtn.textContent = "Copied";
+				setTimeout(function () {
+					copyPasswdBtn.textContent = prev;
+				}, 1400);
+			});
+
+			// Card 2: Reboot to Recovery (same window)
+			document.getElementById("rebootRecoveryBtn").addEventListener("click", function () {
+				const recoveryUrl = new URL("../../recovery.html", window.location.href).href;
+				try {
+					if (window.top && window.top !== window) {
+						window.top.location.href = recoveryUrl;
+						return;
+					}
+				} catch (e) {}
+				window.location.href = recoveryUrl;
+			});
+
+			// Card 3: Refresh Updates
+			const refreshUpdatesBtn = document.getElementById("refreshUpdatesBtn");
+			const refreshStatus = document.getElementById("refreshStatus");
+
+			refreshUpdatesBtn.addEventListener("click", async function () {
+				if (!confirm("Refresh updates? This will clear cached HTML, CSS, and JS files and reload BrowOS while keeping all your apps, notes, PIN, and settings.")) {
+					return;
+				}
+
+				refreshUpdatesBtn.disabled = true;
+				refreshStatus.hidden = false;
+				refreshStatus.className = "status-note";
+				refreshStatus.textContent = "Clearing offline cache and reloading…";
+
+				try {
+					if ("serviceWorker" in navigator) {
+						const regs = await navigator.serviceWorker.getRegistrations();
+						await Promise.all(regs.map(function (r) { return r.unregister(); }));
+					}
+					if ("caches" in window) {
+						const keys = await caches.keys();
+						await Promise.all(keys.map(function (k) { return caches.delete(k); }));
+					}
+				} catch (e) {}
+
+				try {
+					if (window.top && window.top !== window) {
+						window.top.location.reload();
+						return;
+					}
+				} catch (e) {}
+				window.location.reload();
+			});
+		})();
+	</script>
+</body>
+</html>
