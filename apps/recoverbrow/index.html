@@ -3,468 +3,186 @@
 <head>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>Recover Brow</title>
+	<title>BrowChat</title>
+	<link rel="stylesheet" href="style.css">
 	<script src="../shared/theme.js"></script>
-	<style>
-		:root {
-			--accent: #3b82f6;
-			--bg-base: rgba(16, 17, 23, 0.72);
-			--bg-card: rgba(26, 28, 38, 0.58);
-			--bg-card-hover: rgba(34, 37, 50, 0.68);
-			--bg-input: rgba(12, 13, 18, 0.65);
-			--border: rgba(255, 255, 255, 0.12);
-			--border-strong: rgba(255, 255, 255, 0.2);
-			--text-primary: #f3f4f6;
-			--text-secondary: #9ca3af;
-			--warn-text: #fbbf24;
-			--ok-text: #4ade80;
-			--err-text: #f87171;
-		}
-
-		html.light-mode {
-			--bg-base: rgba(244, 245, 249, 0.78);
-			--bg-card: rgba(255, 255, 255, 0.68);
-			--bg-card-hover: rgba(255, 255, 255, 0.86);
-			--bg-input: rgba(241, 243, 248, 0.88);
-			--border: rgba(15, 23, 42, 0.1);
-			--border-strong: rgba(15, 23, 42, 0.18);
-			--text-primary: #111827;
-			--text-secondary: #4b5563;
-			--warn-text: #b45309;
-			--ok-text: #15803d;
-			--err-text: #dc2626;
-		}
-
-		* {
-			box-sizing: border-box;
-		}
-
-		html, body {
-			margin: 0;
-			padding: 0;
-			width: 100%;
-			min-height: 100%;
-			background: var(--bg-base);
-			backdrop-filter: blur(24px) saturate(165%);
-			-webkit-backdrop-filter: blur(24px) saturate(165%);
-			color: var(--text-primary);
-			font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif;
-			font-size: 14px;
-			line-height: 1.5;
-		}
-
-		.container {
-			max-width: 760px;
-			margin: 0 auto;
-			padding: 24px 20px 36px;
-			display: flex;
-			flex-direction: column;
-			gap: 18px;
-		}
-
-		.header {
-			display: flex;
-			flex-direction: column;
-			gap: 2px;
-			padding-bottom: 6px;
-			border-bottom: 1px solid var(--border);
-		}
-
-		.header h1 {
-			margin: 0;
-			font-size: 20px;
-			font-weight: 600;
-			letter-spacing: -0.015em;
-		}
-
-		.header p {
-			margin: 0;
-			font-size: 13px;
-			color: var(--text-secondary);
-		}
-
-		.section-label {
-			font-size: 12px;
-			font-weight: 600;
-			color: var(--text-secondary);
-			margin-bottom: -8px;
-		}
-
-		.cards {
-			display: flex;
-			flex-direction: column;
-			gap: 14px;
-		}
-
-		.card {
-			padding: 18px 20px;
-			border-radius: 16px;
-			background: var(--bg-card);
-			border: 1px solid var(--border);
-			backdrop-filter: blur(20px) saturate(160%);
-			-webkit-backdrop-filter: blur(20px) saturate(160%);
-			box-shadow: 0 10px 28px rgba(0, 0, 0, 0.16);
-			display: flex;
-			flex-direction: column;
-			gap: 12px;
-			transition: background 0.15s ease, border-color 0.15s ease;
-		}
-
-		.card:hover {
-			background: var(--bg-card-hover);
-			border-color: var(--border-strong);
-		}
-
-		.card-top {
-			display: flex;
-			align-items: flex-start;
-			justify-content: space-between;
-			gap: 14px;
-		}
-
-		.card-title {
-			margin: 0 0 3px;
-			font-size: 15.5px;
-			font-weight: 600;
-		}
-
-		.card-desc {
-			margin: 0;
-			font-size: 13px;
-			color: var(--text-secondary);
-		}
-
-		.btn {
-			display: inline-flex;
-			align-items: center;
-			justify-content: center;
-			gap: 6px;
-			padding: 8px 14px;
-			border-radius: 10px;
-			border: 1px solid var(--border-strong);
-			background: var(--bg-input);
-			color: var(--text-primary);
-			font-family: inherit;
-			font-size: 13px;
-			font-weight: 500;
-			cursor: pointer;
-			white-space: nowrap;
-			transition: filter 0.15s ease, background 0.15s ease;
-		}
-
-		.btn:hover:not(:disabled) {
-			filter: brightness(1.08);
-		}
-
-		.btn:disabled {
-			opacity: 0.45;
-			cursor: not-allowed;
-		}
-
-		.btn.primary {
-			background: var(--accent);
-			border-color: transparent;
-			color: #ffffff;
-		}
-
-		.inline-panel {
-			display: none;
-			flex-direction: column;
-			gap: 10px;
-			padding-top: 10px;
-			border-top: 1px solid var(--border);
-		}
-
-		.inline-panel.open {
-			display: flex;
-		}
-
-		.input-row {
-			display: flex;
-			flex-wrap: wrap;
-			align-items: center;
-			gap: 8px;
-		}
-
-		.code-input {
-			width: 150px;
-			padding: 8px 12px;
-			border-radius: 10px;
-			border: 1px solid var(--border-strong);
-			background: var(--bg-input);
-			color: var(--text-primary);
-			font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-			font-size: 15px;
-			letter-spacing: 0.2em;
-			text-align: center;
-			outline: none;
-		}
-
-		.code-input:focus {
-			border-color: var(--accent);
-		}
-
-		.result-box {
-			display: none;
-			align-items: center;
-			justify-content: space-between;
-			gap: 10px;
-			padding: 10px 14px;
-			border-radius: 11px;
-			background: var(--bg-input);
-			border: 1px solid var(--border-strong);
-		}
-
-		.result-box.open {
-			display: flex;
-		}
-
-		.generated-passwd {
-			font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-			font-size: 14.5px;
-			font-weight: 600;
-			word-break: break-all;
-			user-select: all;
-		}
-
-		.status-note {
-			font-size: 12.5px;
-			color: var(--text-secondary);
-			min-height: 18px;
-		}
-
-		.status-note.err {
-			color: var(--err-text);
-		}
-
-		.status-note.warn {
-			color: var(--warn-text);
-		}
-
-		.status-note.ok {
-			color: var(--ok-text);
-		}
-	</style>
+	<script src="../../sdk/browos-sdk.js"></script>
 </head>
 <body>
-	<div class="container">
-		<header class="header">
-			<h1>Recover Brow</h1>
-			<p>Recovery tools, master password generator, and offline cache refresh</p>
-		</header>
-
-		<div class="section-label">Tools</div>
-
-		<div class="cards">
-			<!-- Card 1: Recover Password -->
-			<div class="card">
-				<div class="card-top">
-					<div>
-						<h2 class="card-title">Recover Password</h2>
-						<p class="card-desc">Verify your 5-digit OS Security Code to generate the current time-based recovery master password.</p>
-					</div>
-					<button type="button" class="btn primary" id="openRecoverPasswdBtn">Recover Password</button>
-				</div>
-
-				<div class="inline-panel" id="recoverPasswdPanel">
-					<div class="input-row">
-						<input type="text" class="code-input" id="osCodeInput" inputmode="numeric" maxlength="5" placeholder="5-digit code" autocomplete="off">
-						<button type="button" class="btn primary" id="generatePasswdBtn">Generate</button>
-					</div>
-
-					<div class="result-box" id="passwdResultBox">
-						<span class="generated-passwd" id="generatedPasswdText"></span>
-						<button type="button" class="btn" id="copyPasswdBtn">Copy</button>
-					</div>
-
-					<div class="status-note" id="recoverPasswdStatus"></div>
-				</div>
+	<div class="app-shell">
+		<!-- Sidebar: Chat History -->
+		<aside class="sidebar" id="sidebar">
+			<div class="sidebar-top">
+				<button type="button" class="btn primary full" id="newChatBtn">+ New Chat</button>
 			</div>
 
-			<!-- Card 2: Reboot to Recovery -->
-			<div class="card">
-				<div class="card-top">
-					<div>
-						<h2 class="card-title">Reboot to Recovery</h2>
-						<p class="card-desc">Exit the desktop and open the standalone BrowOS Recovery console in this window.</p>
-					</div>
-					<button type="button" class="btn" id="rebootRecoveryBtn">Reboot to Recovery</button>
-				</div>
+			<div class="sidebar-search">
+				<input type="text" id="historySearch" placeholder="Filter chats..." autocomplete="off">
 			</div>
 
-			<!-- Card 3: Refresh Updates -->
-			<div class="card">
-				<div class="card-top">
-					<div>
-						<h2 class="card-title">Refresh Updates</h2>
-						<p class="card-desc">Clear cached HTML, CSS, and JS files and reload BrowOS while keeping all apps, notes, PIN, and settings.</p>
-					</div>
-					<button type="button" class="btn" id="refreshUpdatesBtn">Refresh Updates</button>
+			<div class="chat-list" id="chatList"></div>
+
+			<div class="sidebar-footer">
+				<button type="button" class="btn ghost full" id="openProvidersBtn">Providers &amp; Models</button>
+				<button type="button" class="btn ghost full" id="openSkillsBtn">Skills &amp; Bubble</button>
+			</div>
+		</aside>
+
+		<!-- Main Workspace -->
+		<main class="main-area">
+			<header class="topbar">
+				<div class="topbar-left">
+					<button type="button" class="btn icon-only" id="toggleSidebarBtn" title="Toggle sidebar" aria-label="Toggle sidebar">
+						<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+					</button>
+					<select id="modelSelect" aria-label="Select model"></select>
+					<select id="activeSkillSelect" aria-label="Active skill"></select>
 				</div>
-				<div class="status-note" id="refreshStatus" hidden></div>
+
+				<div class="topbar-right">
+					<button type="button" class="btn" id="syncBubbleBtn" title="Push mini-chat card to BrowOS Bubble">Bubble</button>
+					<button type="button" class="btn" id="exportMdBtn" title="Export chat as Markdown">Export MD</button>
+					<button type="button" class="btn" id="exportJsonBtn" title="Export chat as JSON">JSON</button>
+				</div>
+			</header>
+
+			<!-- Messages Feed -->
+			<section class="messages" id="messagesContainer" aria-live="polite"></section>
+
+			<!-- Composer -->
+			<footer class="composer-wrap">
+				<div class="attachments-bar" id="attachmentsBar" hidden></div>
+
+				<div class="composer-box">
+					<textarea id="promptInput" rows="1" placeholder="Message BrowChat..." spellcheck="true"></textarea>
+
+					<div class="composer-toolbar">
+						<div class="composer-tools-left">
+							<button type="button" class="chip-btn" id="attachFileBtn" title="Attach file from BrowOS Files or device">
+								<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+								<span>Attach</span>
+							</button>
+							<input type="file" id="hiddenFileInput" multiple hidden>
+
+							<button type="button" class="chip-btn" id="webSearchToggleBtn" title="Enable server-side web search">
+								<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+								<span>Web Search</span>
+							</button>
+						</div>
+
+						<div class="composer-tools-right">
+							<button type="button" class="btn danger" id="stopBtn" hidden>Stop</button>
+							<button type="button" class="btn primary" id="sendBtn">Send</button>
+						</div>
+					</div>
+				</div>
+			</footer>
+		</main>
+	</div>
+
+	<!-- Modal: Providers & Model Visibility Manager -->
+	<div class="modal-backdrop" id="providersModal" hidden>
+		<div class="modal-card">
+			<div class="modal-header">
+				<h2>Providers &amp; Visible Models</h2>
+				<button type="button" class="btn icon-only" data-close-modal="providersModal">×</button>
+			</div>
+
+			<div class="modal-body">
+				<div class="provider-tabs" id="providerTabs"></div>
+
+				<div class="provider-form" id="providerForm">
+					<div class="field-row">
+						<label for="provEnabled">Enable provider</label>
+						<input type="checkbox" id="provEnabled">
+					</div>
+
+					<div class="field-col" id="provUrlRow" hidden>
+						<label for="provBaseUrl">Base URL (OpenAI-compatible)</label>
+						<input type="text" id="provBaseUrl" placeholder="https://api.example.com/v1">
+					</div>
+
+					<div class="field-col">
+						<label for="provApiKey">API Key</label>
+						<input type="password" id="provApiKey" placeholder="Paste API key..." autocomplete="off">
+					</div>
+
+					<div class="field-row">
+						<button type="button" class="btn primary" id="saveProviderBtn">Save Key</button>
+						<button type="button" class="btn" id="fetchModelsBtn">Fetch Live Models</button>
+						<span class="status-text" id="providerStatus"></span>
+					</div>
+
+					<div class="field-col">
+						<label for="customModelInput">Add custom model ID manually</label>
+						<div class="field-row">
+							<input type="text" id="customModelInput" placeholder="e.g. anthropic/claude-sonnet-4 or gemini-2.5-pro">
+							<button type="button" class="btn" id="addCustomModelBtn">Add</button>
+						</div>
+					</div>
+
+					<div class="field-col">
+						<div class="field-row" style="justify-content:space-between;">
+							<label>Models shown in chat dropdown</label>
+							<input type="text" id="modelFilterInput" placeholder="Filter models..." style="max-width:190px;">
+						</div>
+						<div class="models-checklist" id="modelsChecklist"></div>
+					</div>
+				</div>
 			</div>
 		</div>
 	</div>
 
-	<script>
-		(function () {
-			const OS_CODE_KEY = "browos-os-code";
-			const MASTER_RESET_ENABLED_KEY = "browos-master-reset-enabled";
+	<!-- Modal: Skills & BrowOS Bubble Settings -->
+	<div class="modal-backdrop" id="skillsModal" hidden>
+		<div class="modal-card">
+			<div class="modal-header">
+				<h2>Skills &amp; BrowOS Bubble</h2>
+				<button type="button" class="btn icon-only" data-close-modal="skillsModal">×</button>
+			</div>
 
-			function getHostStorage() {
-				try {
-					if (window.parent && window.parent !== window && window.parent.localStorage) {
-						return window.parent.localStorage;
-					}
-				} catch (e) {}
-				return window.localStorage;
-			}
+			<div class="modal-body">
+				<h3>BrowOS Bubble Mini-Chat</h3>
+				<div class="field-row">
+					<label for="bubbleAutoSyncToggle">Keep BrowChat card active in BrowOS Bubble</label>
+					<input type="checkbox" id="bubbleAutoSyncToggle" checked>
+				</div>
 
-			// Card 1: Recover Password
-			const openRecoverPasswdBtn = document.getElementById("openRecoverPasswdBtn");
-			const recoverPasswdPanel = document.getElementById("recoverPasswdPanel");
-			const osCodeInput = document.getElementById("osCodeInput");
-			const generatePasswdBtn = document.getElementById("generatePasswdBtn");
-			const passwdResultBox = document.getElementById("passwdResultBox");
-			const generatedPasswdText = document.getElementById("generatedPasswdText");
-			const copyPasswdBtn = document.getElementById("copyPasswdBtn");
-			const recoverPasswdStatus = document.getElementById("recoverPasswdStatus");
+				<div class="field-col">
+					<label for="bubblePresetsInput">Quick prompt presets for Bubble (comma-separated)</label>
+					<input type="text" id="bubblePresetsInput" placeholder="Summarize screen, Quick math, Translate to English">
+				</div>
 
-			let verifiedCode = null;
-			let expiryTimer = null;
+				<div class="field-row">
+					<button type="button" class="btn primary" id="saveBubblePrefsBtn">Update Bubble Card</button>
+					<button type="button" class="btn" id="hideBubbleCardBtn">Hide from Bubble</button>
+				</div>
 
-			function buildMasterPassword(code5) {
-				const now = new Date();
-				const mm = String(now.getMonth() + 1).padStart(2, "0");
-				const dd = String(now.getDate()).padStart(2, "0");
-				const hh = String(now.getHours()).padStart(2, "0");
-				return "idkPASSWD!!" + mm + "/" + dd + "#" + hh + "!" + code5;
-			}
+				<hr class="divider">
 
-			function updateGeneratedOutput() {
-				if (!verifiedCode) return;
-				const store = getHostStorage();
-				const masterEnabled = store.getItem(MASTER_RESET_ENABLED_KEY) !== "off";
-				const pwd = buildMasterPassword(verifiedCode);
-				generatedPasswdText.textContent = pwd;
-				passwdResultBox.classList.add("open");
+				<div class="field-row" style="justify-content:space-between;">
+					<h3>Skills (System Instructions)</h3>
+					<div style="display:flex;gap:6px;">
+						<button type="button" class="btn" id="uploadSkillBtn">Upload Skill (.md / .txt)</button>
+						<input type="file" id="skillFileInput" accept=".md,.txt,.json,text/*" hidden>
+						<button type="button" class="btn primary" id="newSkillBtn">+ New Skill</button>
+					</div>
+				</div>
 
-				const now = new Date();
-				const minsLeft = 60 - now.getMinutes();
+				<div class="skills-list" id="skillsList"></div>
 
-				if (!masterEnabled) {
-					recoverPasswdStatus.className = "status-note warn";
-					recoverPasswdStatus.textContent = "Note: Master password reset is currently disabled in Settings → Security. Valid for " + minsLeft + " more min.";
-				} else {
-					recoverPasswdStatus.className = "status-note ok";
-					recoverPasswdStatus.textContent = "Valid for the current hour (" + minsLeft + " min remaining).";
-				}
-			}
+				<div class="skill-editor" id="skillEditor" hidden>
+					<input type="text" id="skillNameInput" placeholder="Skill name (e.g. Code Reviewer)">
+					<textarea id="skillPromptInput" rows="5" placeholder="Write system instructions or rules for this skill..."></textarea>
+					<div class="field-row">
+						<button type="button" class="btn primary" id="saveSkillBtn">Save Skill</button>
+						<button type="button" class="btn" id="cancelSkillBtn">Cancel</button>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
 
-			openRecoverPasswdBtn.addEventListener("click", function () {
-				recoverPasswdPanel.classList.toggle("open");
-				if (recoverPasswdPanel.classList.contains("open")) {
-					osCodeInput.focus();
-				}
-			});
-
-			osCodeInput.addEventListener("input", function () {
-				osCodeInput.value = osCodeInput.value.replace(/\D/g, "").slice(0, 5);
-			});
-
-			osCodeInput.addEventListener("keydown", function (e) {
-				if (e.key === "Enter") {
-					e.preventDefault();
-					generatePasswdBtn.click();
-				}
-			});
-
-			generatePasswdBtn.addEventListener("click", function () {
-				const entered = osCodeInput.value.trim();
-				const store = getHostStorage();
-				const actualCode = store.getItem(OS_CODE_KEY) || "";
-
-				if (!/^\d{5}$/.test(entered)) {
-					passwdResultBox.classList.remove("open");
-					recoverPasswdStatus.className = "status-note err";
-					recoverPasswdStatus.textContent = "Enter your 5-digit OS Security Code.";
-					return;
-				}
-
-				if (!actualCode || entered !== actualCode) {
-					verifiedCode = null;
-					passwdResultBox.classList.remove("open");
-					recoverPasswdStatus.className = "status-note err";
-					recoverPasswdStatus.textContent = "Incorrect 5-digit OS Security Code.";
-					return;
-				}
-
-				verifiedCode = actualCode;
-				updateGeneratedOutput();
-
-				clearInterval(expiryTimer);
-				expiryTimer = setInterval(updateGeneratedOutput, 15000);
-			});
-
-			copyPasswdBtn.addEventListener("click", function () {
-				const text = generatedPasswdText.textContent;
-				if (!text) return;
-				if (navigator.clipboard && navigator.clipboard.writeText) {
-					navigator.clipboard.writeText(text).catch(function () {});
-				}
-				const prev = copyPasswdBtn.textContent;
-				copyPasswdBtn.textContent = "Copied";
-				setTimeout(function () {
-					copyPasswdBtn.textContent = prev;
-				}, 1400);
-			});
-
-			// Card 2: Reboot to Recovery (same window)
-			document.getElementById("rebootRecoveryBtn").addEventListener("click", function () {
-				const recoveryUrl = new URL("../../recovery.html", window.location.href).href;
-				try {
-					if (window.top && window.top !== window) {
-						window.top.location.href = recoveryUrl;
-						return;
-					}
-				} catch (e) {}
-				window.location.href = recoveryUrl;
-			});
-
-			// Card 3: Refresh Updates
-			const refreshUpdatesBtn = document.getElementById("refreshUpdatesBtn");
-			const refreshStatus = document.getElementById("refreshStatus");
-
-			refreshUpdatesBtn.addEventListener("click", async function () {
-				if (!confirm("Refresh updates? This will clear cached HTML, CSS, and JS files and reload BrowOS while keeping all your apps, notes, PIN, and settings.")) {
-					return;
-				}
-
-				refreshUpdatesBtn.disabled = true;
-				refreshStatus.hidden = false;
-				refreshStatus.className = "status-note";
-				refreshStatus.textContent = "Clearing offline cache and reloading…";
-
-				try {
-					if ("serviceWorker" in navigator) {
-						const regs = await navigator.serviceWorker.getRegistrations();
-						await Promise.all(regs.map(function (r) { return r.unregister(); }));
-					}
-					if ("caches" in window) {
-						const keys = await caches.keys();
-						await Promise.all(keys.map(function (k) { return caches.delete(k); }));
-					}
-				} catch (e) {}
-
-				try {
-					if (window.top && window.top !== window) {
-						window.top.location.reload();
-						return;
-					}
-				} catch (e) {}
-				window.location.reload();
-			});
-		})();
-	</script>
+	<script src="app.js"></script>
 </body>
 </html>
