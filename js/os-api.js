@@ -100,6 +100,78 @@
 		);
 	}
 
+	// Delegated Bubble action router (handles clicks & Enter inside custom app cards without editing index.html)
+	function setupBubbleActionBridge() {
+		const bubbleBody = document.getElementById("bosBubbleBody");
+		if (!bubbleBody || bubbleBody.dataset.apiBridgeAttached === "1") {
+			return;
+		}
+		bubbleBody.dataset.apiBridgeAttached = "1";
+
+		function resolveActiveCardAppId() {
+			const titleEl = document.getElementById("bosBubbleCardTitle");
+			const currentTitle = titleEl ? titleEl.textContent.trim() : "";
+			const cards = Array.from(bubbleCardsMap.values());
+			const exact = cards.find(function (c) { return c.title === currentTitle; });
+			if (exact) return exact.appId;
+			return cards.length ? cards[0].appId : null;
+		}
+
+		function dispatchBubbleSlotAction(slot, action, value) {
+			const appId = resolveActiveCardAppId();
+			if (!appId) return;
+
+			if (action === "open-app") {
+				const backdrop = document.getElementById("bosBubbleBackdrop");
+				if (backdrop) backdrop.click();
+				if (typeof launchApp === "function") {
+					launchApp(appId);
+				} else if (window.browosApi) {
+					window.browosApi.openApp(appId);
+				}
+				return;
+			}
+
+			if (typeof window.sdkSendBubbleAction === "function") {
+				window.sdkSendBubbleAction(appId, action, value);
+			}
+		}
+
+		bubbleBody.addEventListener("click", function (event) {
+			const slot = event.target.closest(".bos-bubble-custom-slot");
+			if (!slot) return;
+			const btn = event.target.closest("[data-bubble-action]");
+			if (!btn) return;
+
+			const action = btn.dataset.bubbleAction;
+			const promptInput = slot.querySelector("[data-bubble-input]");
+			const value = btn.dataset.bubblePrompt || (promptInput ? promptInput.value.trim() : "");
+			if (promptInput && !btn.dataset.bubblePrompt) {
+				promptInput.value = "";
+			}
+			dispatchBubbleSlotAction(slot, action, value);
+		});
+
+		bubbleBody.addEventListener("keydown", function (event) {
+			if (event.key !== "Enter") return;
+			const slot = event.target.closest(".bos-bubble-custom-slot");
+			const promptInput = event.target.closest("[data-bubble-input]");
+			if (!slot || !promptInput) return;
+
+			event.preventDefault();
+			const value = promptInput.value.trim();
+			if (!value) return;
+			promptInput.value = "";
+			dispatchBubbleSlotAction(slot, "send-input", value);
+		});
+	}
+
+	if (document.readyState === "loading") {
+		document.addEventListener("DOMContentLoaded", setupBubbleActionBridge);
+	} else {
+		setupBubbleActionBridge();
+	}
+
 	window.browosApi = {
 		notify: notify,
 
@@ -241,6 +313,7 @@
 			},
 			showCard: function (card) {
 				if (!card || !card.id) return;
+				setupBubbleActionBridge();
 				bubbleCardsMap.set(String(card.id), {
 					id: String(card.id),
 					appId: String(card.appId || "app"),
