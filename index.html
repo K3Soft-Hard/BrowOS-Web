@@ -42,6 +42,8 @@
 			--bos-glass-bg: rgba(20, 20, 28, 0.48);
 			--bos-glass-border: rgba(255, 255, 255, 0.14);
 			--bos-glass-blur: 22px;
+			--bos-win-glass-bg: rgba(22, 22, 30, 0.72);
+			--bos-win-glass-blur: 22px;
 			--bos-tb-safe-bottom: 64px;
 		}
 
@@ -67,6 +69,141 @@
 		}
 
 		/* =========================================================
+		   DESKTOP & WORKSPACE ANIMATIONS
+		   ========================================================= */
+		.desktop-area,
+		.widget-layer {
+			transition: opacity 0.26s cubic-bezier(0.22, 1, 0.36, 1), transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+		}
+
+		.desktop-shell.bos-desktop-switching .desktop-area,
+		.desktop-shell.bos-desktop-switching .widget-layer {
+			opacity: 0.38;
+			transform: scale(0.985) translateY(4px);
+		}
+
+		.taskbar-apps button,
+		.start-button,
+		.explorer-button,
+		.tray-button {
+			transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1), background-color 0.16s ease, box-shadow 0.18s ease !important;
+		}
+
+		.taskbar-apps button:hover,
+		.start-button:hover,
+		.explorer-button:hover,
+		.tray-button:hover {
+			transform: translateY(-2px) scale(1.04);
+		}
+
+		.taskbar-apps button:active,
+		.start-button:active,
+		.explorer-button:active {
+			transform: scale(0.95);
+		}
+
+		.flyout.open,
+		.start-menu.open,
+		.apps-panel.open {
+			animation: bosFlyoutPop 0.22s cubic-bezier(0.22, 1, 0.36, 1) both;
+		}
+
+		@keyframes bosFlyoutPop {
+			from { opacity: 0; transform: translateY(10px) scale(0.97); }
+			to { opacity: 1; transform: translateY(0) scale(1); }
+		}
+
+		/* Animated Virtual Desktop Switcher Bar */
+		#bosDesktopSwitchBar {
+			position: fixed;
+			bottom: calc(var(--bos-tb-safe-bottom, 64px) + 12px);
+			left: 50%;
+			transform: translateX(-50%) translateY(14px) scale(0.94);
+			z-index: 98000;
+			display: flex;
+			align-items: center;
+			gap: 6px;
+			padding: 6px 10px;
+			border-radius: 999px;
+			background: var(--bos-glass-bg);
+			border: 1px solid var(--bos-glass-border);
+			backdrop-filter: blur(var(--bos-glass-blur)) saturate(170%);
+			-webkit-backdrop-filter: blur(var(--bos-glass-blur)) saturate(170%);
+			box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+			opacity: 0;
+			pointer-events: none;
+			transition: opacity 0.24s ease, transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+		}
+
+		#bosDesktopSwitchBar.show {
+			opacity: 1;
+			pointer-events: auto;
+			transform: translateX(-50%) translateY(0) scale(1);
+		}
+
+		.bos-dbar-pill {
+			min-width: 30px;
+			height: 28px;
+			padding: 0 10px;
+			border-radius: 999px;
+			border: 1px solid transparent;
+			background: transparent;
+			color: rgba(255, 255, 255, 0.78);
+			font-size: 12px;
+			font-weight: 600;
+			cursor: pointer;
+			transition: all 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+		}
+
+		.bos-dbar-pill.active {
+			background: var(--accent, #8e5cf7);
+			color: #ffffff;
+			padding: 0 16px;
+			box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+		}
+
+		/* =========================================================
+		   COMPUTER SAVER MODE (DISABLES TRANSPARENCY & HEAVY ANIMATIONS)
+		   ========================================================= */
+		html[data-computer-saver="1"] .app-window,
+		html[data-computer-saver="1"] .taskbar,
+		html[data-computer-saver="1"] .taskbar-blur,
+		html[data-computer-saver="1"] .start-menu,
+		html[data-computer-saver="1"] .apps-panel,
+		html[data-computer-saver="1"] .flyout,
+		html[data-computer-saver="1"] .context-menu,
+		html[data-computer-saver="1"] .widget-layer .widget,
+		html[data-computer-saver="1"] .widget-layer .desktop-widget,
+		html[data-computer-saver="1"] #bosBubbleCard,
+		html[data-computer-saver="1"] #bosDesktopSwitchBar,
+		html[data-computer-saver="1"] .bos-lock-auth-box {
+			backdrop-filter: none !important;
+			-webkit-backdrop-filter: none !important;
+			background: #14151c !important;
+		}
+
+		html.light-mode[data-computer-saver="1"] .app-window,
+		html.light-mode[data-computer-saver="1"] .taskbar,
+		html.light-mode[data-computer-saver="1"] .taskbar-blur,
+		html.light-mode[data-computer-saver="1"] .start-menu,
+		html.light-mode[data-computer-saver="1"] .apps-panel,
+		html.light-mode[data-computer-saver="1"] .flyout,
+		html.light-mode[data-computer-saver="1"] .context-menu,
+		html.light-mode[data-computer-saver="1"] .widget-layer .widget,
+		html.light-mode[data-computer-saver="1"] #bosBubbleCard {
+			background: #f3f4f6 !important;
+			color: #111827 !important;
+		}
+
+		html[data-computer-saver="1"] *,
+		html[data-computer-saver="1"] *::before,
+		html[data-computer-saver="1"] *::after {
+			animation-duration: 0.01ms !important;
+			animation-iteration-count: 1 !important;
+			transition-duration: 0.01ms !important;
+		}
+
+		/* =========================================================
 		   FROSTED GLASS WIDGETS (STICKY NOTES KEPT NATIVE & COLORFUL)
 		   ========================================================= */
 		.widget-layer {
@@ -84,13 +221,6 @@
 			box-shadow: 0 14px 36px rgba(0, 0, 0, 0.34), inset 0 1px 0 rgba(255, 255, 255, 0.12) !important;
 			color: #f8fafc !important;
 			overflow: hidden;
-			transition: box-shadow 0.2s ease, border-color 0.2s ease, transform 0.18s ease, background 0.2s ease;
-		}
-
-		.widget-layer .widget:not(.sticky-note):not(.note-widget):hover,
-		.widget-layer .desktop-widget:not(.sticky-note):not(.note-widget):hover {
-			border-color: rgba(255, 255, 255, 0.24) !important;
-			box-shadow: 0 18px 44px rgba(0, 0, 0, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.16) !important;
 		}
 
 		.widget-layer .widget:not(.sticky-note):not(.note-widget) .widget-header,
@@ -110,6 +240,331 @@
 		.widget-layer .widget:not(.sticky-note):not(.note-widget) .widget-content {
 			padding: 14px 16px !important;
 			font-variant-numeric: tabular-nums;
+		}
+
+		/* =========================================================
+		   ONEUI-STYLE MEDIA PLAYER IN QUICK SETTINGS
+		   ========================================================= */
+		.bos-qs-media {
+			margin: 6px 0 10px;
+			padding: 12px 13px;
+			border-radius: 14px;
+			background: rgba(255, 255, 255, 0.07);
+			border: 1px solid rgba(255, 255, 255, 0.14);
+			display: flex;
+			flex-direction: column;
+			gap: 9px;
+		}
+
+		html.light-mode .bos-qs-media {
+			background: rgba(15, 23, 42, 0.06);
+			border-color: rgba(15, 23, 42, 0.12);
+		}
+
+		.bos-qs-media-top {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 8px;
+		}
+
+		.bos-qs-media-info {
+			min-width: 0;
+			flex: 1;
+		}
+
+		.bos-qs-media-title {
+			font-size: 13px;
+			font-weight: 600;
+			white-space: nowrap;
+			overflow: hidden;
+			text-overflow: ellipsis;
+		}
+
+		.bos-qs-media-artist {
+			font-size: 11.5px;
+			opacity: 0.72;
+			white-space: nowrap;
+			overflow: hidden;
+			text-overflow: ellipsis;
+		}
+
+		.bos-qs-media-badge {
+			font-size: 10.5px;
+			font-weight: 600;
+			padding: 2px 7px;
+			border-radius: 999px;
+			background: var(--accent, #8e5cf7);
+			color: #fff;
+			flex-shrink: 0;
+		}
+
+		.bos-qs-media-controls {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 6px;
+		}
+
+		.bos-qs-media-controls button {
+			flex: 1;
+			height: 32px;
+			border-radius: 9px;
+			border: 1px solid rgba(255, 255, 255, 0.14);
+			background: rgba(255, 255, 255, 0.08);
+			color: inherit;
+			font-size: 13px;
+			font-weight: 600;
+			cursor: pointer;
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+		}
+
+		.bos-qs-media-controls button:hover {
+			background: rgba(255, 255, 255, 0.18);
+		}
+
+		.bos-qs-media-controls button.play-btn {
+			background: var(--accent, #8e5cf7);
+			border-color: transparent;
+			color: #fff;
+		}
+
+		/* =========================================================
+		   BROWOS BUBBLE (DYNAMIC ISLAND-STYLE POP-OUT HUB)
+		   ========================================================= */
+		#bosBubbleTriggerZone {
+			position: fixed;
+			top: 0;
+			left: 50%;
+			transform: translateX(-50%);
+			width: 190px;
+			height: 34px;
+			z-index: 145000;
+			display: none;
+			align-items: flex-start;
+			justify-content: center;
+			padding-top: 5px;
+			cursor: pointer;
+			user-select: none;
+			-webkit-tap-highlight-color: transparent;
+		}
+
+		#bosBubbleTriggerZone.enabled {
+			display: flex;
+		}
+
+		.bos-bubble-notch-hint {
+			width: 54px;
+			height: 5px;
+			border-radius: 999px;
+			background: rgba(255, 255, 255, 0.22);
+			opacity: 0.45;
+			transition: width 0.22s ease, opacity 0.22s ease, background 0.22s ease;
+			pointer-events: none;
+		}
+
+		#bosBubbleTriggerZone:hover .bos-bubble-notch-hint,
+		#bosBubbleTriggerZone.has-activity .bos-bubble-notch-hint {
+			width: 78px;
+			opacity: 0.9;
+			background: var(--accent, #8e5cf7);
+		}
+
+		#bosBubbleBackdrop {
+			position: fixed;
+			inset: 0;
+			z-index: 145990;
+			display: none;
+			background: transparent;
+		}
+
+		#bosBubbleBackdrop.open {
+			display: block;
+		}
+
+		#bosBubbleHost {
+			position: fixed;
+			top: 10px;
+			left: 50%;
+			transform: translateX(-50%) translateY(-18px) scale(0.84);
+			z-index: 146000;
+			width: min(390px, calc(100vw - 24px));
+			opacity: 0;
+			pointer-events: none;
+			transition: opacity 0.26s cubic-bezier(0.22, 1, 0.36, 1), transform 0.34s cubic-bezier(0.22, 1, 0.36, 1);
+		}
+
+		#bosBubbleHost.open {
+			opacity: 1;
+			pointer-events: auto;
+			transform: translateX(-50%) translateY(0) scale(1);
+		}
+
+		#bosBubbleCard {
+			border-radius: 24px;
+			background: var(--bos-win-glass-bg, rgba(22, 22, 30, 0.72));
+			backdrop-filter: blur(var(--bos-win-glass-blur, 22px)) saturate(175%);
+			-webkit-backdrop-filter: blur(var(--bos-win-glass-blur, 22px)) saturate(175%);
+			border: 1px solid rgba(255, 255, 255, 0.18);
+			box-shadow: 0 22px 54px rgba(0, 0, 0, 0.58), inset 0 1px 0 rgba(255, 255, 255, 0.14);
+			color: #f8fafc;
+			padding: 13px 15px 12px;
+			display: flex;
+			flex-direction: column;
+			gap: 10px;
+			touch-action: pan-y;
+		}
+
+		html.light-mode #bosBubbleCard {
+			background: rgba(248, 249, 252, 0.82);
+			color: #111827;
+			border-color: rgba(15, 23, 42, 0.14);
+		}
+
+		.bos-bubble-topbar {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 8px;
+			font-size: 11.5px;
+			font-weight: 600;
+			opacity: 0.82;
+		}
+
+		.bos-bubble-nav {
+			display: flex;
+			align-items: center;
+			gap: 4px;
+		}
+
+		.bos-bubble-nav button {
+			width: 24px;
+			height: 24px;
+			border-radius: 999px;
+			border: 1px solid rgba(255, 255, 255, 0.14);
+			background: rgba(255, 255, 255, 0.08);
+			color: inherit;
+			font-size: 12px;
+			cursor: pointer;
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+		}
+
+		.bos-bubble-body {
+			min-height: 78px;
+			display: flex;
+			flex-direction: column;
+			justify-content: center;
+			animation: bosBubbleCardSwap 0.2s ease both;
+		}
+
+		@keyframes bosBubbleCardSwap {
+			from { opacity: 0; transform: translateX(8px); }
+			to { opacity: 1; transform: translateX(0); }
+		}
+
+		.bos-bubble-dots {
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			gap: 6px;
+			padding-top: 2px;
+		}
+
+		.bos-bubble-dot {
+			width: 7px;
+			height: 7px;
+			border-radius: 999px;
+			border: none;
+			padding: 0;
+			background: rgba(255, 255, 255, 0.28);
+			cursor: pointer;
+			transition: width 0.2s ease, background 0.2s ease;
+		}
+
+		html.light-mode .bos-bubble-dot {
+			background: rgba(15, 23, 42, 0.25);
+		}
+
+		.bos-bubble-dot.active {
+			width: 20px;
+			background: var(--accent, #8e5cf7);
+		}
+
+		/* Bubble Favorite Apps Grid (up to 8 apps) */
+		.bos-bubble-apps-grid {
+			display: grid;
+			grid-template-columns: repeat(4, 1fr);
+			gap: 8px;
+		}
+
+		.bos-bubble-app-btn {
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			gap: 4px;
+			padding: 7px 4px;
+			border-radius: 12px;
+			border: 1px solid transparent;
+			background: rgba(255, 255, 255, 0.06);
+			color: inherit;
+			font-size: 11px;
+			cursor: pointer;
+			overflow: hidden;
+		}
+
+		.bos-bubble-app-btn:hover {
+			background: rgba(255, 255, 255, 0.14);
+			border-color: rgba(255, 255, 255, 0.18);
+		}
+
+		.bos-bubble-app-btn img {
+			width: 28px;
+			height: 28px;
+			object-fit: contain;
+		}
+
+		.bos-bubble-app-btn span {
+			max-width: 100%;
+			white-space: nowrap;
+			overflow: hidden;
+			text-overflow: ellipsis;
+		}
+
+		/* Preset CSS for Custom App Cards inside BrowOS Bubble */
+		.bos-bubble-custom-slot {
+			font-size: 13px;
+			line-height: 1.4;
+			color: inherit;
+		}
+
+		.bos-bubble-custom-slot h1,
+		.bos-bubble-custom-slot h2,
+		.bos-bubble-custom-slot h3,
+		.bos-bubble-custom-slot h4 {
+			margin: 0 0 4px;
+			font-size: 14px;
+			font-weight: 600;
+		}
+
+		.bos-bubble-custom-slot p {
+			margin: 0 0 6px;
+			font-size: 12.5px;
+			opacity: 0.85;
+		}
+
+		.bos-bubble-custom-slot button {
+			padding: 5px 11px;
+			border-radius: 8px;
+			border: 1px solid rgba(255, 255, 255, 0.18);
+			background: var(--accent, #8e5cf7);
+			color: #fff;
+			font-size: 12px;
+			font-weight: 600;
+			cursor: pointer;
 		}
 
 		/* =========================================================
@@ -156,7 +611,7 @@
 			display: flex;
 			align-items: center;
 			justify-content: space-between;
-			gap: 12px;
+			gap: 10px;
 			padding: 10px 14px;
 			border-radius: 12px;
 			background: rgba(255, 255, 255, 0.06);
@@ -249,26 +704,16 @@
 			display: none !important;
 		}
 
-		html[data-tb-hide-start="1"] #startButton {
-			display: none !important;
-		}
+		html[data-tb-hide-start="1"] #startButton { display: none !important; }
 		html[data-tb-hide-desktops="1"] #desktopSwitchButton,
 		html[data-tb-hide-desktops="1"] #desktopsButton,
 		html[data-tb-hide-desktops="1"] .taskbar [title*="desktop" i],
-		html[data-tb-hide-desktops="1"] .taskbar [aria-label*="desktop" i] {
-			display: none !important;
-		}
+		html[data-tb-hide-desktops="1"] .taskbar [aria-label*="desktop" i] { display: none !important; }
 		html[data-tb-hide-clipboard="1"] #clipboardButton,
 		html[data-tb-hide-clipboard="1"] .taskbar [title*="clipboard" i],
-		html[data-tb-hide-clipboard="1"] .taskbar [aria-label*="clipboard" i] {
-			display: none !important;
-		}
-		html[data-tb-hide-bell="1"] #bellButton {
-			display: none !important;
-		}
-		html[data-tb-hide-quick="1"] #quickButton {
-			display: none !important;
-		}
+		html[data-tb-hide-clipboard="1"] .taskbar [aria-label*="clipboard" i] { display: none !important; }
+		html[data-tb-hide-bell="1"] #bellButton { display: none !important; }
+		html[data-tb-hide-quick="1"] #quickButton { display: none !important; }
 
 		.taskbar-restore-box {
 			position: fixed;
@@ -294,10 +739,6 @@
 			box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
 		}
 
-		.taskbar-restore-box:hover {
-			background: rgba(33, 150, 243, 0.45);
-		}
-
 		html[data-taskbar-hidden="1"] .taskbar-restore-box {
 			opacity: 1 !important;
 			pointer-events: auto !important;
@@ -317,10 +758,6 @@
 			cursor: pointer;
 			margin-left: 4px;
 			flex-shrink: 0;
-		}
-
-		.taskbar-hide-btn:hover {
-			background: rgba(255, 255, 255, 0.16);
 		}
 
 		/* =========================================================
@@ -343,58 +780,14 @@
 			transition: opacity 0.45s cubic-bezier(0.22, 1, 0.36, 1), transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
 		}
 
-		#bosOobeOverlay::before,
-		#bosOobeOverlay::after {
-			content: "";
-			position: fixed;
-			width: 520px;
-			height: 520px;
-			border-radius: 50%;
-			filter: blur(95px);
-			opacity: 0.42;
-			pointer-events: none;
-			z-index: 0;
-		}
-
-		#bosOobeOverlay::before {
-			top: -140px;
-			left: -120px;
-			background: #c084fc;
-			animation: bosOrbFloatA 11s ease-in-out infinite alternate;
-		}
-
-		#bosOobeOverlay::after {
-			bottom: -160px;
-			right: -110px;
-			background: #4c1d95;
-			animation: bosOrbFloatB 13s ease-in-out infinite alternate;
-		}
-
 		@keyframes bosAuroraBg {
 			0% { background-position: 0% 50%; }
 			50% { background-position: 100% 50%; }
 			100% { background-position: 0% 50%; }
 		}
 
-		@keyframes bosOrbFloatA {
-			from { transform: translate(0, 0) scale(1); }
-			to { transform: translate(90px, 70px) scale(1.18); }
-		}
-
-		@keyframes bosOrbFloatB {
-			from { transform: translate(0, 0) scale(1.05); }
-			to { transform: translate(-80px, -65px) scale(0.92); }
-		}
-
-		#bosOobeOverlay.open {
-			display: flex;
-		}
-
-		#bosOobeOverlay.closing {
-			opacity: 0;
-			transform: scale(1.04);
-			pointer-events: none;
-		}
+		#bosOobeOverlay.open { display: flex; }
+		#bosOobeOverlay.closing { opacity: 0; transform: scale(1.04); pointer-events: none; }
 
 		.bos-oobe-card {
 			position: relative;
@@ -413,376 +806,47 @@
 			flex-direction: column;
 			justify-content: space-between;
 			gap: 22px;
-			animation: bosOobeCardEntrance 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
 		}
 
-		@keyframes bosOobeCardEntrance {
-			from { opacity: 0; transform: translateY(24px) scale(0.96); }
-			to { opacity: 1; transform: translateY(0) scale(1); }
-		}
-
-		.bos-oobe-step {
-			display: none;
-			flex-direction: column;
-			gap: 18px;
-			flex: 1;
-			justify-content: center;
-		}
-
-		.bos-oobe-step.active {
-			display: flex;
-		}
-
-		.bos-oobe-step.active > * {
-			animation: bosStepItemIn 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
-		}
-
-		.bos-oobe-step.active > *:nth-child(1) { animation-delay: 0.03s; }
-		.bos-oobe-step.active > *:nth-child(2) { animation-delay: 0.08s; }
-		.bos-oobe-step.active > *:nth-child(3) { animation-delay: 0.13s; }
-		.bos-oobe-step.active > *:nth-child(4) { animation-delay: 0.18s; }
-		.bos-oobe-step.active > *:nth-child(5) { animation-delay: 0.22s; }
-
-		@keyframes bosStepItemIn {
-			from { opacity: 0; transform: translateY(14px); }
-			to { opacity: 1; transform: translateY(0); }
-		}
-
-		.bos-oobe-hero {
-			display: flex;
-			flex-direction: column;
-			align-items: center;
-			text-align: center;
-			gap: 14px;
-			padding: 12px 0;
-		}
-
-		.bos-oobe-logo {
-			width: 92px;
-			height: 92px;
-			object-fit: contain;
-			filter: drop-shadow(0 12px 28px rgba(168, 85, 247, 0.6));
-			animation: bosLogoPulse 3.6s ease-in-out infinite;
-		}
-
-		@keyframes bosLogoPulse {
-			0%, 100% { transform: translateY(0) scale(1); }
-			50% { transform: translateY(-5px) scale(1.03); }
-		}
-
-		.bos-oobe-hello {
-			font-size: 46px;
-			font-weight: 700;
-			letter-spacing: -0.025em;
-			margin: 0;
-			background: linear-gradient(135deg, #ffffff 15%, #f3e8ff 58%, #c084fc 100%);
-			-webkit-background-clip: text;
-			-webkit-text-fill-color: transparent;
-		}
-
-		.bos-oobe-sub {
-			margin: 0;
-			font-size: 14.5px;
-			line-height: 1.6;
-			color: rgba(243, 232, 255, 0.86);
-			max-width: 520px;
-		}
-
-		.bos-oobe-title {
-			margin: 0;
-			font-size: 24px;
-			font-weight: 600;
-			color: #faf5ff;
-		}
-
-		.bos-oobe-preview-wrap {
-			display: grid;
-			grid-template-columns: 1.08fr 1fr;
-			gap: 18px;
-			align-items: stretch;
-		}
-
-		@media (max-width: 680px) {
-			.bos-oobe-preview-wrap {
-				grid-template-columns: 1fr;
-			}
-			.bos-oobe-card {
-				padding: 24px 20px;
-			}
-		}
-
-		.bos-oobe-preview-stage {
-			position: relative;
-			min-height: 215px;
-			border-radius: 16px;
-			overflow: hidden;
-			border: 1px solid rgba(233, 213, 255, 0.25);
-			background: #181226 url("wallpapers/wallpaper.jpg") center / cover no-repeat;
-			box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.35), 0 12px 30px rgba(0, 0, 0, 0.45);
-			transition: background-image 0.3s ease;
-		}
-
-		.bos-oobe-preview-win {
-			position: absolute;
-			top: 18px;
-			left: 20px;
-			right: 20px;
-			bottom: 52px;
-			border-radius: 12px;
-			border: 1px solid rgba(255, 255, 255, 0.18);
-			background: rgba(22, 22, 28, 0.85);
-			backdrop-filter: blur(14px);
-			-webkit-backdrop-filter: blur(14px);
-			display: flex;
-			flex-direction: column;
-			overflow: hidden;
-			transition: background 0.15s ease, color 0.15s ease;
-		}
-
-		.bos-oobe-preview-win.light {
-			background: rgba(245, 245, 250, 0.85);
-			color: #111827;
-			border-color: rgba(0, 0, 0, 0.12);
-		}
-
-		.bos-oobe-preview-winbar {
-			height: 28px;
-			padding: 0 10px;
-			display: flex;
-			align-items: center;
-			justify-content: space-between;
-			background: rgba(255, 255, 255, 0.06);
-			border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-			font-size: 11px;
-			font-weight: 600;
-		}
-
-		.bos-oobe-preview-win.light .bos-oobe-preview-winbar {
-			background: rgba(0, 0, 0, 0.05);
-			border-bottom-color: rgba(0, 0, 0, 0.08);
-		}
-
-		.bos-oobe-preview-winbody {
-			flex: 1;
-			padding: 10px 12px;
-			display: flex;
-			flex-direction: column;
-			gap: 7px;
-			font-size: 11px;
-			opacity: 0.85;
-		}
-
-		.bos-oobe-preview-pill {
-			align-self: flex-start;
-			padding: 4px 10px;
-			border-radius: 6px;
-			background: #8e5cf7;
-			color: #fff;
-			font-weight: 600;
-			font-size: 10.5px;
-		}
-
-		.bos-oobe-preview-taskbar {
-			position: absolute;
-			left: 12px;
-			right: 12px;
-			bottom: 8px;
-			height: 32px;
-			border-radius: 10px;
-			border: 1px solid rgba(255, 255, 255, 0.2);
-			background: rgba(18, 18, 24, 0.35);
-			backdrop-filter: blur(20px) saturate(170%);
-			-webkit-backdrop-filter: blur(20px) saturate(170%);
-			display: flex;
-			align-items: center;
-			justify-content: space-between;
-			padding: 0 10px;
-			font-size: 10.5px;
-			color: #fff;
-		}
-
-		.bos-oobe-wallpapers {
-			display: grid;
-			grid-template-columns: repeat(6, 1fr);
-			gap: 7px;
-		}
-
-		.bos-oobe-wp {
-			width: 100%;
-			aspect-ratio: 16 / 10;
-			object-fit: cover;
-			border-radius: 8px;
-			border: 2px solid transparent;
-			cursor: pointer;
-			opacity: 0.78;
-			transition: transform 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
-		}
-
-		.bos-oobe-wp:hover {
-			opacity: 1;
-			transform: scale(1.04);
-		}
-
-		.bos-oobe-wp.active {
-			border-color: #d8b4fe;
-			opacity: 1;
-			transform: scale(1.05);
-		}
-
-		.bos-oobe-controls-col {
-			display: flex;
-			flex-direction: column;
-			gap: 10px;
-			justify-content: center;
-		}
-
-		.bos-oobe-row {
-			display: flex;
-			align-items: center;
-			justify-content: space-between;
-			gap: 12px;
-			background: rgba(255, 255, 255, 0.06);
-			border: 1px solid rgba(255, 255, 255, 0.11);
-			padding: 10px 14px;
-			border-radius: 12px;
-			font-size: 13px;
-		}
-
-		.bos-oobe-row select,
-		.bos-oobe-row input[type="password"],
-		.bos-oobe-row input[type="text"] {
-			background: rgba(15, 8, 28, 0.88);
-			border: 1px solid rgba(216, 180, 254, 0.32);
-			color: #ffffff;
-			padding: 6px 10px;
-			border-radius: 8px;
-			font-size: 12.5px;
-			outline: none;
-		}
-
-		.bos-oobe-slider-wrap {
-			display: flex;
-			align-items: center;
-			gap: 8px;
-		}
-
-		.bos-oobe-slider-wrap input[type="range"] {
-			width: 105px;
-			accent-color: #c084fc;
-		}
-
-		.bos-oobe-swatches {
-			display: flex;
-			gap: 7px;
-			flex-wrap: wrap;
-		}
-
-		.bos-oobe-swatch {
-			width: 22px;
-			height: 22px;
-			border-radius: 50%;
-			border: 2px solid transparent;
-			cursor: pointer;
-			transition: transform 0.15s ease, border-color 0.15s ease;
-		}
-
-		.bos-oobe-swatch.active {
-			border-color: #ffffff;
-			transform: scale(1.16);
-		}
-
-		.bos-oobe-tip {
-			font-size: 12.5px;
-			line-height: 1.45;
-			color: rgba(233, 213, 255, 0.82);
-			background: rgba(168, 85, 247, 0.14);
-			border: 1px solid rgba(216, 180, 254, 0.22);
-			padding: 10px 14px;
-			border-radius: 11px;
-		}
-
-		.bos-oobe-dots {
-			display: flex;
-			justify-content: center;
-			gap: 8px;
-		}
-
-		.bos-oobe-dot {
-			width: 9px;
-			height: 9px;
-			border-radius: 999px;
-			background: rgba(255, 255, 255, 0.24);
-			transition: width 0.25s ease, background 0.25s ease;
-		}
-
-		.bos-oobe-dot.active {
-			width: 26px;
-			background: #d8b4fe;
-		}
-
-		.bos-oobe-actions {
-			display: flex;
-			align-items: center;
-			justify-content: space-between;
-			gap: 12px;
-			margin-top: 4px;
-		}
-
-		.bos-oobe-btn {
-			padding: 11px 22px;
-			border-radius: 12px;
-			border: 1px solid rgba(216, 180, 254, 0.28);
-			background: rgba(255, 255, 255, 0.08);
-			color: #f3e8ff;
-			font-size: 14px;
-			font-weight: 500;
-			cursor: pointer;
-			transition: background 0.15s ease, transform 0.12s ease;
-		}
-
-		.bos-oobe-btn:hover {
-			background: rgba(255, 255, 255, 0.16);
-			transform: translateY(-1px);
-		}
-
-		.bos-oobe-btn.primary {
-			background: linear-gradient(135deg, #a855f7, #7c3aed);
-			border-color: rgba(233, 213, 255, 0.45);
-			color: #ffffff;
-			font-weight: 600;
-			box-shadow: 0 8px 24px rgba(124, 58, 237, 0.48);
-		}
-
-		.bos-oobe-btn.primary:hover {
-			background: linear-gradient(135deg, #b56df9, #8b46f8);
-		}
-
-		.bos-oobe-pin-msg {
-			font-size: 13px;
-			color: #fca5a5;
-			min-height: 18px;
-		}
-
-		.bos-oobe-check {
-			width: 78px;
-			height: 78px;
-			border-radius: 50%;
-			background: linear-gradient(135deg, #a855f7, #6d28d9);
-			display: flex;
-			align-items: center;
-			justify-content: center;
-			box-shadow: 0 12px 32px rgba(147, 51, 234, 0.55);
-			animation: bosCheckPop 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
-		}
-
-		@keyframes bosCheckPop {
-			0% { transform: scale(0.5); opacity: 0; }
-			75% { transform: scale(1.08); opacity: 1; }
-			100% { transform: scale(1); opacity: 1; }
-		}
+		.bos-oobe-step { display: none; flex-direction: column; gap: 18px; flex: 1; justify-content: center; }
+		.bos-oobe-step.active { display: flex; }
+		.bos-oobe-hero { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 14px; padding: 12px 0; }
+		.bos-oobe-logo { width: 92px; height: 92px; object-fit: contain; filter: drop-shadow(0 12px 28px rgba(168, 85, 247, 0.6)); }
+		.bos-oobe-hello { font-size: 46px; font-weight: 700; letter-spacing: -0.025em; margin: 0; background: linear-gradient(135deg, #ffffff 15%, #f3e8ff 58%, #c084fc 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+		.bos-oobe-sub { margin: 0; font-size: 14.5px; line-height: 1.6; color: rgba(243, 232, 255, 0.86); max-width: 520px; }
+		.bos-oobe-title { margin: 0; font-size: 24px; font-weight: 600; color: #faf5ff; }
+		.bos-oobe-preview-wrap { display: grid; grid-template-columns: 1.08fr 1fr; gap: 18px; align-items: stretch; }
+		@media (max-width: 680px) { .bos-oobe-preview-wrap { grid-template-columns: 1fr; } .bos-oobe-card { padding: 24px 20px; } }
+		.bos-oobe-preview-stage { position: relative; min-height: 215px; border-radius: 16px; overflow: hidden; border: 1px solid rgba(233, 213, 255, 0.25); background: #181226 url("wallpapers/wallpaper.jpg") center / cover no-repeat; }
+		.bos-oobe-preview-win { position: absolute; top: 18px; left: 20px; right: 20px; bottom: 52px; border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.18); background: rgba(22, 22, 28, 0.85); backdrop-filter: blur(14px); display: flex; flex-direction: column; overflow: hidden; }
+		.bos-oobe-preview-win.light { background: rgba(245, 245, 250, 0.85); color: #111827; }
+		.bos-oobe-preview-winbar { height: 28px; padding: 0 10px; display: flex; align-items: center; justify-content: space-between; background: rgba(255, 255, 255, 0.06); font-size: 11px; font-weight: 600; }
+		.bos-oobe-preview-winbody { flex: 1; padding: 10px 12px; display: flex; flex-direction: column; gap: 7px; font-size: 11px; }
+		.bos-oobe-preview-pill { align-self: flex-start; padding: 4px 10px; border-radius: 6px; background: #8e5cf7; color: #fff; font-weight: 600; font-size: 10.5px; }
+		.bos-oobe-preview-taskbar { position: absolute; left: 12px; right: 12px; bottom: 8px; height: 32px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.2); background: rgba(18, 18, 24, 0.35); backdrop-filter: blur(20px); display: flex; align-items: center; justify-content: space-between; padding: 0 10px; font-size: 10.5px; color: #fff; }
+		.bos-oobe-wallpapers { display: grid; grid-template-columns: repeat(6, 1fr); gap: 7px; }
+		.bos-oobe-wp { width: 100%; aspect-ratio: 16 / 10; object-fit: cover; border-radius: 8px; border: 2px solid transparent; cursor: pointer; opacity: 0.78; }
+		.bos-oobe-wp.active { border-color: #d8b4fe; opacity: 1; }
+		.bos-oobe-controls-col { display: flex; flex-direction: column; gap: 10px; justify-content: center; }
+		.bos-oobe-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.11); padding: 10px 14px; border-radius: 12px; font-size: 13px; }
+		.bos-oobe-row select, .bos-oobe-row input[type="password"], .bos-oobe-row input[type="text"] { background: rgba(15, 8, 28, 0.88); border: 1px solid rgba(216, 180, 254, 0.32); color: #ffffff; padding: 6px 10px; border-radius: 8px; font-size: 12.5px; outline: none; }
+		.bos-oobe-slider-wrap { display: flex; align-items: center; gap: 8px; }
+		.bos-oobe-slider-wrap input[type="range"] { width: 105px; accent-color: #c084fc; }
+		.bos-oobe-swatches { display: flex; gap: 7px; flex-wrap: wrap; }
+		.bos-oobe-swatch { width: 22px; height: 22px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; }
+		.bos-oobe-swatch.active { border-color: #ffffff; transform: scale(1.16); }
+		.bos-oobe-tip { font-size: 12.5px; line-height: 1.45; color: rgba(233, 213, 255, 0.82); background: rgba(168, 85, 247, 0.14); border: 1px solid rgba(216, 180, 254, 0.22); padding: 10px 14px; border-radius: 11px; }
+		.bos-oobe-dots { display: flex; justify-content: center; gap: 8px; }
+		.bos-oobe-dot { width: 9px; height: 9px; border-radius: 999px; background: rgba(255, 255, 255, 0.24); transition: width 0.25s ease, background 0.25s ease; }
+		.bos-oobe-dot.active { width: 26px; background: #d8b4fe; }
+		.bos-oobe-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 4px; }
+		.bos-oobe-btn { padding: 11px 22px; border-radius: 12px; border: 1px solid rgba(216, 180, 254, 0.28); background: rgba(255, 255, 255, 0.08); color: #f3e8ff; font-size: 14px; font-weight: 500; cursor: pointer; }
+		.bos-oobe-btn.primary { background: linear-gradient(135deg, #a855f7, #7c3aed); border-color: rgba(233, 213, 255, 0.45); color: #ffffff; font-weight: 600; }
+		.bos-oobe-pin-msg { font-size: 13px; color: #fca5a5; min-height: 18px; }
+		.bos-oobe-check { width: 78px; height: 78px; border-radius: 50%; background: linear-gradient(135deg, #a855f7, #6d28d9); display: flex; align-items: center; justify-content: center; }
 
 		/* =========================================================
-		   WINDOWS-STYLE LOCK SCREEN (UNBLURRED WALLPAPER -> BLURRED AUTH + PROFILES)
+		   WINDOWS-STYLE LOCK SCREEN + HARDWARE FINGERPRINT BUTTON
 		   ========================================================= */
 		#lockScreen {
 			position: fixed !important;
@@ -797,20 +861,9 @@
 		}
 
 		#lockScreen::before,
-		#lockScreen::after {
-			display: none !important;
-			content: none !important;
-		}
-
-		#lockScreen[hidden] {
-			display: none !important;
-		}
-
-		#lockScreen.bos-lock-unlocking {
-			opacity: 0 !important;
-			transform: scale(1.03);
-			pointer-events: none;
-		}
+		#lockScreen::after { display: none !important; content: none !important; }
+		#lockScreen[hidden] { display: none !important; }
+		#lockScreen.bos-lock-unlocking { opacity: 0 !important; transform: scale(1.03); pointer-events: none; }
 
 		.bos-lock-bg {
 			position: absolute;
@@ -837,14 +890,7 @@
 			inset: 0;
 			z-index: 1;
 			background: radial-gradient(circle at center, rgba(0, 0, 0, 0.04) 0%, rgba(0, 0, 0, 0.32) 100%);
-			backdrop-filter: none !important;
-			-webkit-backdrop-filter: none !important;
-			transition: background 0.42s ease;
 			pointer-events: none;
-		}
-
-		#lockScreen.auth-open .bos-lock-backdrop {
-			background: rgba(8, 7, 16, 0.28);
 		}
 
 		#lockScreen .lock-content {
@@ -865,7 +911,7 @@
 			flex-direction: column;
 			align-items: center;
 			text-align: center;
-			transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.35s ease;
+			transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
 			transform: translateY(-28px);
 		}
 
@@ -902,18 +948,12 @@
 			background: rgba(14, 14, 22, 0.45);
 			border: 1px solid rgba(255, 255, 255, 0.22);
 			backdrop-filter: blur(10px);
-			-webkit-backdrop-filter: blur(10px);
 			color: rgba(255, 255, 255, 0.95);
 			font-size: 13px;
-			letter-spacing: 0.01em;
-			transition: opacity 0.25s ease, transform 0.25s ease;
 			pointer-events: none;
 		}
 
-		#lockScreen.auth-open .bos-lock-hint {
-			opacity: 0;
-			transform: translateX(-50%) translateY(10px);
-		}
+		#lockScreen.auth-open .bos-lock-hint { opacity: 0; }
 
 		.bos-lock-auth-box {
 			display: flex;
@@ -951,22 +991,10 @@
 			display: flex;
 			align-items: center;
 			justify-content: center;
-			box-shadow: 0 10px 26px rgba(0, 0, 0, 0.4);
 		}
 
-		.bos-lock-avatar img {
-			width: 44px;
-			height: 44px;
-			object-fit: contain;
-		}
-
-		.bos-lock-profile-name {
-			font-size: 20px;
-			font-weight: 600;
-			color: #ffffff;
-			text-align: center;
-			letter-spacing: -0.01em;
-		}
+		.bos-lock-avatar img { width: 44px; height: 44px; object-fit: contain; }
+		.bos-lock-profile-name { font-size: 20px; font-weight: 600; color: #ffffff; text-align: center; }
 
 		.bos-lock-profile-box {
 			width: 100%;
@@ -981,12 +1009,7 @@
 			box-sizing: border-box;
 		}
 
-		.bos-lock-profile-box label {
-			font-size: 12px;
-			color: rgba(255, 255, 255, 0.78);
-			white-space: nowrap;
-		}
-
+		.bos-lock-profile-box label { font-size: 12px; color: rgba(255, 255, 255, 0.78); }
 		.bos-lock-profile-box select {
 			flex: 1;
 			min-width: 0;
@@ -996,9 +1019,7 @@
 			padding: 5px 8px;
 			border-radius: 8px;
 			font-size: 12.5px;
-			font-weight: 500;
 			outline: none;
-			cursor: pointer;
 		}
 
 		#lockScreen .lock-form {
@@ -1023,24 +1044,11 @@
 			text-align: center !important;
 			letter-spacing: 0.14em;
 			outline: none !important;
-			transition: border-color 0.15s ease, box-shadow 0.15s ease;
 		}
 
-		#lockScreen #lockPin:focus {
-			border-color: #c084fc !important;
-			box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.25);
-		}
+		#lockScreen.no-pin #lockPin { display: none !important; }
 
-		#lockScreen.no-pin #lockPin {
-			display: none !important;
-		}
-
-		.bos-lock-btn-row {
-			display: flex;
-			align-items: center;
-			gap: 8px;
-			width: 100%;
-		}
+		.bos-lock-btn-row { display: flex; align-items: center; gap: 8px; width: 100%; }
 
 		.bos-lock-back-btn {
 			padding: 11px 14px !important;
@@ -1049,15 +1057,7 @@
 			background: rgba(255, 255, 255, 0.08) !important;
 			color: rgba(255, 255, 255, 0.9) !important;
 			font-size: 13.5px !important;
-			font-weight: 500 !important;
 			cursor: pointer !important;
-			transition: background 0.15s ease, transform 0.12s ease;
-			white-space: nowrap;
-		}
-
-		.bos-lock-back-btn:hover {
-			background: rgba(255, 255, 255, 0.18) !important;
-			transform: translateY(-1px);
 		}
 
 		#lockScreen .lock-form button[type="submit"] {
@@ -1070,27 +1070,56 @@
 			font-size: 14.5px !important;
 			font-weight: 600 !important;
 			cursor: pointer !important;
-			transition: transform 0.12s ease, filter 0.15s ease;
 		}
 
-		#lockScreen .lock-form button[type="submit"]:hover {
-			filter: brightness(1.1);
-			transform: translateY(-1px);
+		.bos-lock-bio-btn {
+			width: 100%;
+			padding: 10px 14px;
+			border-radius: 12px;
+			border: 1px solid rgba(216, 180, 254, 0.34);
+			background: rgba(255, 255, 255, 0.1);
+			color: #ffffff;
+			font-size: 13.5px;
+			font-weight: 500;
+			cursor: pointer;
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			gap: 8px;
 		}
 
-		@keyframes bosPinShake {
-			0%, 100% { transform: translateX(0); }
-			20%, 60% { transform: translateX(-8px); }
-			40%, 80% { transform: translateX(8px); }
-		}
-
-		.bos-lock-auth-box.shake {
-			animation: bosPinShake 0.36s ease;
+		.bos-lock-bio-btn:hover {
+			background: rgba(255, 255, 255, 0.18);
 		}
 	</style>
 </head>
 
 <body>
+	<!-- Top-center double-tap sensor for BrowOS Bubble -->
+	<div id="bosBubbleTriggerZone" title="Double-tap to open BrowOS Bubble" aria-label="BrowOS Bubble Trigger">
+		<span class="bos-bubble-notch-hint"></span>
+	</div>
+	<div id="bosBubbleBackdrop"></div>
+
+	<!-- BrowOS Bubble Dynamic Island Container -->
+	<div id="bosBubbleHost" role="region" aria-label="BrowOS Bubble">
+		<div id="bosBubbleCard">
+			<div class="bos-bubble-topbar">
+				<span id="bosBubbleCardTitle">Media</span>
+				<div class="bos-bubble-nav">
+					<button type="button" id="bosBubblePrevBtn" title="Previous card">‹</button>
+					<button type="button" id="bosBubbleNextBtn" title="Next card">›</button>
+					<button type="button" id="bosBubbleCloseBtn" title="Collapse">×</button>
+				</div>
+			</div>
+			<div class="bos-bubble-body" id="bosBubbleBody"></div>
+			<div class="bos-bubble-dots" id="bosBubbleDots"></div>
+		</div>
+	</div>
+
+	<!-- Animated Virtual Desktop Switcher Bar -->
+	<div id="bosDesktopSwitchBar" aria-hidden="true"></div>
+
 	<!-- 0.5s Black & White Flash Overlay for Duress Wipe PIN -->
 	<div id="bosWipeFlashOverlay" aria-hidden="true"></div>
 
@@ -1104,7 +1133,7 @@
 				<span class="bos-oobe-dot"></span>
 			</div>
 
-			<!-- Step 1: Hello (+ Post-Duress-Wipe Previous 5-Digit Code Gate if triggered) -->
+			<!-- Step 1: Hello (+ Post-Duress-Wipe Previous 5-Digit Code Gate) -->
 			<div class="bos-oobe-step active" data-step="0">
 				<div class="bos-oobe-hero">
 					<img class="bos-oobe-logo" src="icons/browos-logo.png" alt="BrowOS">
@@ -1112,7 +1141,6 @@
 					<p class="bos-oobe-sub" id="bosOobeWelcomeSub">Welcome to BrowOS. Choose your wallpaper, adjust glassy transparency, set up PIN security, and save your 5-digit OS Security Code.</p>
 				</div>
 
-				<!-- Shown ONLY after a Duress Wipe PIN reset -->
 				<div id="bosOobePrevCodeGate" style="display:none;flex-direction:column;gap:8px;">
 					<div class="bos-oobe-row" style="border-color:rgba(248,113,113,0.45);background:rgba(127,29,29,0.28);">
 						<span>Previous 5-digit OS Security Code</span>
@@ -1121,7 +1149,6 @@
 					<div class="bos-oobe-pin-msg" id="bosOobePrevCodeMsg"></div>
 				</div>
 
-				<!-- New 5-Digit OS Security Code Display + Copy Button -->
 				<div class="bos-code-box" id="bosOobeNewCodeBox">
 					<div>
 						<div style="font-size:12px;color:rgba(233,213,255,0.78);">Your 5-digit OS Security Code (required at the end of recovery master password)</div>
@@ -1213,7 +1240,7 @@
 				</div>
 
 				<div class="bos-oobe-tip">
-					You can customize wallpapers, live effects, cursors, and themes anytime in <strong>Start → Settings → Personalization</strong> (or right-click the desktop and choose <strong>Personalize</strong>).
+					You can customize wallpapers, live effects, cursors, and themes anytime in <strong>Start → Settings → Personalization</strong>.
 				</div>
 
 				<div class="bos-oobe-actions">
@@ -1222,10 +1249,10 @@
 				</div>
 			</div>
 
-			<!-- Step 3: Security, PIN (up to 128 chars), PIN Try Limits & Master Reset Toggle -->
+			<!-- Step 3: Security, PIN, PIN Try Limits & Master Reset Toggle -->
 			<div class="bos-oobe-step" data-step="2">
 				<h2 class="bos-oobe-title">Lock screen, PIN &amp; Recovery</h2>
-				<p class="bos-oobe-sub" style="max-width:none;">Protect your desktop with a 4–128 character PIN/password (encrypted with PBKDF2-SHA256), configure failed attempt limits, and choose whether recovery master password reset is allowed.</p>
+				<p class="bos-oobe-sub" style="max-width:none;">Protect your desktop with a 4–128 character PIN/password (encrypted with PBKDF2-SHA256) and configure failed attempt limits.</p>
 
 				<div class="bos-oobe-row">
 					<span>New PIN / Password (4–128 chars)</span>
@@ -1317,13 +1344,11 @@
 	<div class="apps-panel" id="appsPanel">
 		<input class="apps-search" id="appsSearch" type="text" placeholder="Search apps" spellcheck="false">
 
-		<!-- Default apps -->
 		<div class="apps-section">
 			<div class="apps-section-title">Default apps</div>
 			<div class="apps-grid" id="defaultAppsGrid"></div>
 		</div>
 
-		<!-- Installed apps -->
 		<div class="apps-section">
 			<div class="apps-section-title">Installed apps</div>
 			<div class="apps-grid" id="installedAppsGrid"></div>
@@ -1371,8 +1396,7 @@
 	<div class="widget-layer" id="widgetLayer"></div>
 
 	<!-- Desktop -->
-	<div class="desktop-area" id="desktopArea">
-	</div>
+	<div class="desktop-area" id="desktopArea"></div>
 
 	<!-- Browser -->
 	<div class="app-window browser-window" id="browserWindow" data-app-id="browser" data-app-name="Browser" data-app-icon="icons/browser-icon.png">
@@ -1459,6 +1483,20 @@
 							<option value="sunset">Sunset</option>
 						</select>
 					</div>
+
+					<h3>BrowOS Bubble</h3>
+
+					<div class="setting-row">
+						<span>Activation mode (double-tap top center)</span>
+
+						<select id="bubbleModeSelect">
+							<option value="off" selected>Off</option>
+							<option value="desktop">Desktop only</option>
+							<option value="everywhere">Desktop &amp; inside any app</option>
+						</select>
+					</div>
+
+					<p class="settings-note">Double-tap the top-center edge to open BrowOS Bubble with swipeable frosted-glass cards for media controls, favorite apps (1–8), and live app cards.</p>
 
 					<h3>Your looks</h3>
 
@@ -1807,6 +1845,30 @@
 
 					<div class="pin-message" id="pinMessage" role="status"></div>
 
+					<h3>Hardware Fingerprint Unlock</h3>
+
+					<p class="settings-note">Uses your actual device's built-in biometric prompt (Windows Hello, Android Fingerprint/Face, Touch ID) via WebAuthn Platform Authenticator.</p>
+
+					<div class="setting-row">
+						<span id="biometricStatus">Not configured</span>
+					</div>
+
+					<div class="button-row">
+						<button class="app-button" id="biometricEnrollBtn">Set up Fingerprint</button>
+						<button class="app-button" id="biometricRemoveBtn" hidden>Remove Fingerprint</button>
+					</div>
+
+					<div class="setting-row">
+						<span>Prompt fingerprint automatically on lock screen</span>
+
+						<label class="switch">
+							<input type="checkbox" id="biometricAutoToggle" disabled>
+							<span class="slider"></span>
+						</label>
+					</div>
+
+					<div class="pin-message" id="biometricMessage" role="status"></div>
+
 					<div class="setting-row">
 						<span>Lock when BrowOS opens</span>
 
@@ -1901,7 +1963,7 @@
 						<button class="app-button" id="saverPreview">Preview</button>
 					</div>
 
-					<p class="settings-note">The screensaver doesn't start while music is playing, or while a website app (one that is loaded from the internet) has the keyboard focus.</p>
+					<p class="settings-note">The screensaver doesn't start while music is playing, or while a website app has the keyboard focus.</p>
 				</div>
 
 				<!-- Widgets -->
@@ -1988,7 +2050,7 @@
 				<div class="settings-page" id="dataPage">
 					<h2>Data</h2>
 
-					<p class="settings-note">Save your settings, wallpaper, notes, tasks and app data to a file, or bring them back from one. A backup is a plain file: anyone who has it can read it.</p>
+					<p class="settings-note">Save all your settings, app folders, files, notes, profiles, and customizations to a single JSON backup file, or restore everything from one.</p>
 
 					<div class="button-row">
 						<button class="app-button" id="exportButton">Export backup</button>
@@ -2013,10 +2075,13 @@
 
 					<div class="bos-admin-only" style="margin-top:16px;">
 						<h3>OS Security Code</h3>
-						<p class="settings-note">Append this 5-digit code to the end of your recovery master password when unlocking or resetting via <code>recovery.html</code>.</p>
+						<p class="settings-note">Append this 5-digit code to the end of your recovery master password when unlocking or resetting via <code>recovery.html</code>. If someone sees it, regenerate a new code without resetting any data.</p>
 						<div class="bos-code-box">
 							<span class="bos-code-digits" id="settingsOsCodeDisplay">-----</span>
-							<button type="button" class="app-button" id="settingsCopyOsCodeBtn">Copy code</button>
+							<div style="display:flex;gap:8px;">
+								<button type="button" class="app-button" id="settingsCopyOsCodeBtn">Copy code</button>
+								<button type="button" class="app-button" id="settingsRegenOsCodeBtn">Regenerate</button>
+							</div>
 						</div>
 					</div>
 				</div>
@@ -2024,6 +2089,19 @@
 				<!-- System -->
 				<div class="settings-page" id="systemPage">
 					<h2>System</h2>
+
+					<h3>Performance</h3>
+
+					<div class="setting-row">
+						<span>Computer saver mode</span>
+
+						<label class="switch">
+							<input type="checkbox" id="computerSaverToggle">
+							<span class="slider"></span>
+						</label>
+					</div>
+
+					<p class="settings-note">Disables frosted-glass transparency blur and heavy desktop animations to improve speed and battery life on slower devices.</p>
 				</div>
 
 				<!-- About -->
@@ -2068,7 +2146,6 @@
 	</div>
 
 	<!-- Notepad -->
-	<!-- Notepad by Amit Merchant (MIT) - apps/notepad -->
 	<div class="app-window notepad-window" id="notepadWindow" data-app-id="notepad" data-app-name="Notepad" data-app-icon="icons/notepad-icon.png">
 		<div class="window-header">
 			<div class="window-title">
@@ -2086,7 +2163,6 @@
 	</div>
 
 	<!-- Calculator -->
-	<!-- NEO-CALC Pro by Nikhil Rathor / nikh-tail (MIT) - apps/calculator -->
 	<div class="app-window calculator-window" id="calculatorWindow" data-app-id="calculator" data-app-name="Calculator" data-app-icon="icons/calculator-icon.png">
 		<div class="window-header">
 			<div class="window-title">
@@ -2148,7 +2224,6 @@
 	</div>
 
 	<!-- Paint -->
-	<!-- miniPaint by ViliusL (MIT) - loaded from the web -->
 	<div class="app-window paint-window" id="paintWindow" data-app-id="paint" data-app-name="Paint" data-app-icon="icons/paint-icon.png">
 		<div class="window-header">
 			<div class="window-title">
@@ -2180,7 +2255,6 @@
 		</div>
 
 		<div class="store" id="store">
-			<!-- Sidebar -->
 			<div class="store-sidebar">
 				<div class="store-logo">
 					<img src="icons/browstore-icon.png" alt="">
@@ -2204,7 +2278,6 @@
 				</div>
 			</div>
 
-			<!-- Main -->
 			<div class="store-main" id="storeMain">
 				<div class="store-top">
 					<label class="store-search">
@@ -2223,11 +2296,9 @@
 					<div class="store-message" id="storeMessage" hidden></div>
 				</div>
 
-				<!-- App details -->
 				<div class="store-details" id="storeDetails" hidden></div>
 			</div>
 
-			<!-- Add a website -->
 			<div class="store-sheet" id="websiteSheet" hidden>
 				<div class="store-sheet-box">
 					<h3>Add a website</h3>
@@ -2267,7 +2338,6 @@
 		</div>
 
 		<div class="task-manager">
-			<!-- System memory -->
 			<div class="tm-memory" id="tmMemory" hidden>
 				<div class="tm-memory-top">
 					<span class="tm-label">System memory</span>
@@ -2284,7 +2354,6 @@
 				</div>
 			</div>
 
-			<!-- Running apps -->
 			<div class="tm-list-title">
 				<span class="tm-label">Running apps</span>
 				<span id="tmCount">0</span>
@@ -2408,10 +2477,27 @@
 		<button class="flyout-link" id="notificationClear" hidden>Clear all</button>
 	</div>
 
-	<!-- Quick settings -->
+	<!-- Quick settings (+ OneUI-style Media Player Card) -->
 	<div class="flyout quick-settings" id="quickSettings">
 		<div class="flyout-header">
 			<h3>Quick settings</h3>
+		</div>
+
+		<!-- OneUI-style Media Controller -->
+		<div class="bos-qs-media" id="bosQsMediaCard">
+			<div class="bos-qs-media-top">
+				<div class="bos-qs-media-info">
+					<div class="bos-qs-media-title" id="bosQsMediaTitle">Nothing playing</div>
+					<div class="bos-qs-media-artist" id="bosQsMediaArtist">No active media</div>
+				</div>
+				<span class="bos-qs-media-badge" id="bosQsMediaBadge">Media</span>
+			</div>
+			<div class="bos-qs-media-controls">
+				<button type="button" id="bosQsMediaPrev" title="Previous">⏮</button>
+				<button type="button" class="play-btn" id="bosQsMediaPlayPause" title="Play / Pause">▶</button>
+				<button type="button" id="bosQsMediaNext" title="Next">⏭</button>
+				<button type="button" id="bosQsMediaStop" title="Stop">⏹</button>
+			</div>
 		</div>
 
 		<div class="qs-row">
@@ -2481,7 +2567,7 @@
 <!-- Cursor -->
 <div class="fake-cursor hide" id="fakeCursor"></div>
 
-<!-- Windows-Style Lock Screen (Unblurred Wallpaper -> Blurred Auth + Native Profile Switcher + Back Button) -->
+<!-- Windows-Style Lock Screen (Unblurred Wallpaper -> Blurred Auth + Profile Switcher + Hardware Fingerprint) -->
 <div class="lock-screen" id="lockScreen" tabindex="-1" hidden>
 	<div class="bos-lock-bg" id="bosLockBg"></div>
 	<div class="bos-lock-backdrop" id="bosLockBackdrop"></div>
@@ -2505,6 +2591,10 @@
 				<label for="bosLockProfileSelect">Profile</label>
 				<select id="bosLockProfileSelect" aria-label="Select profile"></select>
 			</div>
+
+			<button type="button" class="bos-lock-bio-btn" id="bosLockBioBtn" hidden>
+				<span>Unlock with Fingerprint</span>
+			</button>
 
 			<form class="lock-form" id="lockForm" autocomplete="off">
 				<input type="password" id="lockPin" maxlength="128" placeholder="PIN / Password" aria-label="PIN" autocomplete="off">
@@ -2588,6 +2678,9 @@
 		const WIPE_PIN_KEY = "browos-wipe-pin";
 		const WIPE_PENDING_CODE_KEY = "browos-wipe-pending-code";
 		const MASTER_RESET_ENABLED_KEY = "browos-master-reset-enabled";
+		const COMPUTER_SAVER_KEY = "browos-computer-saver";
+		const BUBBLE_MODE_KEY = "browos-bubble-mode";
+		const BUBBLE_FAVS_KEY = "browos-bubble-favs";
 
 		function getProfilesMetaSafe() {
 			if (typeof profileMeta === "function") {
@@ -2612,30 +2705,63 @@
 
 		applyAdminRoleState();
 
-		// Ensure 5-digit OS Security Code exists (random on first boot)
+		// =========================================================
+		// COMPUTER SAVER MODE (ALL USERS)
+		// =========================================================
+		const computerSaverToggle = document.getElementById("computerSaverToggle");
+		function applyComputerSaverMode(enabled) {
+			if (enabled) {
+				document.documentElement.dataset.computerSaver = "1";
+			} else {
+				delete document.documentElement.dataset.computerSaver;
+			}
+		}
+		const savedComputerSaver = localStorage.getItem(COMPUTER_SAVER_KEY) === "on";
+		applyComputerSaverMode(savedComputerSaver);
+		if (computerSaverToggle) {
+			computerSaverToggle.checked = savedComputerSaver;
+			computerSaverToggle.addEventListener("change", function () {
+				const on = computerSaverToggle.checked;
+				localStorage.setItem(COMPUTER_SAVER_KEY, on ? "on" : "off");
+				applyComputerSaverMode(on);
+			});
+		}
+
+		// =========================================================
+		// 5-DIGIT OS SECURITY CODE + REGENERATE BUTTON (DATA PAGE)
+		// =========================================================
+		function generateRandom5DigitCode() {
+			const arr = new Uint32Array(1);
+			if (window.crypto && crypto.getRandomValues) {
+				crypto.getRandomValues(arr);
+				return String(arr[0] % 100000).padStart(5, "0");
+			}
+			return String(Math.floor(Math.random() * 100000)).padStart(5, "0");
+		}
+
 		function getOrCreateOsCode() {
 			let code = localStorage.getItem(OS_CODE_KEY);
 			if (!code || !/^\d{5}$/.test(code)) {
-				const arr = new Uint32Array(1);
-				if (window.crypto && crypto.getRandomValues) {
-					crypto.getRandomValues(arr);
-					code = String(arr[0] % 100000).padStart(5, "0");
-				} else {
-					code = String(Math.floor(Math.random() * 100000)).padStart(5, "0");
-				}
+				code = generateRandom5DigitCode();
 				localStorage.setItem(OS_CODE_KEY, code);
 			}
 			return code;
 		}
 
-		const currentOsCode = getOrCreateOsCode();
+		let currentOsCode = getOrCreateOsCode();
 
-		// Populate 5-digit OS Security Code displays & copy buttons
 		const settingsCodeDisp = document.getElementById("settingsOsCodeDisplay");
 		const settingsCopyBtn = document.getElementById("settingsCopyOsCodeBtn");
-		if (settingsCodeDisp) {
-			settingsCodeDisp.textContent = isMainAdmin() ? currentOsCode : "•••••";
+		const settingsRegenBtn = document.getElementById("settingsRegenOsCodeBtn");
+
+		function refreshOsCodeDisplay() {
+			if (settingsCodeDisp) {
+				settingsCodeDisp.textContent = isMainAdmin() ? currentOsCode : "•••••";
+			}
 		}
+
+		refreshOsCodeDisplay();
+
 		if (settingsCopyBtn) {
 			settingsCopyBtn.onclick = function () {
 				if (!isMainAdmin()) return;
@@ -2645,6 +2771,18 @@
 				const orig = settingsCopyBtn.textContent;
 				settingsCopyBtn.textContent = "Copied!";
 				setTimeout(function () { settingsCopyBtn.textContent = orig; }, 1400);
+			};
+		}
+
+		if (settingsRegenBtn) {
+			settingsRegenBtn.onclick = function () {
+				if (!isMainAdmin()) return;
+				if (!confirm("Generate a new 5-digit OS Security Code? Your existing data, files, and PINs will not be changed.")) {
+					return;
+				}
+				currentOsCode = generateRandom5DigitCode();
+				localStorage.setItem(OS_CODE_KEY, currentOsCode);
+				refreshOsCodeDisplay();
 			};
 		}
 
@@ -2681,6 +2819,512 @@
 				}
 				localStorage.setItem(MASTER_RESET_ENABLED_KEY, masterResetToggle.checked ? "on" : "off");
 			};
+		}
+
+		// =========================================================
+		// ONEUI-STYLE QUICK SETTINGS MEDIA CONTROLLER + DOM AUDIO/VIDEO SYNC
+		// =========================================================
+		const qsMediaTitle = document.getElementById("bosQsMediaTitle");
+		const qsMediaArtist = document.getElementById("bosQsMediaArtist");
+		const qsMediaBadge = document.getElementById("bosQsMediaBadge");
+		const qsMediaPrev = document.getElementById("bosQsMediaPrev");
+		const qsMediaPlayPause = document.getElementById("bosQsMediaPlayPause");
+		const qsMediaNext = document.getElementById("bosQsMediaNext");
+		const qsMediaStop = document.getElementById("bosQsMediaStop");
+
+		function getCurrentMediaInfo() {
+			if (window.browosApi && window.browosApi.media) {
+				const st = window.browosApi.media.get();
+				if (st && st.active) {
+					return st;
+				}
+			}
+			// Fallback: check if any same-origin iframe has an active <audio> or <video> element
+			const frames = Array.from(document.querySelectorAll(".app-window iframe"));
+			for (let i = 0; i < frames.length; i++) {
+				try {
+					const doc = frames[i].contentDocument;
+					if (!doc) continue;
+					const el = Array.from(doc.querySelectorAll("audio, video")).find(function (m) {
+						return !m.paused && !m.ended;
+					});
+					if (el) {
+						const win = frames[i].closest(".app-window");
+						const appName = win ? win.dataset.appName : "Media";
+						return {
+							active: true,
+							appId: win ? win.dataset.appId : "dom",
+							appName: appName,
+							title: el.title || appName + " Audio",
+							artist: appName,
+							playing: true,
+							canNext: false,
+							canPrev: false,
+							_domEl: el,
+						};
+					}
+				} catch (e) {}
+			}
+			return {
+				active: false,
+				title: "Nothing playing",
+				artist: "No active media",
+				appName: "Media",
+				playing: false,
+				canNext: false,
+				canPrev: false,
+			};
+		}
+
+		function sendMediaCommand(cmd) {
+			const info = getCurrentMediaInfo();
+			if (info._domEl) {
+				if (cmd === "toggle") {
+					info._domEl.paused ? info._domEl.play().catch(function () {}) : info._domEl.pause();
+				} else if (cmd === "stop") {
+					info._domEl.pause();
+					info._domEl.currentTime = 0;
+				}
+				syncMediaWidgetsUI();
+				return;
+			}
+			if (window.browosApi && window.browosApi.media) {
+				window.browosApi.media.dispatch(cmd);
+			}
+		}
+
+		function syncMediaWidgetsUI() {
+			const info = getCurrentMediaInfo();
+			if (qsMediaTitle) qsMediaTitle.textContent = info.title || "Nothing playing";
+			if (qsMediaArtist) qsMediaArtist.textContent = info.artist || "No active media";
+			if (qsMediaBadge) qsMediaBadge.textContent = info.active ? (info.appName || "Playing") : "Media";
+			if (qsMediaPlayPause) qsMediaPlayPause.textContent = info.playing ? "⏸" : "▶";
+			if (qsMediaPrev) qsMediaPrev.disabled = !info.canPrev;
+			if (qsMediaNext) qsMediaNext.disabled = !info.canNext;
+
+			const triggerZone = document.getElementById("bosBubbleTriggerZone");
+			if (triggerZone) {
+				triggerZone.classList.toggle("has-activity", Boolean(info.playing));
+			}
+			if (typeof renderBubbleCard === "function" && document.getElementById("bosBubbleHost").classList.contains("open")) {
+				renderBubbleCard();
+			}
+		}
+
+		if (qsMediaPrev) qsMediaPrev.onclick = function () { sendMediaCommand("prev"); };
+		if (qsMediaPlayPause) qsMediaPlayPause.onclick = function () { sendMediaCommand("toggle"); };
+		if (qsMediaNext) qsMediaNext.onclick = function () { sendMediaCommand("next"); };
+		if (qsMediaStop) qsMediaStop.onclick = function () { sendMediaCommand("stop"); };
+
+		document.addEventListener("bos-media-changed", syncMediaWidgetsUI);
+		setInterval(syncMediaWidgetsUI, 2000);
+		syncMediaWidgetsUI();
+
+		// =========================================================
+		// BROWOS BUBBLE (DYNAMIC ISLAND-STYLE MULTI-CARD HUB)
+		// =========================================================
+		const bubbleModeSelect = document.getElementById("bubbleModeSelect");
+		const bubbleTriggerZone = document.getElementById("bosBubbleTriggerZone");
+		const bubbleBackdrop = document.getElementById("bosBubbleBackdrop");
+		const bubbleHost = document.getElementById("bosBubbleHost");
+		const bubbleCardEl = document.getElementById("bosBubbleCard");
+		const bubbleCardTitle = document.getElementById("bosBubbleCardTitle");
+		const bubbleBody = document.getElementById("bosBubbleBody");
+		const bubbleDots = document.getElementById("bosBubbleDots");
+		const bubblePrevBtn = document.getElementById("bosBubblePrevBtn");
+		const bubbleNextBtn = document.getElementById("bosBubbleNextBtn");
+		const bubbleCloseBtn = document.getElementById("bosBubbleCloseBtn");
+
+		let bubbleActiveIndex = 0;
+		let bubbleEditingFavs = false;
+
+		function getBubbleMode() {
+			const m = localStorage.getItem(BUBBLE_MODE_KEY);
+			return m === "desktop" || m === "everywhere" ? m : "off";
+		}
+
+		function getBubbleFavIds() {
+			try {
+				const parsed = JSON.parse(localStorage.getItem(BUBBLE_FAVS_KEY) || "null");
+				if (Array.isArray(parsed)) {
+					return parsed.slice(0, 8);
+				}
+			} catch (e) {}
+			const defaults = typeof installedApps !== "undefined" && Array.isArray(installedApps)
+				? installedApps.slice(0, 4)
+				: ["files", "notepad", "calculator", "browser"];
+			return defaults;
+		}
+
+		function saveBubbleFavIds(ids) {
+			localStorage.setItem(BUBBLE_FAVS_KEY, JSON.stringify(ids.slice(0, 8)));
+		}
+
+		function updateBubbleTriggerVisibility() {
+			const mode = getBubbleMode();
+			if (!bubbleTriggerZone) return;
+			if (mode === "off") {
+				bubbleTriggerZone.classList.remove("enabled");
+				closeBubble();
+				return;
+			}
+			bubbleTriggerZone.classList.add("enabled");
+		}
+
+		const initialBubbleMode = getBubbleMode();
+		if (bubbleModeSelect) {
+			bubbleModeSelect.value = initialBubbleMode;
+			bubbleModeSelect.addEventListener("change", function () {
+				localStorage.setItem(BUBBLE_MODE_KEY, bubbleModeSelect.value);
+				updateBubbleTriggerVisibility();
+			});
+		}
+		updateBubbleTriggerVisibility();
+
+		function getBubbleCards() {
+			const cards = [
+				{ id: "sys-media", title: "Media Controller", type: "media" },
+				{ id: "sys-apps", title: "Favorite Apps", type: "apps" },
+			];
+			if (window.browosApi && window.browosApi.bubble) {
+				const customList = window.browosApi.bubble.listCards();
+				customList.forEach(function (c) {
+					cards.push({
+						id: c.id,
+						title: c.title || c.appName || "App",
+						type: "custom",
+						html: c.html || "",
+					});
+				});
+			}
+			return cards;
+		}
+
+		function sanitizeBubbleHtml(rawHtml) {
+			const tpl = document.createElement("template");
+			tpl.innerHTML = String(rawHtml || "");
+			tpl.content.querySelectorAll("script, iframe, object, embed, link, meta").forEach(function (el) {
+				el.remove();
+			});
+			tpl.content.querySelectorAll("*").forEach(function (el) {
+				Array.from(el.attributes).forEach(function (attr) {
+					if (/^on/i.test(attr.name)) {
+						el.removeAttribute(attr.name);
+					}
+				});
+			});
+			return tpl.innerHTML;
+		}
+
+		function renderBubbleCard() {
+			const cards = getBubbleCards();
+			if (bubbleActiveIndex >= cards.length) bubbleActiveIndex = 0;
+			if (bubbleActiveIndex < 0) bubbleActiveIndex = cards.length - 1;
+
+			const current = cards[bubbleActiveIndex];
+			if (bubbleCardTitle) {
+				bubbleCardTitle.textContent = current.title;
+			}
+
+			// Render pagination dots
+			if (bubbleDots) {
+				bubbleDots.innerHTML = "";
+				cards.forEach(function (c, idx) {
+					const dot = document.createElement("button");
+					dot.type = "button";
+					dot.className = "bos-bubble-dot" + (idx === bubbleActiveIndex ? " active" : "");
+					dot.title = c.title;
+					dot.onclick = function () {
+						bubbleActiveIndex = idx;
+						bubbleEditingFavs = false;
+						renderBubbleCard();
+					};
+					bubbleDots.appendChild(dot);
+				});
+			}
+
+			if (!bubbleBody) return;
+			bubbleBody.innerHTML = "";
+
+			if (current.type === "media") {
+				const info = getCurrentMediaInfo();
+				const wrap = document.createElement("div");
+				wrap.style.cssText = "display:flex;flex-direction:column;gap:8px;";
+
+				const metaRow = document.createElement("div");
+				metaRow.innerHTML =
+					'<div style="font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' +
+					String(info.title || "Nothing playing").replace(/</g, "&lt;") +
+					'</div><div style="font-size:11.5px;opacity:0.74;">' +
+					String(info.artist || "No active media").replace(/</g, "&lt;") +
+					"</div>";
+
+				const ctrlRow = document.createElement("div");
+				ctrlRow.className = "bos-qs-media-controls";
+
+				const bPrev = document.createElement("button");
+				bPrev.type = "button";
+				bPrev.textContent = "⏮";
+				bPrev.onclick = function () { sendMediaCommand("prev"); };
+
+				const bPlay = document.createElement("button");
+				bPlay.type = "button";
+				bPlay.className = "play-btn";
+				bPlay.textContent = info.playing ? "⏸" : "▶";
+				bPlay.onclick = function () { sendMediaCommand("toggle"); };
+
+				const bNext = document.createElement("button");
+				bNext.type = "button";
+				bNext.textContent = "⏭";
+				bNext.onclick = function () { sendMediaCommand("next"); };
+
+				const bStop = document.createElement("button");
+				bStop.type = "button";
+				bStop.textContent = "⏹";
+				bStop.onclick = function () { sendMediaCommand("stop"); };
+
+				ctrlRow.append(bPrev, bPlay, bNext, bStop);
+				wrap.append(metaRow, ctrlRow);
+				bubbleBody.appendChild(wrap);
+				return;
+			}
+
+			if (current.type === "apps") {
+				const favIds = getBubbleFavIds();
+
+				if (bubbleEditingFavs) {
+					const pickerWrap = document.createElement("div");
+					pickerWrap.style.cssText = "display:flex;flex-direction:column;gap:8px;";
+
+					const head = document.createElement("div");
+					head.style.cssText = "display:flex;align-items:center;justify-content:space-between;font-size:12px;";
+					head.innerHTML = "<span>Select 1–8 favorite apps (" + favIds.length + "/8)</span>";
+
+					const doneBtn = document.createElement("button");
+					doneBtn.type = "button";
+					doneBtn.textContent = "Done";
+					doneBtn.style.cssText = "padding:3px 10px;border-radius:8px;border:none;background:var(--accent,#8e5cf7);color:#fff;font-size:11.5px;font-weight:600;cursor:pointer;";
+					doneBtn.onclick = function () {
+						bubbleEditingFavs = false;
+						renderBubbleCard();
+					};
+					head.appendChild(doneBtn);
+
+					const list = document.createElement("div");
+					list.style.cssText = "max-height:130px;overflow-y:auto;display:flex;flex-wrap:wrap;gap:5px;";
+
+					const catalog = window.browosApi ? window.browosApi.listApps() : [];
+					catalog.forEach(function (appItem) {
+						const active = favIds.includes(appItem.id);
+						const chip = document.createElement("button");
+						chip.type = "button";
+						chip.textContent = (active ? "✓ " : "+ ") + appItem.name;
+						chip.style.cssText =
+							"padding:4px 9px;border-radius:999px;font-size:11.5px;cursor:pointer;border:1px solid rgba(255,255,255,0.18);" +
+							(active ? "background:var(--accent,#8e5cf7);color:#fff;" : "background:rgba(255,255,255,0.06);color:inherit;");
+						chip.onclick = function () {
+							let next = getBubbleFavIds();
+							if (next.includes(appItem.id)) {
+								if (next.length > 1) {
+									next = next.filter(function (x) { return x !== appItem.id; });
+								}
+							} else if (next.length < 8) {
+								next.push(appItem.id);
+							}
+							saveBubbleFavIds(next);
+							renderBubbleCard();
+						};
+						list.appendChild(chip);
+					});
+
+					pickerWrap.append(head, list);
+					bubbleBody.appendChild(pickerWrap);
+					return;
+				}
+
+				const grid = document.createElement("div");
+				grid.className = "bos-bubble-apps-grid";
+
+				favIds.forEach(function (id) {
+					const appMeta = typeof getApp === "function" ? getApp(id) : null;
+					const label = appMeta ? appMeta.name : id;
+					const iconSrc = appMeta && appMeta.icon ? appMeta.icon : "icons/browos-logo.png";
+
+					const btn = document.createElement("button");
+					btn.type = "button";
+					btn.className = "bos-bubble-app-btn";
+					btn.innerHTML = '<img src="' + iconSrc + '" alt=""><span>' + label.replace(/</g, "&lt;") + "</span>";
+					btn.onclick = function () {
+						closeBubble();
+						if (typeof launchApp === "function") {
+							launchApp(id);
+						} else if (window.browosApi) {
+							window.browosApi.openApp(id);
+						}
+					};
+					grid.appendChild(btn);
+				});
+
+				const editTile = document.createElement("button");
+				editTile.type = "button";
+				editTile.className = "bos-bubble-app-btn";
+				editTile.innerHTML = '<span style="font-size:18px;line-height:28px;">✎</span><span>Edit (1–8)</span>';
+				editTile.onclick = function () {
+					bubbleEditingFavs = true;
+					renderBubbleCard();
+				};
+				grid.appendChild(editTile);
+
+				bubbleBody.appendChild(grid);
+				return;
+			}
+
+			if (current.type === "custom") {
+				const slot = document.createElement("div");
+				slot.className = "bos-bubble-custom-slot";
+				slot.innerHTML = sanitizeBubbleHtml(current.html);
+				bubbleBody.appendChild(slot);
+			}
+		}
+
+		function openBubble() {
+			const mode = getBubbleMode();
+			if (mode === "off") return;
+			if (mode === "desktop") {
+				const hasVisibleWindow = Boolean(document.querySelector(".app-window.show"));
+				if (hasVisibleWindow) {
+					return;
+				}
+			}
+			bubbleEditingFavs = false;
+			renderBubbleCard();
+			if (bubbleHost) bubbleHost.classList.add("open");
+			if (bubbleBackdrop) bubbleBackdrop.classList.add("open");
+		}
+
+		function closeBubble() {
+			if (bubbleHost) bubbleHost.classList.remove("open");
+			if (bubbleBackdrop) bubbleBackdrop.classList.remove("open");
+		}
+
+		if (bubbleBackdrop) bubbleBackdrop.onclick = closeBubble;
+		if (bubbleCloseBtn) bubbleCloseBtn.onclick = closeBubble;
+		if (bubblePrevBtn) {
+			bubblePrevBtn.onclick = function () {
+				bubbleActiveIndex--;
+				bubbleEditingFavs = false;
+				renderBubbleCard();
+			};
+		}
+		if (bubbleNextBtn) {
+			bubbleNextBtn.onclick = function () {
+				bubbleActiveIndex++;
+				bubbleEditingFavs = false;
+				renderBubbleCard();
+			};
+		}
+
+		// Mouse wheel & touch swipe switching on BrowOS Bubble
+		if (bubbleCardEl) {
+			bubbleCardEl.addEventListener("wheel", function (e) {
+				if (Math.abs(e.deltaX) > 12 || Math.abs(e.deltaY) > 12) {
+					e.preventDefault();
+					bubbleActiveIndex += (e.deltaX || e.deltaY) > 0 ? 1 : -1;
+					bubbleEditingFavs = false;
+					renderBubbleCard();
+				}
+			}, { passive: false });
+
+			let touchStartX = 0;
+			let touchStartY = 0;
+			bubbleCardEl.addEventListener("touchstart", function (e) {
+				if (e.touches && e.touches[0]) {
+					touchStartX = e.touches[0].clientX;
+					touchStartY = e.touches[0].clientY;
+				}
+			}, { passive: true });
+
+			bubbleCardEl.addEventListener("touchend", function (e) {
+				if (!e.changedTouches || !e.changedTouches[0]) return;
+				const dx = e.changedTouches[0].clientX - touchStartX;
+				const dy = e.changedTouches[0].clientY - touchStartY;
+				if (Math.abs(dx) > 36 && Math.abs(dx) > Math.abs(dy)) {
+					bubbleActiveIndex += dx < 0 ? 1 : -1;
+					bubbleEditingFavs = false;
+					renderBubbleCard();
+				}
+			}, { passive: true });
+		}
+
+		// Top-center double-tap / double-click detection (desktop + tablet touch)
+		if (bubbleTriggerZone) {
+			let lastTapTime = 0;
+			bubbleTriggerZone.addEventListener("dblclick", function (e) {
+				e.preventDefault();
+				openBubble();
+			});
+			bubbleTriggerZone.addEventListener("touchend", function (e) {
+				const now = Date.now();
+				if (now - lastTapTime < 350) {
+					e.preventDefault();
+					lastTapTime = 0;
+					openBubble();
+				} else {
+					lastTapTime = now;
+				}
+			});
+		}
+
+		document.addEventListener("bos-bubble-cards-changed", function () {
+			if (bubbleHost && bubbleHost.classList.contains("open")) {
+				renderBubbleCard();
+			}
+		});
+
+		// =========================================================
+		// ANIMATED VIRTUAL DESKTOP SWITCHER BAR
+		// =========================================================
+		const desktopSwitchBar = document.getElementById("bosDesktopSwitchBar");
+		let desktopBarTimer = null;
+
+		function showAnimatedDesktopSwitchBar(activeNum) {
+			const shell = document.querySelector(".desktop-shell");
+			if (shell) {
+				shell.classList.add("bos-desktop-switching");
+				setTimeout(function () {
+					shell.classList.remove("bos-desktop-switching");
+				}, 220);
+			}
+
+			if (!desktopSwitchBar) return;
+			const total = typeof DESKTOP_COUNT === "number" ? DESKTOP_COUNT : 4;
+			desktopSwitchBar.innerHTML = "";
+			for (let i = 1; i <= total; i++) {
+				const pill = document.createElement("button");
+				pill.type = "button";
+				pill.className = "bos-dbar-pill" + (i === activeNum ? " active" : "");
+				pill.textContent = String(i);
+				pill.onclick = function () {
+					if (typeof switchDesktop === "function") {
+						switchDesktop(i);
+					}
+				};
+				desktopSwitchBar.appendChild(pill);
+			}
+
+			desktopSwitchBar.classList.add("show");
+			clearTimeout(desktopBarTimer);
+			desktopBarTimer = setTimeout(function () {
+				desktopSwitchBar.classList.remove("show");
+			}, 1450);
+		}
+
+		const desktopSwitchBtnEl = document.getElementById("desktopSwitchButton");
+		if (desktopSwitchBtnEl) {
+			new MutationObserver(function () {
+				const num = parseInt(desktopSwitchBtnEl.textContent, 10) || 1;
+				showAnimatedDesktopSwitchBar(num);
+			}).observe(desktopSwitchBtnEl, { childList: true, characterData: true, subtree: true });
 		}
 
 		// =========================================================
@@ -2729,7 +3373,6 @@
 				flash.classList.add("active");
 			}
 
-			// Wait 0.5 seconds during black/white strobe flash while wiping all data
 			await new Promise(function (resolve) { setTimeout(resolve, 500); });
 
 			try {
@@ -2754,12 +3397,10 @@
 				}
 			} catch (e) {}
 
-			// Store previous 5-digit code so Setup requires it before continuing
 			localStorage.setItem(WIPE_PENDING_CODE_KEY, prevCode);
 			location.reload();
 		}
 
-		// Settings -> Security Duress PIN UI
 		const wipePinStatus = document.getElementById("wipePinStatus");
 		const wipePinNew = document.getElementById("wipePinNew");
 		const wipePinConfirm = document.getElementById("wipePinConfirm");
@@ -2912,6 +3553,22 @@
 		window.addEventListener("orientationchange", function () { setTimeout(fitBrowOSViewportNow, 140); });
 		document.addEventListener("fullscreenchange", function () { setTimeout(fitBrowOSViewportNow, 140); });
 
+		// Window transparency -> syncs --bos-win-glass-bg & --bos-win-glass-blur for BrowOS Bubble too
+		const transSlider = document.getElementById("transparencySlider");
+		function syncWindowGlassVars(val) {
+			const pct = Math.min(100, Math.max(0, parseInt(val, 10) || 0));
+			const alpha = (0.94 - (pct / 100) * 0.62).toFixed(2);
+			const blur = Math.round(14 + (pct / 100) * 16);
+			document.documentElement.style.setProperty("--bos-win-glass-bg", "rgba(22, 22, 30, " + alpha + ")");
+			document.documentElement.style.setProperty("--bos-win-glass-blur", blur + "px");
+		}
+		syncWindowGlassVars(localStorage.getItem("browos-transparency") || "15");
+		if (transSlider) {
+			transSlider.addEventListener("input", function () {
+				syncWindowGlassVars(transSlider.value);
+			});
+		}
+
 		// Window bar size helper
 		const presets = {
 			compact: { bar: "34px", btn: "36px", btnFont: "15px", titleFont: "12px", icon: "16px" },
@@ -2973,7 +3630,7 @@
 			};
 		}
 
-		// Taskbar glassy transparency override (syncs frosted widgets too)
+		// Taskbar glassy transparency override
 		const glassToggle = document.getElementById("taskbarGlassOverrideToggle");
 		const glassRow = document.getElementById("taskbarGlassRow");
 		const glassSlider = document.getElementById("taskbarGlassSlider");
@@ -3109,7 +3766,7 @@
 		}
 
 		// =========================================================
-		// WINDOWS-STYLE LOCK SCREEN + NATIVE PROFILES + DURESS WIPE PIN
+		// LOCK SCREEN + HARDWARE FINGERPRINT + PROFILES + DURESS WIPE
 		// =========================================================
 		const lockScreenEl = document.getElementById("lockScreen");
 		const lockBgEl = document.getElementById("bosLockBg");
@@ -3120,6 +3777,19 @@
 		const profNameEl = document.getElementById("bosLockProfileName");
 		const profSelectEl = document.getElementById("bosLockProfileSelect");
 		const lockBackBtnEl = document.getElementById("bosLockBackBtn");
+		const lockBioBtnEl = document.getElementById("bosLockBioBtn");
+
+		if (lockBioBtnEl) {
+			["pointerdown", "mousedown", "touchstart"].forEach(function (ev) {
+				lockBioBtnEl.addEventListener(ev, function (e) { e.stopPropagation(); });
+			});
+			lockBioBtnEl.addEventListener("click", async function (e) {
+				e.stopPropagation();
+				if (typeof verifyBiometricUnlock === "function") {
+					await verifyBiometricUnlock();
+				}
+			});
+		}
 
 		function syncLockWallpaper() {
 			if (!lockBgEl) return;
@@ -3141,7 +3811,12 @@
 			syncLockWallpaper();
 
 			const withPin = (typeof hasPin === "function" ? hasPin() : Boolean(localStorage.getItem("browos-pin"))) || hasWipePin();
+			const withBio = typeof hasBiometricUnlock === "function" && hasBiometricUnlock();
+
 			lockScreenEl.classList.toggle("no-pin", !withPin);
+			if (lockBioBtnEl) {
+				lockBioBtnEl.hidden = !withBio;
+			}
 
 			const meta = getProfilesMetaSafe();
 			const activeProf = meta.list.find(function (p) { return p.id === meta.current; }) || meta.list[0];
@@ -3223,8 +3898,16 @@
 					syncLockScreenVisuals();
 					lockScreenEl.classList.add("auth-open");
 					const withPin = (typeof hasPin === "function" ? hasPin() : false) || hasWipePin();
+					const withBio = typeof hasBiometricUnlock === "function" && hasBiometricUnlock();
 					if (withPin && lockPinEl && !lockPinEl.disabled) {
 						setTimeout(function () { lockPinEl.focus(); }, 100);
+					}
+					if (withBio && localStorage.getItem("browos-biometric-auto") !== "off") {
+						setTimeout(function () {
+							if (typeof verifyBiometricUnlock === "function") {
+								verifyBiometricUnlock();
+							}
+						}, 180);
 					}
 				}
 			}
@@ -3239,7 +3922,6 @@
 				}
 			}, true);
 
-			// Intercept PIN submit to check Duress (Wipe) PIN first, then normal PIN / non-PIN unlock
 			if (lockFormEl) {
 				lockFormEl.addEventListener("submit", async function (e) {
 					const entered = lockPinEl ? lockPinEl.value : "";
@@ -3253,7 +3935,8 @@
 					}
 
 					const withPin = typeof hasPin === "function" ? hasPin() : false;
-					if (!withPin) {
+					const withBio = typeof hasBiometricUnlock === "function" && hasBiometricUnlock();
+					if (!withPin && !withBio) {
 						e.preventDefault();
 						e.stopImmediatePropagation();
 						lockScreenEl.classList.add("bos-lock-unlocking");
@@ -3453,6 +4136,7 @@
 				winTransSlider.oninput = function () {
 					updateOobePreview();
 					localStorage.setItem("browos-transparency", winTransSlider.value);
+					syncWindowGlassVars(winTransSlider.value);
 					const mainTrans = document.getElementById("transparencySlider");
 					if (mainTrans) {
 						mainTrans.value = winTransSlider.value;
@@ -3515,7 +4199,6 @@
 			if (back1) back1.onclick = function () { showOobeStep(0); };
 			if (next1) next1.onclick = function () { showOobeStep(2); };
 
-			// Step 2: PIN Setup (4-128 chars) + PIN Try Limit + Master Reset Enable Toggle
 			const back2 = document.getElementById("bosOobeBack2");
 			const next2 = document.getElementById("bosOobeNext2");
 			const pin1El = document.getElementById("bosOobePin1");
@@ -3578,7 +4261,6 @@
 				};
 			}
 
-			// Step 3: Single Finish button -> enters desktop with tutorial
 			const back3 = document.getElementById("bosOobeBack3");
 			const finishBtn = document.getElementById("bosOobeFinishBtn");
 			if (back3) back3.onclick = function () { showOobeStep(2); };
