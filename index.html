@@ -45,6 +45,7 @@
 			--bos-win-glass-bg: rgba(22, 22, 30, 0.72);
 			--bos-win-glass-blur: 22px;
 			--bos-tb-safe-bottom: 64px;
+			--bos-bubble-custom-rgb: 59, 130, 246;
 		}
 
 		html, body {
@@ -296,7 +297,7 @@
 		}
 
 		/* =========================================================
-		   BROWOS BUBBLE (COLOR-TINTED FROSTED GLASS + SPRING MOTION)
+		   BROWOS BUBBLE (SLOWER SPRING + PLAYING/IDLE COLOR MODES)
 		   ========================================================= */
 		#bosBubbleTriggerZone {
 			position: fixed;
@@ -326,17 +327,28 @@
 			background: rgba(255, 255, 255, 0.28);
 			backdrop-filter: blur(10px);
 			-webkit-backdrop-filter: blur(10px);
-			opacity: 0.48;
-			transition: width 0.36s cubic-bezier(0.28, 1.32, 0.42, 1), height 0.28s ease, opacity 0.24s ease, background 0.28s ease;
+			opacity: 0.52;
+			transition: width 0.44s cubic-bezier(0.24, 1.2, 0.4, 1), height 0.34s ease, opacity 0.3s ease, background 0.35s ease;
 			pointer-events: none;
 		}
 
 		#bosBubbleTriggerZone:hover .bos-bubble-notch-pill,
 		#bosBubbleTriggerZone.has-activity .bos-bubble-notch-pill {
-			width: 84px;
+			width: 86px;
 			height: 6px;
-			opacity: 0.95;
-			background: linear-gradient(90deg, var(--accent, #2196f3), #a855f7, #ec4899);
+			opacity: 0.96;
+		}
+
+		#bosBubbleTriggerZone[data-visual-style="grey"] .bos-bubble-notch-pill {
+			background: rgba(156, 163, 175, 0.65);
+		}
+
+		#bosBubbleTriggerZone[data-visual-style="colorful"] .bos-bubble-notch-pill {
+			background: linear-gradient(90deg, #3b82f6, #a855f7, #ec4899);
+		}
+
+		#bosBubbleTriggerZone[data-visual-style="custom"] .bos-bubble-notch-pill {
+			background: rgb(var(--bos-bubble-custom-rgb, 59, 130, 246));
 		}
 
 		#bosBubbleBackdrop {
@@ -355,17 +367,17 @@
 			position: fixed;
 			top: 10px;
 			left: 50%;
-			transform: translateX(-50%) translateY(-28px) scaleX(0.32) scaleY(0.24);
+			transform: translateX(-50%) translateY(-30px) scaleX(0.32) scaleY(0.24);
 			transform-origin: top center;
 			z-index: 146000;
 			width: min(392px, calc(100vw - 24px));
 			opacity: 0;
 			pointer-events: none;
-			filter: blur(10px);
+			filter: blur(12px);
 			transition:
-				transform 0.52s cubic-bezier(0.26, 1.34, 0.42, 1),
-				opacity 0.24s cubic-bezier(0.22, 1, 0.36, 1),
-				filter 0.32s ease;
+				transform 0.72s cubic-bezier(0.22, 1.2, 0.38, 1),
+				opacity 0.34s cubic-bezier(0.22, 1, 0.36, 1),
+				filter 0.42s ease;
 		}
 
 		#bosBubbleHost.open {
@@ -378,16 +390,13 @@
 		#bosBubbleCard {
 			position: relative;
 			border-radius: 26px;
-			background:
-				linear-gradient(135deg, rgba(168, 85, 247, 0.14) 0%, rgba(59, 130, 246, 0.1) 50%, rgba(236, 72, 153, 0.12) 100%),
-				var(--bos-win-glass-bg, rgba(22, 22, 30, 0.74));
-			backdrop-filter: blur(var(--bos-win-glass-blur, 24px)) saturate(190%);
-			-webkit-backdrop-filter: blur(var(--bos-win-glass-blur, 24px)) saturate(190%);
-			border: 1px solid rgba(255, 255, 255, 0.2);
+			background: var(--bos-win-glass-bg, rgba(22, 22, 30, 0.74));
+			backdrop-filter: blur(var(--bos-win-glass-blur, 24px)) saturate(185%);
+			-webkit-backdrop-filter: blur(var(--bos-win-glass-blur, 24px)) saturate(185%);
+			border: 1px solid rgba(255, 255, 255, 0.18);
 			box-shadow:
-				0 24px 58px rgba(0, 0, 0, 0.58),
-				0 0 0 1px rgba(168, 85, 247, 0.16),
-				inset 0 1px 0 rgba(255, 255, 255, 0.2);
+				0 24px 58px rgba(0, 0, 0, 0.56),
+				inset 0 1px 0 rgba(255, 255, 255, 0.18);
 			color: #f8fafc;
 			padding: 13px 16px 12px;
 			display: flex;
@@ -395,13 +404,11 @@
 			gap: 10px;
 			touch-action: pan-y;
 			overflow: hidden;
-			transition: background 0.3s ease, border-color 0.3s ease;
+			transition: background 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease;
 		}
 
 		html.light-mode #bosBubbleCard {
-			background:
-				linear-gradient(135deg, rgba(168, 85, 247, 0.12) 0%, rgba(59, 130, 246, 0.08) 50%, rgba(236, 72, 153, 0.1) 100%),
-				rgba(248, 249, 252, 0.86);
+			background: rgba(248, 249, 252, 0.86);
 			color: #111827;
 			border-color: rgba(15, 23, 42, 0.14);
 			box-shadow:
@@ -409,26 +416,77 @@
 				inset 0 1px 0 rgba(255, 255, 255, 0.8);
 		}
 
-		/* Bubble Quick Note color themes */
+		/* State-driven color modes: grey | colorful | custom */
+		#bosBubbleCard[data-visual-style="grey"] {
+			background:
+				linear-gradient(135deg, rgba(148, 163, 184, 0.1) 0%, rgba(100, 116, 139, 0.06) 100%),
+				var(--bos-win-glass-bg, rgba(22, 22, 30, 0.76));
+			border-color: rgba(255, 255, 255, 0.16);
+		}
+
+		html.light-mode #bosBubbleCard[data-visual-style="grey"] {
+			background:
+				linear-gradient(135deg, rgba(148, 163, 184, 0.12) 0%, rgba(203, 213, 225, 0.1) 100%),
+				rgba(248, 249, 252, 0.88);
+			border-color: rgba(15, 23, 42, 0.14);
+		}
+
+		#bosBubbleCard[data-visual-style="colorful"] {
+			background:
+				linear-gradient(135deg, rgba(168, 85, 247, 0.2) 0%, rgba(59, 130, 246, 0.16) 50%, rgba(236, 72, 153, 0.18) 100%),
+				var(--bos-win-glass-bg, rgba(22, 22, 30, 0.74));
+			border-color: rgba(192, 132, 252, 0.34);
+			box-shadow:
+				0 24px 58px rgba(0, 0, 0, 0.58),
+				0 0 0 1px rgba(168, 85, 247, 0.2),
+				inset 0 1px 0 rgba(255, 255, 255, 0.22);
+		}
+
+		html.light-mode #bosBubbleCard[data-visual-style="colorful"] {
+			background:
+				linear-gradient(135deg, rgba(168, 85, 247, 0.15) 0%, rgba(59, 130, 246, 0.12) 50%, rgba(236, 72, 153, 0.14) 100%),
+				rgba(248, 249, 252, 0.88);
+			border-color: rgba(168, 85, 247, 0.3);
+		}
+
+		#bosBubbleCard[data-visual-style="custom"] {
+			background:
+				linear-gradient(135deg, rgba(var(--bos-bubble-custom-rgb), 0.28) 0%, rgba(var(--bos-bubble-custom-rgb), 0.14) 100%),
+				var(--bos-win-glass-bg, rgba(22, 22, 30, 0.74));
+			border-color: rgba(var(--bos-bubble-custom-rgb), 0.45);
+			box-shadow:
+				0 24px 58px rgba(0, 0, 0, 0.58),
+				0 0 0 1px rgba(var(--bos-bubble-custom-rgb), 0.24),
+				inset 0 1px 0 rgba(255, 255, 255, 0.22);
+		}
+
+		html.light-mode #bosBubbleCard[data-visual-style="custom"] {
+			background:
+				linear-gradient(135deg, rgba(var(--bos-bubble-custom-rgb), 0.2) 0%, rgba(var(--bos-bubble-custom-rgb), 0.1) 100%),
+				rgba(248, 249, 252, 0.88);
+			border-color: rgba(var(--bos-bubble-custom-rgb), 0.4);
+		}
+
+		/* Bubble Quick Note color themes (override card tint while on Note card) */
 		#bosBubbleCard[data-note-tint="amber"] {
-			background: linear-gradient(135deg, rgba(245, 158, 11, 0.26), rgba(217, 119, 6, 0.16)), var(--bos-win-glass-bg, rgba(22, 22, 30, 0.74));
-			border-color: rgba(251, 191, 36, 0.36);
+			background: linear-gradient(135deg, rgba(245, 158, 11, 0.26), rgba(217, 119, 6, 0.16)), var(--bos-win-glass-bg, rgba(22, 22, 30, 0.74)) !important;
+			border-color: rgba(251, 191, 36, 0.36) !important;
 		}
 		#bosBubbleCard[data-note-tint="mint"] {
-			background: linear-gradient(135deg, rgba(16, 185, 129, 0.24), rgba(5, 150, 105, 0.15)), var(--bos-win-glass-bg, rgba(22, 22, 30, 0.74));
-			border-color: rgba(52, 211, 153, 0.34);
+			background: linear-gradient(135deg, rgba(16, 185, 129, 0.24), rgba(5, 150, 105, 0.15)), var(--bos-win-glass-bg, rgba(22, 22, 30, 0.74)) !important;
+			border-color: rgba(52, 211, 153, 0.34) !important;
 		}
 		#bosBubbleCard[data-note-tint="sky"] {
-			background: linear-gradient(135deg, rgba(59, 130, 246, 0.26), rgba(14, 165, 233, 0.16)), var(--bos-win-glass-bg, rgba(22, 22, 30, 0.74));
-			border-color: rgba(96, 165, 250, 0.36);
+			background: linear-gradient(135deg, rgba(59, 130, 246, 0.26), rgba(14, 165, 233, 0.16)), var(--bos-win-glass-bg, rgba(22, 22, 30, 0.74)) !important;
+			border-color: rgba(96, 165, 250, 0.36) !important;
 		}
 		#bosBubbleCard[data-note-tint="rose"] {
-			background: linear-gradient(135deg, rgba(244, 63, 94, 0.26), rgba(236, 72, 153, 0.16)), var(--bos-win-glass-bg, rgba(22, 22, 30, 0.74));
-			border-color: rgba(251, 113, 133, 0.36);
+			background: linear-gradient(135deg, rgba(244, 63, 94, 0.26), rgba(236, 72, 153, 0.16)), var(--bos-win-glass-bg, rgba(22, 22, 30, 0.74)) !important;
+			border-color: rgba(251, 113, 133, 0.36) !important;
 		}
 		#bosBubbleCard[data-note-tint="violet"] {
-			background: linear-gradient(135deg, rgba(139, 92, 246, 0.28), rgba(168, 85, 247, 0.16)), var(--bos-win-glass-bg, rgba(22, 22, 30, 0.74));
-			border-color: rgba(192, 132, 252, 0.36);
+			background: linear-gradient(135deg, rgba(139, 92, 246, 0.28), rgba(168, 85, 247, 0.16)), var(--bos-win-glass-bg, rgba(22, 22, 30, 0.74)) !important;
+			border-color: rgba(192, 132, 252, 0.36) !important;
 		}
 
 		.bos-bubble-topbar {
@@ -470,11 +528,11 @@
 		}
 
 		.bos-bubble-body.slide-next {
-			animation: bosBubbleSlideNext 0.34s cubic-bezier(0.24, 1.24, 0.42, 1) both;
+			animation: bosBubbleSlideNext 0.42s cubic-bezier(0.24, 1.2, 0.42, 1) both;
 		}
 
 		.bos-bubble-body.slide-prev {
-			animation: bosBubbleSlidePrev 0.34s cubic-bezier(0.24, 1.24, 0.42, 1) both;
+			animation: bosBubbleSlidePrev 0.42s cubic-bezier(0.24, 1.2, 0.42, 1) both;
 		}
 
 		@keyframes bosBubbleSlideNext {
@@ -503,7 +561,7 @@
 			padding: 0;
 			background: rgba(255, 255, 255, 0.28);
 			cursor: pointer;
-			transition: width 0.32s cubic-bezier(0.28, 1.32, 0.42, 1), background 0.24s ease;
+			transition: width 0.36s cubic-bezier(0.28, 1.28, 0.42, 1), background 0.28s ease;
 		}
 
 		html.light-mode .bos-bubble-dot {
@@ -512,7 +570,7 @@
 
 		.bos-bubble-dot.active {
 			width: 22px;
-			background: linear-gradient(90deg, var(--accent, #2196f3), #a855f7);
+			background: var(--accent, #2196f3);
 		}
 
 		/* Bubble Quick Note */
@@ -1246,7 +1304,7 @@
 	</div>
 	<div id="bosBubbleBackdrop"></div>
 
-	<!-- BrowOS Bubble (Clean Header, No Buttons, No Emojis, Swipe/Dot Switchable) -->
+	<!-- BrowOS Bubble -->
 	<div id="bosBubbleHost" role="region" aria-label="BrowOS Bubble">
 		<div id="bosBubbleCard">
 			<div class="bos-bubble-topbar">
@@ -1773,6 +1831,32 @@
 							<option value="desktop">Desktop only</option>
 							<option value="everywhere">Desktop and apps</option>
 						</select>
+					</div>
+
+					<div class="setting-row">
+						<span>Color when idle</span>
+
+						<div style="display:flex;align-items:center;gap:8px;">
+							<select id="bubbleIdleStyleSelect">
+								<option value="grey" selected>Grey</option>
+								<option value="colorful">Colorful</option>
+								<option value="custom">Custom color</option>
+							</select>
+							<input type="color" id="bubbleIdleColorInput" value="#3b82f6" hidden aria-label="Idle bubble color">
+						</div>
+					</div>
+
+					<div class="setting-row">
+						<span>Color when music plays</span>
+
+						<div style="display:flex;align-items:center;gap:8px;">
+							<select id="bubblePlayingStyleSelect">
+								<option value="grey">Grey</option>
+								<option value="colorful" selected>Colorful</option>
+								<option value="custom">Custom color</option>
+							</select>
+							<input type="color" id="bubblePlayingColorInput" value="#a855f7" hidden aria-label="Playing bubble color">
+						</div>
 					</div>
 
 					<p class="settings-note">Choose which built-in cards appear and their order.</p>
@@ -2647,7 +2731,7 @@
 		<button class="flyout-link" id="notificationClear" hidden>Clear all</button>
 	</div>
 
-	<!-- Quick settings (+ OneUI-style Media Player Card with SVG Icons) -->
+	<!-- Quick settings -->
 	<div class="flyout quick-settings" id="quickSettings">
 		<div class="flyout-header">
 			<h3>Quick settings</h3>
@@ -2744,7 +2828,7 @@
 <!-- Cursor -->
 <div class="fake-cursor hide" id="fakeCursor"></div>
 
-<!-- Windows-Style Lock Screen (Unblurred Wallpaper -> Blurred Auth + Profile Switcher + Hardware Fingerprint) -->
+<!-- Lock Screen -->
 <div class="lock-screen" id="lockScreen" tabindex="-1" hidden>
 	<div class="bos-lock-bg" id="bosLockBg"></div>
 	<div class="bos-lock-backdrop" id="bosLockBackdrop"></div>
@@ -2863,6 +2947,10 @@
 		const BUBBLE_BLOCKED_APPS_KEY = "browos-bubble-blocked-apps";
 		const BUBBLE_NOTE_TEXT_KEY = "browos-bubble-note";
 		const BUBBLE_NOTE_COLOR_KEY = "browos-bubble-note-color";
+		const BUBBLE_IDLE_STYLE_KEY = "browos-bubble-idle-style";
+		const BUBBLE_IDLE_COLOR_KEY = "browos-bubble-idle-color";
+		const BUBBLE_PLAYING_STYLE_KEY = "browos-bubble-playing-style";
+		const BUBBLE_PLAYING_COLOR_KEY = "browos-bubble-playing-color";
 		const MENU_AUTOFOCUS_KEY = "browos-autofocus-menus";
 
 		const SVG_ICONS = {
@@ -2873,6 +2961,25 @@
 			stop: '<svg viewBox="0 0 24 24"><path d="M6 6h12v12H6z"/></svg>',
 			edit: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>',
 		};
+
+		function hexToRgbTriplet(hex) {
+			const clean = String(hex || "").replace("#", "").trim();
+			if (clean.length === 3) {
+				const r = parseInt(clean[0] + clean[0], 16);
+				const g = parseInt(clean[1] + clean[1], 16);
+				const b = parseInt(clean[2] + clean[2], 16);
+				return r + ", " + g + ", " + b;
+			}
+			if (clean.length === 6) {
+				const r = parseInt(clean.slice(0, 2), 16);
+				const g = parseInt(clean.slice(2, 4), 16);
+				const b = parseInt(clean.slice(4, 6), 16);
+				if (!Number.isNaN(r) && !Number.isNaN(g) && !Number.isNaN(b)) {
+					return r + ", " + g + ", " + b;
+				}
+			}
+			return "59, 130, 246";
+		}
 
 		function getProfilesMetaSafe() {
 			if (typeof profileMeta === "function") {
@@ -3048,7 +3155,7 @@
 		}
 
 		// =========================================================
-		// ONEUI-STYLE MEDIA PLAYER + PERSISTENT PAUSE/RESUME FIX
+		// ONEUI-STYLE MEDIA PLAYER + PERSISTENT PAUSE/RESUME
 		// =========================================================
 		const qsMediaTitle = document.getElementById("bosQsMediaTitle");
 		const qsMediaArtist = document.getElementById("bosQsMediaArtist");
@@ -3068,7 +3175,6 @@
 				}
 			}
 
-			// First check if any iframe currently has an actively playing <audio> or <video>
 			const frames = Array.from(document.querySelectorAll(".app-window iframe"));
 			for (let i = 0; i < frames.length; i++) {
 				try {
@@ -3090,7 +3196,6 @@
 				} catch (e) {}
 			}
 
-			// Keep tracked DOM media available even when paused so user can resume it!
 			if (trackedDomMedia && trackedDomMedia.el) {
 				const el = trackedDomMedia.el;
 				const winOpen = !trackedDomMedia.win || trackedDomMedia.win.dataset.running;
@@ -3150,6 +3255,29 @@
 			}
 		}
 
+		function applyBubbleStateColor(isMusicPlaying) {
+			const idleStyle = localStorage.getItem(BUBBLE_IDLE_STYLE_KEY) || "grey";
+			const idleHex = localStorage.getItem(BUBBLE_IDLE_COLOR_KEY) || "#3b82f6";
+			const playStyle = localStorage.getItem(BUBBLE_PLAYING_STYLE_KEY) || "colorful";
+			const playHex = localStorage.getItem(BUBBLE_PLAYING_COLOR_KEY) || "#a855f7";
+
+			const activeStyle = isMusicPlaying ? playStyle : idleStyle;
+			const activeHex = isMusicPlaying ? playHex : idleHex;
+
+			document.documentElement.style.setProperty("--bos-bubble-custom-rgb", hexToRgbTriplet(activeHex));
+
+			const triggerZone = document.getElementById("bosBubbleTriggerZone");
+			if (triggerZone) {
+				triggerZone.dataset.visualStyle = activeStyle;
+				triggerZone.classList.toggle("has-activity", Boolean(isMusicPlaying));
+			}
+
+			const bubbleCard = document.getElementById("bosBubbleCard");
+			if (bubbleCard) {
+				bubbleCard.dataset.visualStyle = activeStyle;
+			}
+		}
+
 		function syncMediaWidgetsUI() {
 			const info = getCurrentMediaInfo();
 			if (qsMediaTitle) qsMediaTitle.textContent = info.title || "Nothing playing";
@@ -3163,12 +3291,8 @@
 			if (qsMediaPrev) qsMediaPrev.disabled = !info.canPrev;
 			if (qsMediaNext) qsMediaNext.disabled = !info.canNext;
 
-			const triggerZone = document.getElementById("bosBubbleTriggerZone");
-			if (triggerZone) {
-				triggerZone.classList.toggle("has-activity", Boolean(info.active));
-			}
+			applyBubbleStateColor(Boolean(info.playing));
 
-			// Update in-place if Bubble is open on the media card so typing in Quick Note isn't interrupted
 			const bubbleHostEl = document.getElementById("bosBubbleHost");
 			if (bubbleHostEl && bubbleHostEl.classList.contains("open")) {
 				const activeCard = getBubbleCards()[bubbleActiveIndex];
@@ -3188,9 +3312,13 @@
 		syncMediaWidgetsUI();
 
 		// =========================================================
-		// BROWOS BUBBLE (CLEAN, ANIMATED, NOTE CARD & APP BLOCKING)
+		// BROWOS BUBBLE (COLOR SETTINGS, REORDERABLE CARDS, NOTE)
 		// =========================================================
 		const bubbleModeSelect = document.getElementById("bubbleModeSelect");
+		const bubbleIdleStyleSelect = document.getElementById("bubbleIdleStyleSelect");
+		const bubbleIdleColorInput = document.getElementById("bubbleIdleColorInput");
+		const bubblePlayingStyleSelect = document.getElementById("bubblePlayingStyleSelect");
+		const bubblePlayingColorInput = document.getElementById("bubblePlayingColorInput");
 		const bubbleSystemCardsConfigEl = document.getElementById("bubbleSystemCardsConfig");
 		const bubbleAppPolicySelect = document.getElementById("bubbleAppPolicySelect");
 		const bubbleBlockedAppsWrap = document.getElementById("bubbleBlockedAppsWrap");
@@ -3207,6 +3335,49 @@
 
 		let bubbleActiveIndex = 0;
 		let bubbleEditingFavs = false;
+
+		function initBubbleColorSettings() {
+			const idleStyle = localStorage.getItem(BUBBLE_IDLE_STYLE_KEY) || "grey";
+			const idleHex = localStorage.getItem(BUBBLE_IDLE_COLOR_KEY) || "#3b82f6";
+			const playStyle = localStorage.getItem(BUBBLE_PLAYING_STYLE_KEY) || "colorful";
+			const playHex = localStorage.getItem(BUBBLE_PLAYING_COLOR_KEY) || "#a855f7";
+
+			if (bubbleIdleStyleSelect) {
+				bubbleIdleStyleSelect.value = idleStyle;
+				bubbleIdleStyleSelect.onchange = function () {
+					localStorage.setItem(BUBBLE_IDLE_STYLE_KEY, bubbleIdleStyleSelect.value);
+					if (bubbleIdleColorInput) bubbleIdleColorInput.hidden = bubbleIdleStyleSelect.value !== "custom";
+					syncMediaWidgetsUI();
+				};
+			}
+			if (bubbleIdleColorInput) {
+				bubbleIdleColorInput.value = idleHex;
+				bubbleIdleColorInput.hidden = idleStyle !== "custom";
+				bubbleIdleColorInput.oninput = function () {
+					localStorage.setItem(BUBBLE_IDLE_COLOR_KEY, bubbleIdleColorInput.value);
+					syncMediaWidgetsUI();
+				};
+			}
+
+			if (bubblePlayingStyleSelect) {
+				bubblePlayingStyleSelect.value = playStyle;
+				bubblePlayingStyleSelect.onchange = function () {
+					localStorage.setItem(BUBBLE_PLAYING_STYLE_KEY, bubblePlayingStyleSelect.value);
+					if (bubblePlayingColorInput) bubblePlayingColorInput.hidden = bubblePlayingStyleSelect.value !== "custom";
+					syncMediaWidgetsUI();
+				};
+			}
+			if (bubblePlayingColorInput) {
+				bubblePlayingColorInput.value = playHex;
+				bubblePlayingColorInput.hidden = playStyle !== "custom";
+				bubblePlayingColorInput.oninput = function () {
+					localStorage.setItem(BUBBLE_PLAYING_COLOR_KEY, bubblePlayingColorInput.value);
+					syncMediaWidgetsUI();
+				};
+			}
+		}
+
+		initBubbleColorSettings();
 
 		const DEFAULT_SYSTEM_CARDS = [
 			{ id: "sys-media", title: "Media", type: "media", enabled: true },
@@ -3423,7 +3594,6 @@
 		updateBubbleTriggerVisibility();
 
 		function getBubbleCards() {
-			// System cards in user-defined order (only enabled ones), followed automatically by allowed app cards
 			const cards = getSystemBubbleCardsConfig()
 				.filter(function (c) { return c.enabled; })
 				.map(function (c) { return { id: c.id, title: c.title, type: c.type, isApp: false }; });
