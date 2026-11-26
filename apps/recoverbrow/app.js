@@ -1,70 +1,65 @@
-// BrowChat: Multi-provider AI assistant for BrowOS with OpenRouter/Gemini/Groq/Custom endpoints,
-// model visibility manager, server-side web search, skill & file uploads, chat history/export,
-// and BrowOS Bubble mini-chat integration via BrowOS SDK.
+// BrowChat: Multi-provider AI assistant for BrowOS with frosted glass design,
+// guided Add-Provider workflow (starts with 0 added providers), multi-skill selection / disable-all,
+// server-side web search, skill & file uploads, chat history/export, and BrowOS Bubble integration.
 
 (function () {
-	const STORAGE_CONFIG_KEY = "browchat-config-v1";
+	const STORAGE_CONFIG_KEY = "browchat-config-v2";
 	const STORAGE_CHATS_KEY = "browchat-chats-v1";
 
-	const DEFAULT_PROVIDERS = {
+	const PROVIDER_PRESETS = {
 		openrouter: {
-			id: "openrouter",
 			name: "OpenRouter",
-			enabled: true,
 			baseUrl: "https://openrouter.ai/api/v1",
-			apiKey: "",
-			models: [
+			defaultModels: [
 				{ id: "openrouter/auto", name: "Auto (Best Available)", visible: true },
+				{ id: "openrouter/free", name: "Free Models Router", visible: true },
 				{ id: "google/gemini-2.5-flash", name: "Gemini 2.5 Flash", visible: true },
 				{ id: "anthropic/claude-sonnet-4", name: "Claude Sonnet 4", visible: true },
-				{ id: "openai/gpt-4o-mini", name: "GPT-4o Mini", visible: true },
-				{ id: "deepseek/deepseek-chat-v3-0324", name: "DeepSeek V3", visible: true },
 			],
 		},
 		gemini: {
-			id: "gemini",
 			name: "Google Gemini",
-			enabled: true,
 			baseUrl: "https://generativelanguage.googleapis.com/v1beta",
-			apiKey: "",
-			models: [
+			defaultModels: [
 				{ id: "gemini-2.5-flash", name: "Gemini 2.5 Flash", visible: true },
 				{ id: "gemini-2.5-pro", name: "Gemini 2.5 Pro", visible: true },
 			],
 		},
 		groq: {
-			id: "groq",
 			name: "Groq",
-			enabled: false,
 			baseUrl: "https://api.groq.com/openai/v1",
-			apiKey: "",
-			models: [
+			defaultModels: [
 				{ id: "llama-3.3-70b-versatile", name: "Llama 3.3 70B", visible: true },
 				{ id: "qwen-qwq-32b", name: "Qwen QwQ 32B", visible: true },
 			],
 		},
-		custom: {
-			id: "custom",
-			name: "Custom (OpenAI API)",
-			enabled: false,
+		openai: {
+			name: "OpenAI",
+			baseUrl: "https://api.openai.com/v1",
+			defaultModels: [
+				{ id: "gpt-4o-mini", name: "GPT-4o Mini", visible: true },
+				{ id: "gpt-4o", name: "GPT-4o", visible: true },
+			],
+		},
+		ollama: {
+			name: "Ollama (Local)",
 			baseUrl: "http://localhost:11434/v1",
-			apiKey: "",
-			models: [
-				{ id: "qwen2.5:7b", name: "Local Model", visible: true },
+			defaultModels: [
+				{ id: "qwen2.5:7b", name: "Qwen 2.5 7B", visible: true },
 			],
 		},
 	};
 
 	const DEFAULT_SKILLS = [
 		{
-			id: "skill-default",
-			name: "General Assistant",
-			prompt: "You are BrowChat, a concise, accurate, and helpful AI assistant running inside BrowOS.",
+			id: "skill-concise",
+			name: "Concise & Direct",
+			prompt: "Be concise, direct, and clear. Lead with the answer without introductory fluff.",
 		},
 		{
 			id: "skill-coder",
 			name: "Code & Debugging",
-			prompt: "You are a senior software engineer. Provide complete, working code without placeholders and explain root causes clearly.",
+			prompt: "Provide complete, working code without placeholders and explain root causes clearly.",
 		},
 	];
 
@@ -85,29 +80,24 @@
 		} catch (e) {}
 	}
 
+	// Starts with 0 added providers so user adds only the ones they want
 	let config = (function initConfig() {
 		const saved = loadJson(STORAGE_CONFIG_KEY, null);
 		const base = {
-			providers: JSON.parse(JSON.stringify(DEFAULT_PROVIDERS)),
-			selectedModel: "openrouter::openrouter/auto",
+			providers: [],
+			selectedModel: "",
 			webSearch: false,
 			skills: JSON.parse(JSON.stringify(DEFAULT_SKILLS)),
-			activeSkillId: "skill-default",
+			activeSkillIds: [],
 			bubbleAutoSync: true,
 			bubblePresets: ["Summarize this", "Explain simply", "Fix my code"],
 		};
 		if (saved && typeof saved === "object") {
-			if (saved.providers) {
-				Object.keys(base.providers).forEach(function (pid) {
-					if (saved.providers[pid]) {
-						base.providers[pid] = Object.assign({}, base.providers[pid], saved.providers[pid]);
-					}
-				});
-			}
-			if (saved.selectedModel) base.selectedModel = saved.selectedModel;
+			if (Array.isArray(saved.providers)) base.providers = saved.providers;
+			if (typeof saved.selectedModel === "string") base.selectedModel = saved.selectedModel;
 			if (typeof saved.webSearch === "boolean") base.webSearch = saved.webSearch;
-			if (Array.isArray(saved.skills) && saved.skills.length) base.skills = saved.skills;
-			if (saved.activeSkillId) base.activeSkillId = saved.activeSkillId;
+			if (Array.isArray(saved.skills)) base.skills = saved.skills;
+			if (Array.isArray(saved.activeSkillIds)) base.activeSkillIds = saved.activeSkillIds;
 			if (typeof saved.bubbleAutoSync === "boolean") base.bubbleAutoSync = saved.bubbleAutoSync;
 			if (Array.isArray(saved.bubblePresets)) base.bubblePresets = saved.bubblePresets;
 		}
@@ -130,9 +120,12 @@
 	let activeChatId = chats[0].id;
 	let pendingAttachments = [];
 	let activeAbort = null;
-	let editingProviderId = "openrouter";
-	let editingSkillId = null;
 	let lastBubbleReply = "";
+
+	// Provider form draft state
+	let draftProviderId = null;
+	let draftProviderModels = [];
+	let editingSkillId = null;
 
 	// DOM Elements
 	const sidebarEl = document.getElementById("sidebar");
@@ -141,7 +134,9 @@
 	const historySearch = document.getElementById("historySearch");
 	const chatListEl = document.getElementById("chatList");
 	const modelSelect = document.getElementById("modelSelect");
-	const activeSkillSelect = document.getElementById("activeSkillSelect");
+	const skillsDropdownBtn = document.getElementById("skillsDropdownBtn");
+	const skillsPopover = document.getElementById("skillsPopover");
+	const skillsPopoverList = document.getElementById("skillsPopoverList");
 	const messagesContainer = document.getElementById("messagesContainer");
 	const attachmentsBar = document.getElementById("attachmentsBar");
 	const promptInput = document.getElementById("promptInput");
@@ -273,13 +268,13 @@
 	}
 
 	// =========================================================
-	// UI Rendering: Models, Skills, History, Messages
+	// Top Bar: Models Dropdown & Multi-Skill Selector
 	// =========================================================
 	function renderModelDropdown() {
 		modelSelect.innerHTML = "";
 		let count = 0;
 
-		Object.values(config.providers).forEach(function (prov) {
+		config.providers.forEach(function (prov) {
 			if (!prov.enabled) return;
 			const visibleModels = (prov.models || []).filter(function (m) { return m.visible; });
 			if (!visibleModels.length) return;
@@ -299,10 +294,11 @@
 		});
 
 		if (!count) {
-			const fallbackOpt = document.createElement("option");
-			fallbackOpt.value = "openrouter::openrouter/auto";
-			fallbackOpt.textContent = "Configure a provider...";
-			modelSelect.appendChild(fallbackOpt);
+			const emptyOpt = document.createElement("option");
+			emptyOpt.value = "";
+			emptyOpt.textContent = "+ Add a provider first...";
+			modelSelect.appendChild(emptyOpt);
+			config.selectedModel = "";
 		} else {
 			modelSelect.value = config.selectedModel;
 			if (modelSelect.selectedIndex === -1 && modelSelect.options.length) {
@@ -313,17 +309,75 @@
 		}
 	}
 
-	function renderSkillDropdown() {
-		activeSkillSelect.innerHTML = "";
+	function renderSkillsControls() {
+		const activeSet = new Set(config.activeSkillIds || []);
+		const activeCount = config.skills.filter(function (s) { return activeSet.has(s.id); }).length;
+		skillsDropdownBtn.textContent = activeCount === 0 ? "Skills: Off" : "Skills (" + activeCount + ")";
+
+		skillsPopoverList.innerHTML = "";
+		if (!config.skills.length) {
+			const none = document.createElement("div");
+			none.className = "status-text";
+			none.style.padding = "6px 8px";
+			none.textContent = "No skills created yet.";
+			skillsPopoverList.appendChild(none);
+			return;
+		}
+
 		config.skills.forEach(function (sk) {
-			const opt = document.createElement("option");
-			opt.value = sk.id;
-			opt.textContent = "Skill: " + sk.name;
-			activeSkillSelect.appendChild(opt);
+			const row = document.createElement("label");
+			row.className = "skills-popover-item";
+
+			const cb = document.createElement("input");
+			cb.type = "checkbox";
+			cb.checked = activeSet.has(sk.id);
+			cb.onchange = function () {
+				const next = new Set(config.activeSkillIds || []);
+				if (cb.checked) next.add(sk.id);
+				else next.delete(sk.id);
+				config.activeSkillIds = Array.from(next);
+				persistConfig();
+				renderSkillsControls();
+				renderSkillsModal();
+			};
+
+			const span = document.createElement("span");
+			span.textContent = sk.name;
+			row.append(cb, span);
+			skillsPopoverList.appendChild(row);
 		});
-		activeSkillSelect.value = config.activeSkillId;
 	}
 
+	skillsDropdownBtn.onclick = function (e) {
+		e.stopPropagation();
+		skillsPopover.hidden = !skillsPopover.hidden;
+		if (!skillsPopover.hidden) {
+			renderSkillsControls();
+		}
+	};
+
+	document.addEventListener("click", function (e) {
+		if (!skillsPopover.hidden && !e.target.closest(".skills-picker-wrap")) {
+			skillsPopover.hidden = true;
+		}
+	});
+
+	document.getElementById("disableAllSkillsBtn").onclick = function () {
+		config.activeSkillIds = [];
+		persistConfig();
+		renderSkillsControls();
+		renderSkillsModal();
+	};
+
+	document.getElementById("manageSkillsFromPopoverBtn").onclick = function () {
+		skillsPopover.hidden = true;
+		renderSkillsModal();
+		skillsModal.hidden = false;
+	};
+
+	// =========================================================
+	// Chat History & Messages
+	// =========================================================
 	function renderChatList() {
 		const filter = (historySearch.value || "").trim().toLowerCase();
 		chatListEl.innerHTML = "";
@@ -376,9 +430,23 @@
 		if (!chat || !chat.messages.length) {
 			const empty = document.createElement("div");
 			empty.className = "empty-state";
-			empty.innerHTML =
-				"<h2>BrowChat</h2>" +
-				"<p>Configure your OpenRouter, Gemini, Groq, or custom API key in <strong>Providers &amp; Models</strong>, toggle <strong>Web Search</strong> for live answers, or attach files from BrowOS Files.</p>";
+
+			if (!config.providers.length) {
+				empty.innerHTML =
+					"<h2>Welcome to BrowChat</h2>" +
+					"<p>No AI providers added yet. Add OpenRouter, Google Gemini, Groq, OpenAI, or Ollama to get started.</p>";
+				const cta = document.createElement("button");
+				cta.type = "button";
+				cta.className = "btn primary";
+				cta.textContent = "+ Add Provider";
+				cta.onclick = function () { openProvidersModal(true); };
+				empty.appendChild(cta);
+			} else {
+				empty.innerHTML =
+					"<h2>BrowChat</h2>" +
+					"<p>Select one or more <strong>Skills</strong> (or disable all), toggle <strong>Web Search</strong> for live answers, or attach files.</p>";
+			}
+
 			messagesContainer.appendChild(empty);
 			return;
 		}
@@ -467,29 +535,42 @@
 	// =========================================================
 	// Sending & Streaming AI Requests
 	// =========================================================
+	function buildCombinedSkillPrompt() {
+		const activeSet = new Set(config.activeSkillIds || []);
+		const activeList = config.skills.filter(function (s) { return activeSet.has(s.id) && s.prompt; });
+		if (!activeList.length) return "";
+		if (activeList.length === 1) return activeList[0].prompt;
+		return activeList
+			.map(function (s) {
+				return "[" + s.name + "]\n" + s.prompt;
+			})
+			.join("\n\n");
+	}
+
 	async function sendMessage(overrideText, fromBubble) {
 		const rawText = typeof overrideText === "string" ? overrideText.trim() : promptInput.value.trim();
 		if (!rawText && !pendingAttachments.length) return;
 		if (activeAbort) return;
 
-		const [provId, modelId] = (config.selectedModel || "openrouter::openrouter/auto").split("::");
-		const provider = config.providers[provId];
-		if (!provider) return;
-
-		if (!provider.apiKey && provId !== "custom") {
-			const errNotice = "Add your " + provider.name + " API key in Providers & Models first.";
+		if (!config.selectedModel || !config.providers.length) {
+			const errNotice = "Add a provider and select a model first.";
 			if (fromBubble) {
 				lastBubbleReply = errNotice;
 				syncBubbleCard(true);
 			} else {
-				alert(errNotice);
-				openProvidersModal(provId);
+				openProvidersModal(true);
 			}
 			return;
 		}
 
+		const sepIdx = config.selectedModel.indexOf("::");
+		const provId = config.selectedModel.slice(0, sepIdx);
+		const modelId = config.selectedModel.slice(sepIdx + 2);
+		const provider = config.providers.find(function (p) { return p.id === provId; });
+		if (!provider) return;
+
 		const chat = getActiveChat();
-		const activeSkill = config.skills.find(function (s) { return s.id === config.activeSkillId; }) || config.skills[0];
+		const combinedSystemPrompt = buildCombinedSkillPrompt();
 
 		const userAttachments = pendingAttachments.slice();
 		pendingAttachments = [];
@@ -512,7 +593,7 @@
 
 		const assistantMsg = {
 			role: "assistant",
-			modelLabel: modelId,
+			modelLabel: modelId + " (" + provider.name + ")",
 			content: "",
 			sources: [],
 		};
@@ -539,10 +620,10 @@
 				return { role: m.role, content: content };
 			});
 
-			if (provId === "gemini") {
-				await callGeminiApi(provider, modelId, activeSkill, formattedHistory, assistantMsg, activeAbort.signal, fromBubble);
+			if (provider.type === "gemini") {
+				await callGeminiApi(provider, modelId, combinedSystemPrompt, formattedHistory, assistantMsg, activeAbort.signal, fromBubble);
 			} else {
-				await callOpenAICompatibleApi(provider, modelId, activeSkill, formattedHistory, assistantMsg, activeAbort.signal, fromBubble);
+				await callOpenAICompatibleApi(provider, modelId, combinedSystemPrompt, formattedHistory, assistantMsg, activeAbort.signal, fromBubble);
 			}
 		} catch (err) {
 			if (err.name === "AbortError") {
@@ -567,10 +648,10 @@
 		}
 	}
 
-	async function callOpenAICompatibleApi(provider, modelId, skill, messages, assistantMsg, signal, fromBubble) {
+	async function callOpenAICompatibleApi(provider, modelId, systemPrompt, messages, assistantMsg, signal, fromBubble) {
 		const apiMessages = [];
-		if (skill && skill.prompt) {
-			apiMessages.push({ role: "system", content: skill.prompt });
+		if (systemPrompt) {
+			apiMessages.push({ role: "system", content: systemPrompt });
 		}
 		messages.forEach(function (m) {
 			apiMessages.push({ role: m.role, content: m.content });
@@ -582,7 +663,7 @@
 			stream: true,
 		};
 
-		if (provider.id === "openrouter" && config.webSearch) {
+		if (provider.type === "openrouter" && config.webSearch) {
 			body.plugins = [{ id: "web", max_results: 5 }];
 		}
 
@@ -592,7 +673,7 @@
 		if (provider.apiKey) {
 			headers["Authorization"] = "Bearer " + provider.apiKey;
 		}
-		if (provider.id === "openrouter") {
+		if (provider.type === "openrouter") {
 			headers["HTTP-Referer"] = window.location.origin;
 			headers["X-Title"] = "BrowChat";
 		}
@@ -658,7 +739,7 @@
 		}
 	}
 
-	async function callGeminiApi(provider, modelId, skill, messages, assistantMsg, signal, fromBubble) {
+	async function callGeminiApi(provider, modelId, systemPrompt, messages, assistantMsg, signal, fromBubble) {
 		const contents = messages.map(function (m) {
 			return {
 				role: m.role === "assistant" ? "model" : "user",
@@ -670,8 +751,8 @@
 			contents: contents,
 		};
 
-		if (skill && skill.prompt) {
-			body.systemInstruction = { parts: [{ text: skill.prompt }] };
+		if (systemPrompt) {
+			body.systemInstruction = { parts: [{ text: systemPrompt }] };
 		}
 
 		if (config.webSearch) {
@@ -756,131 +837,231 @@
 	};
 
 	// =========================================================
-	// Providers & Models Modal
+	// Providers Manager Modal (List View -> + Add Provider -> Edit/Save)
 	// =========================================================
 	const providersModal = document.getElementById("providersModal");
-	const providerTabs = document.getElementById("providerTabs");
-	const provEnabled = document.getElementById("provEnabled");
-	const provUrlRow = document.getElementById("provUrlRow");
-	const provBaseUrl = document.getElementById("provBaseUrl");
-	const provApiKey = document.getElementById("provApiKey");
-	const providerStatus = document.getElementById("providerStatus");
-	const customModelInput = document.getElementById("customModelInput");
-	const modelFilterInput = document.getElementById("modelFilterInput");
-	const modelsChecklist = document.getElementById("modelsChecklist");
+	const providersModalTitle = document.getElementById("providersModalTitle");
+	const providersListView = document.getElementById("providersListView");
+	const addedProvidersList = document.getElementById("addedProvidersList");
+	const providerEditorView = document.getElementById("providerEditorView");
 
-	function openProvidersModal(provId) {
-		if (provId) editingProviderId = provId;
-		renderProviderEditor();
+	const provTypeSelect = document.getElementById("provTypeSelect");
+	const provNameInput = document.getElementById("provNameInput");
+	const provBaseUrlInput = document.getElementById("provBaseUrlInput");
+	const provApiKeyInput = document.getElementById("provApiKeyInput");
+	const providerFormStatus = document.getElementById("providerFormStatus");
+	const customModelIdInput = document.getElementById("customModelIdInput");
+	const searchProviderModelsInput = document.getElementById("searchProviderModelsInput");
+	const providerModelsChecklist = document.getElementById("providerModelsChecklist");
+
+	function openProvidersModal(startInAddForm) {
+		if (startInAddForm) {
+			openProviderEditorForm(null);
+		} else {
+			showProvidersListView();
+		}
 		providersModal.hidden = false;
 	}
 
-	function renderProviderEditor() {
-		providerTabs.innerHTML = "";
-		Object.values(config.providers).forEach(function (p) {
-			const tab = document.createElement("button");
-			tab.type = "button";
-			tab.className = "provider-tab" + (p.id === editingProviderId ? " active" : "");
-			tab.textContent = p.name;
-			tab.onclick = function () {
-				editingProviderId = p.id;
-				renderProviderEditor();
+	function showProvidersListView() {
+		providersModalTitle.textContent = "Providers & Models";
+		providersListView.hidden = false;
+		providerEditorView.hidden = true;
+		renderAddedProvidersList();
+	}
+
+	function renderAddedProvidersList() {
+		addedProvidersList.innerHTML = "";
+
+		if (!config.providers.length) {
+			const empty = document.createElement("div");
+			empty.className = "status-text";
+			empty.style.cssText = "padding:18px;text-align:center;border:1px dashed var(--border-strong);border-radius:12px;";
+			empty.textContent = "No providers added yet. Click \"+ Add Provider\" above to connect OpenRouter, Gemini, Groq, OpenAI, or Ollama.";
+			addedProvidersList.appendChild(empty);
+			return;
+		}
+
+		config.providers.forEach(function (prov) {
+			const row = document.createElement("div");
+			row.className = "provider-card-row";
+
+			const info = document.createElement("div");
+			info.className = "provider-card-info";
+
+			const visibleCount = (prov.models || []).filter(function (m) { return m.visible; }).length;
+			const nameEl = document.createElement("div");
+			nameEl.className = "provider-card-name";
+			nameEl.textContent = prov.name + (prov.enabled ? "" : " (Disabled)");
+
+			const subEl = document.createElement("div");
+			subEl.className = "provider-card-sub";
+			subEl.textContent = prov.baseUrl + " · " + visibleCount + " visible model" + (visibleCount === 1 ? "" : "s");
+
+			info.append(nameEl, subEl);
+
+			const actions = document.createElement("div");
+			actions.className = "provider-card-actions";
+
+			const toggleBtn = document.createElement("button");
+			toggleBtn.type = "button";
+			toggleBtn.className = "btn";
+			toggleBtn.textContent = prov.enabled ? "Disable" : "Enable";
+			toggleBtn.onclick = function () {
+				prov.enabled = !prov.enabled;
+				persistConfig();
+				renderModelDropdown();
+				renderAddedProvidersList();
 			};
-			providerTabs.appendChild(tab);
+
+			const editBtn = document.createElement("button");
+			editBtn.type = "button";
+			editBtn.className = "btn";
+			editBtn.textContent = "Edit";
+			editBtn.onclick = function () {
+				openProviderEditorForm(prov.id);
+			};
+
+			const delBtn = document.createElement("button");
+			delBtn.type = "button";
+			delBtn.className = "btn danger";
+			delBtn.textContent = "Delete";
+			delBtn.onclick = function () {
+				config.providers = config.providers.filter(function (p) { return p.id !== prov.id; });
+				persistConfig();
+				renderModelDropdown();
+				renderAddedProvidersList();
+				renderMessages();
+			};
+
+			actions.append(toggleBtn, editBtn, delBtn);
+			row.append(info, actions);
+			addedProvidersList.appendChild(row);
+		});
+	}
+
+	function openProviderEditorForm(existingId) {
+		providersListView.hidden = true;
+		providerEditorView.hidden = false;
+		providerFormStatus.textContent = "";
+		searchProviderModelsInput.value = "";
+
+		if (existingId) {
+			const existing = config.providers.find(function (p) { return p.id === existingId; });
+			if (existing) {
+				draftProviderId = existing.id;
+				providersModalTitle.textContent = "Edit Provider";
+				provTypeSelect.value = existing.type || "openrouter";
+				provNameInput.value = existing.name || "";
+				provBaseUrlInput.value = existing.baseUrl || "";
+				provApiKeyInput.value = existing.apiKey || "";
+				draftProviderModels = JSON.parse(JSON.stringify(existing.models || []));
+				renderDraftModelsChecklist();
+				return;
+			}
+		}
+
+		draftProviderId = null;
+		providersModalTitle.textContent = "Add Provider";
+		provTypeSelect.value = "openrouter";
+		applyProviderTypeDefaults("openrouter");
+	}
+
+	function applyProviderTypeDefaults(typeKey) {
+		const preset = PROVIDER_PRESETS[typeKey] || PROVIDER_PRESETS.openrouter;
+		provNameInput.value = preset.name;
+		provBaseUrlInput.value = preset.baseUrl;
+		provApiKeyInput.value = "";
+		draftProviderModels = JSON.parse(JSON.stringify(preset.defaultModels));
+		renderDraftModelsChecklist();
+	}
+
+	provTypeSelect.onchange = function () {
+		if (!draftProviderId) {
+			applyProviderTypeDefaults(provTypeSelect.value);
+		} else {
+			const preset = PROVIDER_PRESETS[provTypeSelect.value];
+			if (preset) {
+				provBaseUrlInput.value = preset.baseUrl;
+			}
+		}
+	};
+
+	function renderDraftModelsChecklist() {
+		const q = (searchProviderModelsInput.value || "").trim().toLowerCase();
+		providerModelsChecklist.innerHTML = "";
+
+		const filtered = draftProviderModels.filter(function (m) {
+			return !q || m.id.toLowerCase().includes(q) || (m.name || "").toLowerCase().includes(q);
 		});
 
-		const prov = config.providers[editingProviderId];
-		provEnabled.checked = Boolean(prov.enabled);
-		provUrlRow.hidden = prov.id !== "custom";
-		provBaseUrl.value = prov.baseUrl || "";
-		provApiKey.value = prov.apiKey || "";
-		providerStatus.textContent = "";
-		renderModelsChecklist();
-	}
-
-	function renderModelsChecklist() {
-		const prov = config.providers[editingProviderId];
-		const filter = (modelFilterInput.value || "").trim().toLowerCase();
-		modelsChecklist.innerHTML = "";
-
-		(prov.models || [])
-			.filter(function (m) {
-				return !filter || m.id.toLowerCase().includes(filter) || (m.name || "").toLowerCase().includes(filter);
-			})
-			.forEach(function (m) {
-				const row = document.createElement("div");
-				row.className = "model-check-row";
-
-				const lbl = document.createElement("label");
-				const cb = document.createElement("input");
-				cb.type = "checkbox";
-				cb.checked = Boolean(m.visible);
-				cb.onchange = function () {
-					m.visible = cb.checked;
-					persistConfig();
-					renderModelDropdown();
-				};
-
-				const span = document.createElement("span");
-				span.textContent = (m.name && m.name !== m.id ? m.name + " (" + m.id + ")" : m.id);
-				lbl.append(cb, span);
-
-				const del = document.createElement("button");
-				del.type = "button";
-				del.className = "chat-item-del";
-				del.textContent = "×";
-				del.onclick = function () {
-					prov.models = prov.models.filter(function (x) { return x.id !== m.id; });
-					persistConfig();
-					renderModelsChecklist();
-					renderModelDropdown();
-				};
-
-				row.append(lbl, del);
-				modelsChecklist.appendChild(row);
-			});
-	}
-
-	document.getElementById("saveProviderBtn").onclick = function () {
-		const prov = config.providers[editingProviderId];
-		prov.enabled = provEnabled.checked;
-		if (prov.id === "custom" && provBaseUrl.value.trim()) {
-			prov.baseUrl = provBaseUrl.value.trim();
+		if (!filtered.length) {
+			const empty = document.createElement("div");
+			empty.className = "status-text";
+			empty.style.padding = "10px";
+			empty.textContent = "No models match your search.";
+			providerModelsChecklist.appendChild(empty);
+			return;
 		}
-		prov.apiKey = provApiKey.value.trim();
-		persistConfig();
-		renderModelDropdown();
-		providerStatus.textContent = "Saved.";
-	};
 
-	document.getElementById("addCustomModelBtn").onclick = function () {
-		const val = customModelInput.value.trim();
+		filtered.forEach(function (m) {
+			const row = document.createElement("div");
+			row.className = "model-check-row";
+
+			const lbl = document.createElement("label");
+			const cb = document.createElement("input");
+			cb.type = "checkbox";
+			cb.checked = Boolean(m.visible);
+			cb.onchange = function () {
+				m.visible = cb.checked;
+			};
+
+			const span = document.createElement("span");
+			span.textContent = m.name && m.name !== m.id ? m.name + " (" + m.id + ")" : m.id;
+			lbl.append(cb, span);
+
+			const rmBtn = document.createElement("button");
+			rmBtn.type = "button";
+			rmBtn.className = "chat-item-del";
+			rmBtn.textContent = "×";
+			rmBtn.onclick = function () {
+				draftProviderModels = draftProviderModels.filter(function (x) { return x.id !== m.id; });
+				renderDraftModelsChecklist();
+			};
+
+			row.append(lbl, rmBtn);
+			providerModelsChecklist.appendChild(row);
+		});
+	}
+
+	searchProviderModelsInput.oninput = renderDraftModelsChecklist;
+
+	document.getElementById("addManualModelBtn").onclick = function () {
+		const val = customModelIdInput.value.trim();
 		if (!val) return;
-		const prov = config.providers[editingProviderId];
-		if (!prov.models.some(function (m) { return m.id === val; })) {
-			prov.models.unshift({ id: val, name: val, visible: true });
-			persistConfig();
-			renderModelsChecklist();
-			renderModelDropdown();
+		if (!draftProviderModels.some(function (m) { return m.id === val; })) {
+			draftProviderModels.unshift({ id: val, name: val, visible: true });
+			renderDraftModelsChecklist();
 		}
-		customModelInput.value = "";
+		customModelIdInput.value = "";
 	};
 
-	modelFilterInput.oninput = renderModelsChecklist;
+	document.getElementById("fetchProviderModelsBtn").onclick = async function () {
+		const type = provTypeSelect.value;
+		const baseUrl = provBaseUrlInput.value.trim().replace(/\/$/, "");
+		const apiKey = provApiKeyInput.value.trim();
 
-	document.getElementById("fetchModelsBtn").onclick = async function () {
-		const prov = config.providers[editingProviderId];
-		prov.apiKey = provApiKey.value.trim();
-		if (prov.id === "custom" && provBaseUrl.value.trim()) {
-			prov.baseUrl = provBaseUrl.value.trim();
+		if (!baseUrl) {
+			providerFormStatus.textContent = "Enter API Base URL first.";
+			return;
 		}
-		providerStatus.textContent = "Fetching models...";
 
+		providerFormStatus.textContent = "Fetching models...";
 		try {
 			let fetched = [];
-			if (prov.id === "gemini") {
-				if (!prov.apiKey) throw new Error("Enter Gemini API key first.");
-				const res = await fetch(prov.baseUrl + "/models?key=" + encodeURIComponent(prov.apiKey));
+			if (type === "gemini") {
+				if (!apiKey) throw new Error("Enter Gemini API key first.");
+				const res = await fetch(baseUrl + "/models?key=" + encodeURIComponent(apiKey));
 				if (!res.ok) throw new Error("HTTP " + res.status);
 				const data = await res.json();
 				fetched = (data.models || [])
@@ -891,8 +1072,8 @@
 					});
 			} else {
 				const headers = {};
-				if (prov.apiKey) headers["Authorization"] = "Bearer " + prov.apiKey;
-				const res = await fetch(prov.baseUrl.replace(/\/$/, "") + "/models", { headers: headers });
+				if (apiKey) headers["Authorization"] = "Bearer " + apiKey;
+				const res = await fetch(baseUrl + "/models", { headers: headers });
 				if (!res.ok) throw new Error("HTTP " + res.status);
 				const data = await res.json();
 				fetched = (data.data || []).map(function (m) {
@@ -900,23 +1081,71 @@
 				});
 			}
 
-			const existingMap = new Map((prov.models || []).map(function (m) { return [m.id, m]; }));
+			const existingMap = new Map(draftProviderModels.map(function (m) { return [m.id, m]; }));
 			fetched.forEach(function (item) {
 				if (!existingMap.has(item.id)) {
 					existingMap.set(item.id, { id: item.id, name: item.name, visible: false });
 				}
 			});
-			prov.models = Array.from(existingMap.values());
-			persistConfig();
-			renderModelsChecklist();
-			providerStatus.textContent = "Loaded " + fetched.length + " models. Check the ones you want to show.";
+			draftProviderModels = Array.from(existingMap.values());
+			renderDraftModelsChecklist();
+			providerFormStatus.textContent = "Loaded " + fetched.length + " models. Search & check the ones you want.";
 		} catch (err) {
-			providerStatus.textContent = "Failed: " + (err && err.message ? err.message : "Error");
+			providerFormStatus.textContent = "Failed: " + (err && err.message ? err.message : "Error");
 		}
 	};
 
+	document.getElementById("saveProviderFormBtn").onclick = function () {
+		const type = provTypeSelect.value;
+		const name = provNameInput.value.trim() || (PROVIDER_PRESETS[type] && PROVIDER_PRESETS[type].name) || "Provider";
+		const baseUrl = provBaseUrlInput.value.trim();
+		const apiKey = provApiKeyInput.value.trim();
+
+		if (!baseUrl) {
+			providerFormStatus.textContent = "API Base URL is required.";
+			return;
+		}
+
+		if (draftProviderId) {
+			const existing = config.providers.find(function (p) { return p.id === draftProviderId; });
+			if (existing) {
+				existing.type = type;
+				existing.name = name;
+				existing.baseUrl = baseUrl;
+				existing.apiKey = apiKey;
+				existing.models = draftProviderModels;
+			}
+		} else {
+			const newId = "prov-" + Date.now();
+			config.providers.push({
+				id: newId,
+				type: type,
+				name: name,
+				enabled: true,
+				baseUrl: baseUrl,
+				apiKey: apiKey,
+				models: draftProviderModels,
+			});
+			const firstVis = draftProviderModels.find(function (m) { return m.visible; });
+			if (firstVis) {
+				config.selectedModel = newId + "::" + firstVis.id;
+			}
+		}
+
+		persistConfig();
+		renderModelDropdown();
+		renderMessages();
+		showProvidersListView();
+	};
+
+	document.getElementById("showAddProviderFormBtn").onclick = function () {
+		openProviderEditorForm(null);
+	};
+
+	document.getElementById("cancelProviderFormBtn").onclick = showProvidersListView;
+
 	// =========================================================
-	// Skills & Bubble Modal
+	// Skills (Multi-Select + Disable All) & Bubble Modal
 	// =========================================================
 	const skillsModal = document.getElementById("skillsModal");
 	const skillsListEl = document.getElementById("skillsList");
@@ -930,13 +1159,29 @@
 		bubbleAutoSyncToggle.checked = Boolean(config.bubbleAutoSync);
 		bubblePresetsInput.value = (config.bubblePresets || []).join(", ");
 
+		const activeSet = new Set(config.activeSkillIds || []);
 		skillsListEl.innerHTML = "";
+
 		config.skills.forEach(function (sk) {
 			const row = document.createElement("div");
 			row.className = "skill-row";
 
+			const lbl = document.createElement("label");
+			const cb = document.createElement("input");
+			cb.type = "checkbox";
+			cb.checked = activeSet.has(sk.id);
+			cb.onchange = function () {
+				const next = new Set(config.activeSkillIds || []);
+				if (cb.checked) next.add(sk.id);
+				else next.delete(sk.id);
+				config.activeSkillIds = Array.from(next);
+				persistConfig();
+				renderSkillsControls();
+			};
+
 			const title = document.createElement("span");
 			title.textContent = sk.name;
+			lbl.append(cb, title);
 
 			const btns = document.createElement("div");
 			btns.style.display = "flex";
@@ -957,22 +1202,26 @@
 			delBtn.type = "button";
 			delBtn.className = "btn danger";
 			delBtn.textContent = "Delete";
-			delBtn.disabled = config.skills.length <= 1;
 			delBtn.onclick = function () {
 				config.skills = config.skills.filter(function (x) { return x.id !== sk.id; });
-				if (config.activeSkillId === sk.id) {
-					config.activeSkillId = config.skills[0].id;
-				}
+				config.activeSkillIds = (config.activeSkillIds || []).filter(function (id) { return id !== sk.id; });
 				persistConfig();
-				renderSkillDropdown();
+				renderSkillsControls();
 				renderSkillsModal();
 			};
 
 			btns.append(editBtn, delBtn);
-			row.append(title, btns);
+			row.append(lbl, btns);
 			skillsListEl.appendChild(row);
 		});
 	}
+
+	document.getElementById("disableAllSkillsModalBtn").onclick = function () {
+		config.activeSkillIds = [];
+		persistConfig();
+		renderSkillsControls();
+		renderSkillsModal();
+	};
 
 	document.getElementById("saveBubblePrefsBtn").onclick = function () {
 		config.bubbleAutoSync = bubbleAutoSyncToggle.checked;
@@ -1013,11 +1262,11 @@
 		} else {
 			const newId = "skill-" + Date.now();
 			config.skills.push({ id: newId, name: name, prompt: prompt });
-			config.activeSkillId = newId;
+			config.activeSkillIds = Array.from(new Set((config.activeSkillIds || []).concat(newId)));
 		}
 		skillEditor.hidden = true;
 		persistConfig();
-		renderSkillDropdown();
+		renderSkillsControls();
 		renderSkillsModal();
 	};
 
@@ -1033,9 +1282,9 @@
 		const cleanName = file.name.replace(/\.[^.]+$/, "");
 		const newId = "skill-" + Date.now();
 		config.skills.push({ id: newId, name: cleanName, prompt: content });
-		config.activeSkillId = newId;
+		config.activeSkillIds = Array.from(new Set((config.activeSkillIds || []).concat(newId)));
 		persistConfig();
-		renderSkillDropdown();
+		renderSkillsControls();
 		renderSkillsModal();
 	};
 
@@ -1063,12 +1312,11 @@
 	historySearch.oninput = renderChatList;
 
 	modelSelect.onchange = function () {
+		if (!modelSelect.value) {
+			openProvidersModal(true);
+			return;
+		}
 		config.selectedModel = modelSelect.value;
-		persistConfig();
-	};
-
-	activeSkillSelect.onchange = function () {
-		config.activeSkillId = activeSkillSelect.value;
 		persistConfig();
 	};
 
@@ -1112,7 +1360,7 @@
 	};
 
 	document.getElementById("syncBubbleBtn").onclick = function () { syncBubbleCard(true); };
-	document.getElementById("openProvidersBtn").onclick = function () { openProvidersModal(); };
+	document.getElementById("openProvidersBtn").onclick = function () { openProvidersModal(false); };
 	document.getElementById("openSkillsBtn").onclick = function () {
 		renderSkillsModal();
 		skillsModal.hidden = false;
@@ -1127,7 +1375,7 @@
 
 	// Initial Render
 	renderModelDropdown();
-	renderSkillDropdown();
+	renderSkillsControls();
 	renderChatList();
 	renderMessages();
 	if (config.bubbleAutoSync) {
