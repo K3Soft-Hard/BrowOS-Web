@@ -1,6 +1,6 @@
 // BrowChat: Multi-provider AI assistant for BrowOS with OpenRouter/Gemini/Groq/Custom endpoints,
 // model visibility manager, server-side web search, skill & file uploads, chat history/export,
-// and BrowOS Bubble mini-chat integration.
+// and BrowOS Bubble mini-chat integration via BrowOS SDK.
 
 (function () {
 	const STORAGE_CONFIG_KEY = "browchat-config-v1";
@@ -171,7 +171,6 @@
 			.replace(/"/g, "&quot;");
 	}
 
-	// Lightweight safe Markdown renderer (code blocks, inline code, bold, links, paragraphs)
 	function renderMarkdown(rawText) {
 		const text = String(rawText || "");
 		const blocks = text.split(/```/);
@@ -203,19 +202,6 @@
 	// =========================================================
 	// BrowOS SDK Theme & Bubble Integration
 	// =========================================================
-	if (typeof BrowOS !== "undefined" && BrowOS.available) {
-		BrowOS.ready
-			.then(function (info) {
-				if (info && info.theme) {
-					document.documentElement.classList.toggle("light-mode", info.theme === "light");
-				}
-				if (info && info.accent) {
-					document.documentElement.style.setProperty("--accent", info.accent);
-				}
-			})
-			.catch(function () {});
-	}
-
 	function buildBubbleCardHtml() {
 		const presets = (config.bubblePresets || []).slice(0, 3);
 		const presetButtonsHtml = presets
@@ -254,34 +240,37 @@
 		const html = buildBubbleCardHtml();
 		if (typeof BrowOS !== "undefined" && BrowOS.available && BrowOS.bubble) {
 			await BrowOS.bubble.showCard({ id: "main", title: "BrowChat", html: html }).catch(function () {});
-		} else if (window.browos && window.browos.bubble) {
-			window.browos.bubble.showCard({
-				id: "browchat:main",
-				appId: "browchat",
-				appName: "BrowChat",
-				title: "BrowChat",
-				html: html,
-			});
 		}
 	}
 
 	async function hideBubbleCard() {
 		if (typeof BrowOS !== "undefined" && BrowOS.available && BrowOS.bubble) {
 			await BrowOS.bubble.hideCard("main").catch(function () {});
-		} else if (window.browos && window.browos.bubble) {
-			window.browos.bubble.hideCard("browchat:main");
 		}
 	}
 
-	window.addEventListener("message", function (event) {
-		const data = event.data;
-		if (!data || data.browos !== 1 || data.event !== "bubble-action") return;
-		if ((data.action === "send-preset" || data.action === "send-input") && data.value) {
-			lastBubbleReply = "Thinking...";
-			syncBubbleCard(true);
-			sendMessage(data.value, true);
+	if (typeof BrowOS !== "undefined" && BrowOS.available) {
+		BrowOS.ready
+			.then(function (info) {
+				if (info && info.theme) {
+					document.documentElement.classList.toggle("light-mode", info.theme === "light");
+				}
+				if (info && info.accent) {
+					document.documentElement.style.setProperty("--accent", info.accent);
+				}
+			})
+			.catch(function () {});
+
+		if (BrowOS.bubble && typeof BrowOS.bubble.onAction === "function") {
+			BrowOS.bubble.onAction(function (action, value) {
+				if ((action === "send-preset" || action === "send-input") && value) {
+					lastBubbleReply = "Thinking...";
+					syncBubbleCard(true);
+					sendMessage(value, true);
+				}
+			});
 		}
-	});
+	}
 
 	// =========================================================
 	// UI Rendering: Models, Skills, History, Messages
@@ -593,7 +582,6 @@
 			stream: true,
 		};
 
-		// Server-side Web Search on OpenRouter (bypasses browser/iframe search blocks)
 		if (provider.id === "openrouter" && config.webSearch) {
 			body.plugins = [{ id: "web", max_results: 5 }];
 		}
