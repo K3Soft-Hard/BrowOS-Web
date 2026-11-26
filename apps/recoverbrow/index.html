@@ -35,8 +35,23 @@
 					<button type="button" class="btn icon-only" id="toggleSidebarBtn" title="Toggle sidebar" aria-label="Toggle sidebar">
 						<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
 					</button>
+
 					<select id="modelSelect" aria-label="Select model"></select>
-					<select id="activeSkillSelect" aria-label="Active skill"></select>
+
+					<!-- Multi-Skill Picker Popover Trigger -->
+					<div class="skills-picker-wrap">
+						<button type="button" class="btn" id="skillsDropdownBtn">Skills (0)</button>
+						<div class="skills-popover" id="skillsPopover" hidden>
+							<div class="skills-popover-head">
+								<span>Active Skills</span>
+								<button type="button" class="link-btn" id="disableAllSkillsBtn">Disable All</button>
+							</div>
+							<div class="skills-popover-list" id="skillsPopoverList"></div>
+							<div class="skills-popover-foot">
+								<button type="button" class="btn full" id="manageSkillsFromPopoverBtn">Manage Skills</button>
+							</div>
+						</div>
+					</div>
 				</div>
 
 				<div class="topbar-right">
@@ -80,53 +95,77 @@
 		</main>
 	</div>
 
-	<!-- Modal: Providers & Model Visibility Manager -->
+	<!-- Modal: Providers Manager (Starts Empty -> + Add Provider -> Manage Added List) -->
 	<div class="modal-backdrop" id="providersModal" hidden>
 		<div class="modal-card">
 			<div class="modal-header">
-				<h2>Providers &amp; Visible Models</h2>
+				<h2 id="providersModalTitle">Providers &amp; Models</h2>
 				<button type="button" class="btn icon-only" data-close-modal="providersModal">×</button>
 			</div>
 
 			<div class="modal-body">
-				<div class="provider-tabs" id="providerTabs"></div>
-
-				<div class="provider-form" id="providerForm">
-					<div class="field-row">
-						<label for="provEnabled">Enable provider</label>
-						<input type="checkbox" id="provEnabled">
+				<!-- View A: List of Added Providers -->
+				<div id="providersListView" class="view-stack">
+					<div class="field-row" style="justify-content:space-between;">
+						<span class="status-text">Added providers appear in your model selector.</span>
+						<button type="button" class="btn primary" id="showAddProviderFormBtn">+ Add Provider</button>
 					</div>
 
-					<div class="field-col" id="provUrlRow" hidden>
-						<label for="provBaseUrl">Base URL (OpenAI-compatible)</label>
-						<input type="text" id="provBaseUrl" placeholder="https://api.example.com/v1">
+					<div class="added-providers-list" id="addedProvidersList"></div>
+				</div>
+
+				<!-- View B: Add / Edit Provider Form -->
+				<div id="providerEditorView" class="view-stack" hidden>
+					<div class="field-col">
+						<label for="provTypeSelect">Provider type</label>
+						<select id="provTypeSelect">
+							<option value="openrouter">OpenRouter</option>
+							<option value="gemini">Google Gemini</option>
+							<option value="groq">Groq</option>
+							<option value="openai">OpenAI / Compatible</option>
+							<option value="ollama">Ollama (Local)</option>
+						</select>
 					</div>
 
 					<div class="field-col">
-						<label for="provApiKey">API Key</label>
-						<input type="password" id="provApiKey" placeholder="Paste API key..." autocomplete="off">
-					</div>
-
-					<div class="field-row">
-						<button type="button" class="btn primary" id="saveProviderBtn">Save Key</button>
-						<button type="button" class="btn" id="fetchModelsBtn">Fetch Live Models</button>
-						<span class="status-text" id="providerStatus"></span>
+						<label for="provNameInput">Display name</label>
+						<input type="text" id="provNameInput" placeholder="e.g. OpenRouter">
 					</div>
 
 					<div class="field-col">
-						<label for="customModelInput">Add custom model ID manually</label>
+						<label for="provBaseUrlInput">API Base URL</label>
+						<input type="text" id="provBaseUrlInput" placeholder="https://openrouter.ai/api/v1">
+					</div>
+
+					<div class="field-col">
+						<label for="provApiKeyInput">API Key</label>
+						<input type="password" id="provApiKeyInput" placeholder="Paste API key (optional for local Ollama)" autocomplete="off">
+					</div>
+
+					<div class="field-row">
+						<button type="button" class="btn" id="fetchProviderModelsBtn">Fetch Live Models</button>
+						<span class="status-text" id="providerFormStatus"></span>
+					</div>
+
+					<div class="field-col">
+						<label for="customModelIdInput">Add model ID manually</label>
 						<div class="field-row">
-							<input type="text" id="customModelInput" placeholder="e.g. anthropic/claude-sonnet-4 or gemini-2.5-pro">
-							<button type="button" class="btn" id="addCustomModelBtn">Add</button>
+							<input type="text" id="customModelIdInput" placeholder="e.g. openrouter/free or anthropic/claude-sonnet-4">
+							<button type="button" class="btn" id="addManualModelBtn">Add</button>
 						</div>
 					</div>
 
 					<div class="field-col">
 						<div class="field-row" style="justify-content:space-between;">
-							<label>Models shown in chat dropdown</label>
-							<input type="text" id="modelFilterInput" placeholder="Filter models..." style="max-width:190px;">
+							<label>Select models to show</label>
+							<input type="text" id="searchProviderModelsInput" placeholder="Search models..." style="max-width:200px;">
 						</div>
-						<div class="models-checklist" id="modelsChecklist"></div>
+						<div class="models-checklist" id="providerModelsChecklist"></div>
+					</div>
+
+					<div class="field-row" style="justify-content:flex-end;margin-top:4px;">
+						<button type="button" class="btn" id="cancelProviderFormBtn">Back</button>
+						<button type="button" class="btn primary" id="saveProviderFormBtn">Save Provider</button>
 					</div>
 				</div>
 			</div>
@@ -150,7 +189,7 @@
 
 				<div class="field-col">
 					<label for="bubblePresetsInput">Quick prompt presets for Bubble (comma-separated)</label>
-					<input type="text" id="bubblePresetsInput" placeholder="Summarize screen, Quick math, Translate to English">
+					<input type="text" id="bubblePresetsInput" placeholder="Summarize this, Explain simply, Fix my code">
 				</div>
 
 				<div class="field-row">
@@ -161,9 +200,10 @@
 				<hr class="divider">
 
 				<div class="field-row" style="justify-content:space-between;">
-					<h3>Skills (System Instructions)</h3>
+					<h3>Skills (Combine Multiple or Disable All)</h3>
 					<div style="display:flex;gap:6px;">
-						<button type="button" class="btn" id="uploadSkillBtn">Upload Skill (.md / .txt)</button>
+						<button type="button" class="btn" id="disableAllSkillsModalBtn">Disable All</button>
+						<button type="button" class="btn" id="uploadSkillBtn">Upload (.md / .txt)</button>
 						<input type="file" id="skillFileInput" accept=".md,.txt,.json,text/*" hidden>
 						<button type="button" class="btn primary" id="newSkillBtn">+ New Skill</button>
 					</div>
@@ -174,9 +214,9 @@
 				<div class="skill-editor" id="skillEditor" hidden>
 					<input type="text" id="skillNameInput" placeholder="Skill name (e.g. Code Reviewer)">
 					<textarea id="skillPromptInput" rows="5" placeholder="Write system instructions or rules for this skill..."></textarea>
-					<div class="field-row">
-						<button type="button" class="btn primary" id="saveSkillBtn">Save Skill</button>
+					<div class="field-row" style="justify-content:flex-end;">
 						<button type="button" class="btn" id="cancelSkillBtn">Cancel</button>
+						<button type="button" class="btn primary" id="saveSkillBtn">Save Skill</button>
 					</div>
 				</div>
 			</div>
