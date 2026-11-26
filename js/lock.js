@@ -1,6 +1,4 @@
-// Lock screen and screensaver
-// The PIN is a privacy screen for your desktop, not strong security: anyone who can use
-// your browser profile can still reach the data BrowOS keeps in it.
+// Lock screen, hardware fingerprint (WebAuthn platform authenticator), PIN limits, and screensaver
 
 const lockScreenElement = document.getElementById("lockScreen");
 const lockTime = document.getElementById("lockTime");
@@ -17,7 +15,10 @@ const PIN_LIMIT_MODE_KEY = "browos-pin-limit-mode";
 const PIN_FAILS_KEY = "browos-pin-fails";
 const PIN_LOCKOUT_UNTIL_KEY = "browos-pin-lockout-until";
 
-// PIN
+const BIOMETRIC_CRED_KEY = "browos-biometric-cred";
+const BIOMETRIC_AUTO_KEY = "browos-biometric-auto";
+
+// Base64 helpers
 
 function bytesToBase64(bytes) {
 	let text = "";
@@ -34,6 +35,8 @@ function base64ToBytes(text) {
 		return character.charCodeAt(0);
 	});
 }
+
+// PIN (PBKDF2-SHA256)
 
 async function derivePinHash(pin, salt, iterations) {
 	const key = await crypto.subtle.importKey(
@@ -98,6 +101,121 @@ async function checkPin(pin) {
 	return hash === saved.hash;
 }
 
+// Hardware Fingerprint / Platform Biometrics (WebAuthn)
+
+function savedBiometricCredId() {
+	try {
+		const raw = localStorage.getItem(BIOMETRIC_CRED_KEY);
+		if (raw && typeof raw === "string" && raw.length > 8) {
+			return raw;
+		}
+	} catch (e) {}
+	return null;
+}
+
+function hasBiometricUnlock() {
+	return Boolean(window.PublicKeyCredential && navigator.credentials && savedBiometricCredId());
+}
+
+async function enrollBiometricUnlock() {
+	if (!window.PublicKeyCredential || !navigator.credentials) {
+		throw new Error("Hardware biometrics are not supported in this browser or context (requires HTTPS/localhost).");
+	}
+
+	const challenge = crypto.getRandomValues(new Uint8Array(32));
+	const userId = crypto.getRandomValues(new Uint8Array(16));
+
+	let profileLabel = "BrowOS User";
+	try {
+		const meta = JSON.parse(localStorage.getItem("browos-profiles-meta") || "null");
+		if (meta && Array.isArray(meta.list)) {
+			const cur = meta.list.find(function (p) { return p.id === meta.current; });
+			if (cur && cur.name) profileLabel = "BrowOS (" + cur.name + ")";
+		}
+	} catch (e) {}
+
+	const credential = await navigator.credentials.create({
+		publicKey: {
+			challenge: challenge,
+			rp: {
+				name: "BrowOS",
+			},
+			user: {
+				id: userId,
+				name: profileLabel,
+				displayName: profileLabel,
+			},
+			pubKeyCredParams: [
+				{ type: "public-key", alg: -7 },
+				{ type: "public-key", alg: -257 },
+			],
+			authenticatorSelection: {
+				authenticatorAttachment: "platform",
+				userVerification: "required",
+				residentKey: "preferred",
+			},
+			timeout: 60000,
+			attestation: "none",
+		},
+	});
+
+	if (!credential || !credential.rawId) {
+		throw new Error("Biometric enrollment was cancelled.");
+	}
+
+	const credIdBase64 = bytesToBase64(new Uint8Array(credential.rawId));
+	localStorage.setItem(BIOMETRIC_CRED_KEY, credIdBase64);
+	return true;
+}
+
+function removeBiometricUnlock() {
+	localStorage.removeItem(BIOMETRIC_CRED_KEY);
+	localStorage.removeItem(BIOMETRIC_AUTO_KEY);
+}
+
+let biometricPromptInFlight = false;
+
+async function verifyBiometricUnlock() {
+	const credId = savedBiometricCredId();
+	if (!credId || !window.PublicKeyCredential || !navigator.credentials) {
+		return false;
+	}
+	if (biometricPromptInFlight) {
+		return false;
+	}
+
+	biometricPromptInFlight = true;
+	try {
+		const challenge = crypto.getRandomValues(new Uint8Array(32));
+		const assertion = await navigator.credentials.get({
+			publicKey: {
+				challenge: challenge,
+				allowCredentials: [
+					{
+						id: base64ToBytes(credId),
+						type: "public-key",
+						transports: ["internal"],
+					},
+				],
+				userVerification: "required",
+				timeout: 60000,
+			},
+		});
+
+		if (assertion && assertion.rawId) {
+			unlockScreen();
+			return true;
+		}
+	} catch (err) {
+		if (lockMessage) {
+			showLockMessage("Fingerprint not verified. Use your PIN or try again.");
+		}
+	} finally {
+		biometricPromptInFlight = false;
+	}
+	return false;
+}
+
 // PIN Try Limits (off | normal | strict)
 
 function getPinLimitMode() {
@@ -153,7 +271,6 @@ function evaluateFailureLockout(totalFails) {
 	}
 
 	if (mode === "strict") {
-		// Strict: 3 tries -> 60s, then 2 tries (total 5) -> 300s (5 min), then every 1 try -> 900s (15 min)
 		if (totalFails === 3) {
 			return { lockoutSeconds: 60, remainingBeforeLock: 0 };
 		}
@@ -212,7 +329,9 @@ setInterval(function () {
 }, 1000);
 
 function showLockMessage(text) {
-	lockMessage.textContent = text;
+	if (lockMessage) {
+		lockMessage.textContent = text;
+	}
 }
 
 function lockoutLeft() {
@@ -258,31 +377,47 @@ function lockScreen() {
 
 	sessionStorage.setItem("browos-locked", "1");
 
-	closeStartMenu();
+	if (typeof closeStartMenu === "function") closeStartMenu();
+	if (typeof closeFlyouts === "function") closeFlyouts();
 
-	closeFlyouts();
-
-	// the same wallpaper as the desktop, blurred
-	lockScreenElement.style.backgroundImage = desktopShell.style.backgroundImage;
+	if (typeof desktopShell !== "undefined" && desktopShell) {
+		lockScreenElement.style.backgroundImage = desktopShell.style.backgroundImage;
+	}
 
 	updateLockClock();
 
 	lockPin.value = "";
 
 	const withPin = hasPin();
+	const withBio = hasBiometricUnlock();
 
 	lockForm.classList.toggle("with-pin", withPin);
+	lockScreenElement.classList.toggle("has-biometric", withBio);
+
+	const bioBtn = document.getElementById("bosLockBioBtn");
+	if (bioBtn) {
+		bioBtn.hidden = !withBio;
+	}
 
 	lockScreenElement.hidden = false;
 
-	// nothing behind the lock screen can be reached with the keyboard
-	desktopShell.inert = true;
+	if (typeof desktopShell !== "undefined" && desktopShell) {
+		desktopShell.inert = true;
+	}
 
 	if (withPin && lockoutLeft() > 0) {
 		showLockout();
 	} else {
 		lockPin.disabled = false;
-		showLockMessage(withPin ? "Enter your PIN" : "Click or press any key to unlock");
+		if (withPin && withBio) {
+			showLockMessage("Enter PIN or use Fingerprint");
+		} else if (withPin) {
+			showLockMessage("Enter your PIN");
+		} else if (withBio) {
+			showLockMessage("Verify Fingerprint to unlock");
+		} else {
+			showLockMessage("Click or press any key to unlock");
+		}
 
 		if (withPin) {
 			lockPin.focus();
@@ -301,11 +436,18 @@ function unlockScreen() {
 
 	lockScreenElement.hidden = true;
 
-	desktopShell.inert = false;
+	if (typeof desktopShell !== "undefined" && desktopShell) {
+		desktopShell.inert = false;
+	}
 }
 
 lockForm.addEventListener("submit", async function (event) {
 	event.preventDefault();
+
+	if (!hasPin() && hasBiometricUnlock()) {
+		await verifyBiometricUnlock();
+		return;
+	}
 
 	if (!hasPin() || lockoutLeft() > 0) {
 		return;
@@ -336,7 +478,6 @@ lockForm.addEventListener("submit", async function (event) {
 
 	lockScreenElement.classList.remove("shake");
 
-	// restart the shake animation
 	void lockScreenElement.offsetWidth;
 
 	lockScreenElement.classList.add("shake");
@@ -357,9 +498,9 @@ lockForm.addEventListener("submit", async function (event) {
 	}
 });
 
-// without a PIN the lock screen is only a cover: click or any key opens it
+// Without PIN or Fingerprint, the lock screen is a cover: click or any key opens it
 function quickUnlock(event) {
-	if (!locked || hasPin() || Date.now() - lockedAt < 500) {
+	if (!locked || hasPin() || hasBiometricUnlock() || Date.now() - lockedAt < 500) {
 		return;
 	}
 
@@ -375,7 +516,6 @@ lockScreenElement.addEventListener("pointerdown", quickUnlock);
 document.addEventListener("keydown", quickUnlock);
 
 // Enforce 128-character limit without restricting to digits
-
 lockPin.addEventListener("input", function () {
 	if (lockPin.value.length > PIN_MAX_LENGTH) {
 		lockPin.value = lockPin.value.slice(0, PIN_MAX_LENGTH);
@@ -389,7 +529,6 @@ const screensaverCanvas = document.getElementById("screensaverCanvas");
 const screensaverClock = document.getElementById("screensaverClock");
 const screensaverContext = screensaverCanvas.getContext("2d");
 
-// things that should keep the screen awake, like music playing
 const awakeReasons = new Set();
 
 function idleKeepAwake(key, on) {
@@ -406,11 +545,13 @@ function markActive() {
 	lastActivity = Date.now();
 }
 
-onEveryDocument(function (doc) {
-	["pointermove", "pointerdown", "keydown", "wheel", "touchstart"].forEach(function (name) {
-		doc.addEventListener(name, markActive, { passive: true, capture: true });
+if (typeof onEveryDocument === "function") {
+	onEveryDocument(function (doc) {
+		["pointermove", "pointerdown", "keydown", "wheel", "touchstart"].forEach(function (name) {
+			doc.addEventListener(name, markActive, { passive: true, capture: true });
+		});
 	});
-});
+}
 
 function saverEnabled() {
 	return localStorage.getItem("browos-saver") !== "off";
@@ -455,7 +596,6 @@ function stopScreensaver() {
 }
 
 function wakeScreensaver(event) {
-	// the key or click that started it, or a small tremble of the mouse, doesn't count
 	if (Date.now() - saverStartedAt < 600) {
 		return;
 	}
@@ -585,7 +725,6 @@ function runClock() {
 		});
 	}
 
-	// moves around now and then so the same pixels aren't lit all night
 	function move() {
 		screensaverClock.style.left = 8 + Math.random() * 50 + "%";
 		screensaverClock.style.top = 10 + Math.random() * 65 + "%";
@@ -614,9 +753,8 @@ function startScreensaver() {
 
 	saverPointer = null;
 
-	closeStartMenu();
-
-	closeFlyouts();
+	if (typeof closeStartMenu === "function") closeStartMenu();
+	if (typeof closeFlyouts === "function") closeFlyouts();
 
 	if (localStorage.getItem("browos-saver-lock") === "on") {
 		lockScreen();
@@ -628,7 +766,6 @@ function startScreensaver() {
 
 	screensaverElement.hidden = false;
 
-	// keys typed from now on come to this page, even if an app had the focus
 	if (document.activeElement && document.activeElement.blur) {
 		document.activeElement.blur();
 	}
@@ -661,20 +798,19 @@ function checkIdle() {
 		return;
 	}
 
-	// music or another job is keeping the screen awake
 	if (awakeReasons.size > 0) {
 		markActive();
 
 		return;
 	}
 
-	// a website app (another origin) has focus: its clicks and keys can't be seen from here
 	const focused = document.activeElement;
 
 	if (
 		document.hasFocus() &&
 		focused &&
 		focused.tagName === "IFRAME" &&
+		typeof sameOriginDocument === "function" &&
 		!sameOriginDocument(focused)
 	) {
 		markActive();
@@ -774,15 +910,83 @@ pinRemove.addEventListener("click", async function () {
 
 	pinCurrent.value = "";
 
-	// no PIN means nothing to ask for at startup
-	localStorage.setItem("browos-lock-startup", "off");
-
-	lockStartupToggle.checked = false;
+	if (!hasBiometricUnlock()) {
+		localStorage.setItem("browos-lock-startup", "off");
+		lockStartupToggle.checked = false;
+	}
 
 	showPinState();
 
 	pinFeedback("PIN removed.", true);
 });
+
+// Settings: Hardware Fingerprint Controls
+const bioStatusEl = document.getElementById("biometricStatus");
+const bioEnrollBtn = document.getElementById("biometricEnrollBtn");
+const bioRemoveBtn = document.getElementById("biometricRemoveBtn");
+const bioAutoToggle = document.getElementById("biometricAutoToggle");
+const bioMessageEl = document.getElementById("biometricMessage");
+
+function refreshBiometricSettingsUI() {
+	const enrolled = hasBiometricUnlock();
+	if (bioStatusEl) {
+		bioStatusEl.textContent = enrolled
+			? "Device fingerprint / biometrics enabled"
+			: "Not configured (uses device hardware prompt)";
+	}
+	if (bioEnrollBtn) {
+		bioEnrollBtn.textContent = enrolled ? "Re-register Fingerprint" : "Set up Fingerprint";
+	}
+	if (bioRemoveBtn) {
+		bioRemoveBtn.hidden = !enrolled;
+	}
+	if (bioAutoToggle) {
+		bioAutoToggle.checked = enrolled && localStorage.getItem(BIOMETRIC_AUTO_KEY) !== "off";
+		bioAutoToggle.disabled = !enrolled;
+	}
+}
+
+refreshBiometricSettingsUI();
+
+if (bioEnrollBtn) {
+	bioEnrollBtn.addEventListener("click", async function () {
+		if (bioMessageEl) {
+			bioMessageEl.textContent = "Follow your device's fingerprint / biometric prompt…";
+			bioMessageEl.className = "pin-message";
+		}
+		try {
+			await enrollBiometricUnlock();
+			localStorage.setItem(BIOMETRIC_AUTO_KEY, "on");
+			refreshBiometricSettingsUI();
+			if (bioMessageEl) {
+				bioMessageEl.textContent = "Hardware fingerprint registered.";
+				bioMessageEl.className = "pin-message good";
+			}
+		} catch (err) {
+			if (bioMessageEl) {
+				bioMessageEl.textContent = err && err.message ? err.message : "Could not register fingerprint.";
+				bioMessageEl.className = "pin-message";
+			}
+		}
+	});
+}
+
+if (bioRemoveBtn) {
+	bioRemoveBtn.addEventListener("click", function () {
+		removeBiometricUnlock();
+		refreshBiometricSettingsUI();
+		if (bioMessageEl) {
+			bioMessageEl.textContent = "Fingerprint unlock removed.";
+			bioMessageEl.className = "pin-message good";
+		}
+	});
+}
+
+if (bioAutoToggle) {
+	bioAutoToggle.addEventListener("change", function () {
+		localStorage.setItem(BIOMETRIC_AUTO_KEY, bioAutoToggle.checked ? "on" : "off");
+	});
+}
 
 const lockStartupToggle = document.getElementById("lockStartupToggle");
 const saverToggle = document.getElementById("saverToggle");
@@ -793,10 +997,10 @@ const saverLockToggle = document.getElementById("saverLockToggle");
 lockStartupToggle.checked = localStorage.getItem("browos-lock-startup") === "on";
 
 lockStartupToggle.addEventListener("change", function () {
-	if (lockStartupToggle.checked && !hasPin()) {
+	if (lockStartupToggle.checked && !hasPin() && !hasBiometricUnlock()) {
 		lockStartupToggle.checked = false;
 
-		pinFeedback("Set a PIN first.");
+		pinFeedback("Set a PIN or Fingerprint first.");
 
 		return;
 	}
@@ -812,7 +1016,6 @@ saverToggle.addEventListener("change", function () {
 
 saverMinutesSelect.value = String(saverMinutes());
 
-// a saved value that isn't in the list falls back to the default
 if (saverMinutesSelect.value === "") {
 	saverMinutesSelect.value = "10";
 }
@@ -840,15 +1043,16 @@ document.getElementById("saverPreview").addEventListener("click", function () {
 showPinState();
 
 // Startup: stay locked after a refresh, or lock when BrowOS opens
-
-if (sessionStorage.getItem("browos-locked") === "1" || (hasPin() && localStorage.getItem("browos-lock-startup") === "on")) {
+if (
+	sessionStorage.getItem("browos-locked") === "1" ||
+	((hasPin() || hasBiometricUnlock()) && localStorage.getItem("browos-lock-startup") === "on")
+) {
 	lockScreen();
 }
 
 // Start menu: Lock
-
 document.getElementById("lockMenuItem").addEventListener("click", function () {
-	closeStartMenu();
+	if (typeof closeStartMenu === "function") closeStartMenu();
 
 	lockScreen();
 });
