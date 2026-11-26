@@ -11,6 +11,8 @@ const SDK_FEATURES = {
 	openApp: "Open other apps",
 	keepAwake: "Keep the screen from locking or sleeping",
 	files: "Save and read data in local storage",
+	media: "Control and display media playback in Quick Settings & BrowOS Bubble",
+	bubble: "Show a custom card in BrowOS Bubble",
 };
 
 function sdkGrants() {
@@ -49,12 +51,13 @@ function sdkAppOf(source) {
 	return {
 		id: appWindow.dataset.appId || "unknown-app",
 		name: appWindow.dataset.appName || "App",
+		icon: appWindow.dataset.appIcon || "icons/browos-logo.png",
+		frame: frame,
 	};
 }
 
 let sdkAsking = Promise.resolve();
 
-// one question at a time, so a busy app can't bury the person in dialogs
 function sdkAllowed(app, feature) {
 	const grants = sdkGrants();
 
@@ -162,7 +165,6 @@ function sdkWriteAppStore(appId, storeObj) {
 	}
 }
 
-// Optional non-blocking mirror to virtual Files app if filestore.js is active
 function sdkMirrorToVirtualFiles(app, fileName, content, remove) {
 	try {
 		if (typeof fileList !== "function" || typeof fileMkdir !== "function") {
@@ -202,10 +204,27 @@ function sdkMirrorToVirtualFiles(app, fileName, content, remove) {
 	} catch (e) {}
 }
 
+// Send media control commands back to the active app frame
+window.sdkSendMediaAction = function (appId, action) {
+	const frame = Array.from(document.querySelectorAll(".app-window iframe")).find(function (item) {
+		const win = item.closest(".app-window");
+		return win && win.dataset.appId === appId;
+	});
+	if (!frame || !frame.contentWindow) {
+		return false;
+	}
+	try {
+		frame.contentWindow.postMessage({ browos: 1, event: "media-action", action: action }, "*");
+		return true;
+	} catch (e) {
+		return false;
+	}
+};
+
 const sdkMethods = {
 	hello: function () {
 		return {
-			version: 1,
+			version: 2,
 			theme: document.documentElement.classList.contains("light-mode") ? "light" : "dark",
 			accent: document.documentElement.style.getPropertyValue("--accent") || "",
 			features: Object.keys(SDK_FEATURES),
@@ -231,6 +250,68 @@ const sdkMethods = {
 		feature: "keepAwake",
 		run: function (app, args) {
 			idleKeepAwake("sdk-" + app.id, Boolean(args[0]));
+			return true;
+		},
+	},
+
+	// Media playback bridge (Quick Settings + BrowOS Bubble)
+	"media.update": {
+		feature: "media",
+		run: function (app, args) {
+			const info = args[0] && typeof args[0] === "object" ? args[0] : {};
+			if (window.browosApi && window.browosApi.media) {
+				window.browosApi.media.update({
+					appId: app.id,
+					appName: app.name,
+					title: String(info.title || app.name).slice(0, 90),
+					artist: String(info.artist || app.name).slice(0, 90),
+					playing: Boolean(info.playing),
+					canNext: info.canNext !== false,
+					canPrev: info.canPrev !== false,
+					onAction: function (act) {
+						window.sdkSendMediaAction(app.id, act);
+					},
+				});
+			}
+			return true;
+		},
+	},
+
+	"media.stop": {
+		feature: "media",
+		run: function (app) {
+			if (window.browosApi && window.browosApi.media) {
+				window.browosApi.media.clear(app.id);
+			}
+			return true;
+		},
+	},
+
+	// BrowOS Bubble custom HTML card bridge
+	"bubble.showCard": {
+		feature: "bubble",
+		run: function (app, args) {
+			const spec = args[0] && typeof args[0] === "object" ? args[0] : {};
+			if (window.browosApi && window.browosApi.bubble) {
+				window.browosApi.bubble.showCard({
+					id: app.id + ":" + String(spec.id || "main").slice(0, 40),
+					appId: app.id,
+					appName: app.name,
+					title: String(spec.title || app.name).slice(0, 50),
+					html: String(spec.html || "").slice(0, 6000),
+				});
+			}
+			return true;
+		},
+	},
+
+	"bubble.hideCard": {
+		feature: "bubble",
+		run: function (app, args) {
+			const cardKey = app.id + ":" + String(args[0] || "main").slice(0, 40);
+			if (window.browosApi && window.browosApi.bubble) {
+				window.browosApi.bubble.hideCard(cardKey);
+			}
 			return true;
 		},
 	},
