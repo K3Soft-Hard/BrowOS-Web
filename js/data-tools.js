@@ -1,151 +1,240 @@
-// Backup: export and import everything BrowOS keeps in this browser
+// Complete Backup Export & Import (all localStorage keys, app folders, settings, and IndexedDB snapshots)
 
-const exportButton = document.getElementById("exportButton");
-const importInput = document.getElementById("importInput");
-const dataMessage = document.getElementById("dataMessage");
+(function () {
+	const exportButton = document.getElementById("exportButton");
+	const importInput = document.getElementById("importInput");
+	const dataMessage = document.getElementById("dataMessage");
 
-function dataFeedback(text, good) {
-	dataMessage.textContent = text;
-
-	dataMessage.className = "data-message" + (good ? " good" : "");
-}
-
-exportButton.addEventListener("click", function () {
-	const data = {};
-
-	for (let index = 0; index < localStorage.length; index++) {
-		const key = localStorage.key(index);
-
-		data[key] = localStorage.getItem(key);
+	function showDataStatus(text, isGood) {
+		if (!dataMessage) return;
+		dataMessage.textContent = text;
+		dataMessage.style.color = isGood ? "#4ade80" : "#f87171";
 	}
 
-	const backup = {
-		app: "BrowOS",
-		version: 1,
-		exportedAt: new Date().toISOString(),
-		data: data,
-	};
-
-	const blob = new Blob([JSON.stringify(backup)], { type: "application/json" });
-
-	const link = document.createElement("a");
-
-	link.href = URL.createObjectURL(blob);
-
-	link.download = "browos-backup-" + new Date().toISOString().slice(0, 10) + ".json";
-
-	document.body.appendChild(link);
-
-	link.click();
-
-	link.remove();
-
-	setTimeout(function () {
-		URL.revokeObjectURL(link.href);
-	}, 10000);
-
-	dataFeedback(
-		Object.keys(data).length + " items saved. Notepad's snapshot history is not included.",
-		true
-	);
-});
-
-importInput.addEventListener("change", function () {
-	const file = importInput.files[0];
-
-	importInput.value = "";
-
-	if (!file) {
-		return;
-	}
-
-	if (file.size > 20 * 1024 * 1024) {
-		dataFeedback("That file is too big to be a BrowOS backup.");
-
-		return;
-	}
-
-	const reader = new FileReader();
-
-	reader.onload = function () {
-		let backup;
-
-		try {
-			backup = JSON.parse(reader.result);
-		} catch (error) {
-			dataFeedback("That file isn't a BrowOS backup (it can't be read).");
-
-			return;
+	async function dumpAllIndexedDB() {
+		const result = {};
+		if (!window.indexedDB || typeof indexedDB.databases !== "function") {
+			return result;
 		}
 
-		const valid =
-			backup &&
-			backup.app === "BrowOS" &&
-			backup.data &&
-			typeof backup.data === "object" &&
-			!Array.isArray(backup.data) &&
-			Object.keys(backup.data).every(function (key) {
-				return typeof backup.data[key] === "string";
-			});
+		const dbInfos = await indexedDB.databases();
+		for (let i = 0; i < dbInfos.length; i++) {
+			const info = dbInfos[i];
+			if (!info || !info.name) continue;
 
-		if (!valid) {
-			dataFeedback("That file isn't a BrowOS backup.");
-
-			return;
-		}
-
-		const count = Object.keys(backup.data).length;
-
-		if (
-			!confirm(
-				"Replace your current BrowOS settings and data with this backup (" +
-					count +
-					" items)? Your current ones will be lost."
-			)
-		) {
-			return;
-		}
-
-		// a copy of what is there now, in case the backup doesn't fit
-		const before = {};
-
-		for (let index = 0; index < localStorage.length; index++) {
-			const key = localStorage.key(index);
-
-			before[key] = localStorage.getItem(key);
-		}
-
-		try {
-			localStorage.clear();
-
-			Object.keys(backup.data).forEach(function (key) {
-				localStorage.setItem(key, backup.data[key]);
-			});
-		} catch (error) {
 			try {
-				localStorage.clear();
-
-				Object.keys(before).forEach(function (key) {
-					localStorage.setItem(key, before[key]);
+				const db = await new Promise(function (resolve, reject) {
+					const req = indexedDB.open(info.name);
+					req.onsuccess = function () { resolve(req.result); };
+					req.onerror = function () { reject(req.error); };
 				});
-			} catch (restoreError) {
-				// the old data was just there, so it fits again
+
+				const storeNames = Array.from(db.objectStoreNames || []);
+				if (!storeNames.length) {
+					db.close();
+					continue;
+				}
+
+				result[info.name] = {
+					version: db.version,
+					stores: {},
+				};
+
+				for (let s = 0; s < storeNames.length; s++) {
+					const storeName = storeNames[s];
+					const entries = await new Promise(function (resolve) {
+						try {
+							const tx = db.transaction(storeName, "readonly");
+							const store = tx.objectStore(storeName);
+							const items = [];
+							const cursorReq = store.openCursor();
+							cursorReq.onsuccess = function (e) {
+								const cursor = e.target.result;
+								if (cursor) {
+									items.push({
+										key: cursor.key,
+										value: cursor.value,
+									});
+									cursor.continue();
+								} else {
+									resolve(items);
+								}
+							};
+							cursorReq.onerror = function () { resolve(items); };
+						} catch (e) {
+							resolve([]);
+						}
+					});
+					result[info.name].stores[storeName] = entries;
+				}
+
+				db.close();
+			} catch (e) {}
+		}
+
+		return result;
+	}
+
+	async function restoreAllIndexedDB(idbDump) {
+		if (!idbDump || typeof idbDump !== "object" || !window.indexedDB) {
+			return;
+		}
+
+		const dbNames = Object.keys(idbDump);
+		for (let i = 0; i < dbNames.length; i++) {
+			const dbName = dbNames[i];
+			const spec = idbDump[dbName];
+			if (!spec || typeof spec.stores !== "object") continue;
+
+			const storeNames = Object.keys(spec.stores);
+			if (!storeNames.length) continue;
+
+			await new Promise(function (resolve) {
+				const delReq = indexedDB.deleteDatabase(dbName);
+				delReq.onsuccess = delReq.onerror = delReq.onblocked = resolve;
+			});
+
+			await new Promise(function (resolve) {
+				const openReq = indexedDB.open(dbName, spec.version || 1);
+				openReq.onupgradeneeded = function () {
+					const db = openReq.result;
+					storeNames.forEach(function (sName) {
+						if (!db.objectStoreNames.contains(sName)) {
+							db.createObjectStore(sName);
+						}
+					});
+				};
+				openReq.onsuccess = function () {
+					const db = openReq.result;
+					try {
+						const validStores = storeNames.filter(function (s) {
+							return db.objectStoreNames.contains(s);
+						});
+						if (!validStores.length) {
+							db.close();
+							resolve();
+							return;
+						}
+						const tx = db.transaction(validStores, "readwrite");
+						validStores.forEach(function (sName) {
+							const os = tx.objectStore(sName);
+							const list = Array.isArray(spec.stores[sName]) ? spec.stores[sName] : [];
+							list.forEach(function (entry) {
+								if (entry && entry.key !== undefined) {
+									try {
+										os.put(entry.value, entry.key);
+									} catch (e) {}
+								}
+							});
+						});
+						tx.oncomplete = tx.onerror = tx.onabort = function () {
+							db.close();
+							resolve();
+						};
+					} catch (e) {
+						db.close();
+						resolve();
+					}
+				};
+				openReq.onerror = function () {
+					resolve();
+				};
+			});
+		}
+	}
+
+	if (exportButton) {
+		exportButton.addEventListener("click", async function () {
+			try {
+				showDataStatus("Preparing full backup…", true);
+
+				// Flush active profile state to IndexedDB if profiles.js helper exists
+				if (typeof saveCurrentProfileSnapshot === "function") {
+					try {
+						await saveCurrentProfileSnapshot();
+					} catch (e) {}
+				}
+
+				const localDump = {};
+				for (let i = 0; i < localStorage.length; i++) {
+					const k = localStorage.key(i);
+					if (k !== null) {
+						localDump[k] = localStorage.getItem(k);
+					}
+				}
+
+				const idbDump = await dumpAllIndexedDB();
+
+				const payload = {
+					app: "BrowOS",
+					backupVersion: 2,
+					exportedAt: new Date().toISOString(),
+					localStorageCount: Object.keys(localDump).length,
+					data: localDump,
+					indexedDB: idbDump,
+				};
+
+				const jsonStr = JSON.stringify(payload, null, 2);
+				const blob = new Blob([jsonStr], { type: "application/json" });
+				const url = URL.createObjectURL(blob);
+				const a = document.createElement("a");
+				const stamp = new Date().toISOString().slice(0, 10);
+				a.href = url;
+				a.download = "browos-full-backup-" + stamp + ".json";
+				document.body.appendChild(a);
+				a.click();
+				a.remove();
+				setTimeout(function () {
+					URL.revokeObjectURL(url);
+				}, 2000);
+
+				showDataStatus(
+					"Exported " + Object.keys(localDump).length + " storage items, app folders, and all settings.",
+					true
+				);
+			} catch (err) {
+				showDataStatus("Export failed: " + (err && err.message ? err.message : "Unknown error"), false);
+			}
+		});
+	}
+
+	if (importInput) {
+		importInput.addEventListener("change", async function () {
+			const file = importInput.files && importInput.files[0];
+			importInput.value = "";
+			if (!file) return;
+
+			if (!confirm("Import this backup? Current settings, files, and app data will be replaced and BrowOS will reload.")) {
+				return;
 			}
 
-			dataFeedback("The backup doesn't fit in this browser's storage, so nothing was changed.");
+			try {
+				const rawText = await file.text();
+				const parsed = JSON.parse(rawText);
+				const records = parsed && typeof parsed.data === "object" && !Array.isArray(parsed.data) ? parsed.data : parsed;
 
-			return;
-		}
+				if (!records || typeof records !== "object" || Array.isArray(records)) {
+					throw new Error("Invalid BrowOS backup format.");
+				}
 
-		// everything starts again from the restored data
-		sessionStorage.removeItem("browos-locked");
+				localStorage.clear();
+				Object.keys(records).forEach(function (k) {
+					if (typeof records[k] === "string") {
+						localStorage.setItem(k, records[k]);
+					}
+				});
 
-		location.reload();
-	};
+				if (parsed && parsed.indexedDB && typeof parsed.indexedDB === "object") {
+					await restoreAllIndexedDB(parsed.indexedDB);
+				}
 
-	reader.onerror = function () {
-		dataFeedback("That file couldn't be read.");
-	};
-
-	reader.readAsText(file);
-});
+				showDataStatus("Backup restored. Reloading BrowOS…", true);
+				setTimeout(function () {
+					location.reload();
+				}, 600);
+			} catch (err) {
+				showDataStatus("Import failed: " + (err && err.message ? err.message : "Invalid file"), false);
+			}
+		});
+	}
+})();
