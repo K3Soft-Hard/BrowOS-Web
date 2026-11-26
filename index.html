@@ -69,7 +69,7 @@
 		}
 
 		/* =========================================================
-		   DESKTOP, WINDOW & FLYOUT ANIMATIONS (NO EXTRA BAR)
+		   DESKTOP & FLYOUT ANIMATIONS (NO WINDOW TRANSFORM OVERRIDE)
 		   ========================================================= */
 		.desktop-area,
 		.widget-layer {
@@ -80,21 +80,6 @@
 		.desktop-shell.bos-desktop-switching .widget-layer {
 			opacity: 0.35;
 			transform: scale(0.982) translateY(5px);
-		}
-
-		.app-window.show {
-			animation: bosWindowOpen 0.24s cubic-bezier(0.22, 1, 0.36, 1);
-		}
-
-		@keyframes bosWindowOpen {
-			from {
-				opacity: 0;
-				transform: scale(0.96) translateY(8px);
-			}
-			to {
-				opacity: 1;
-				transform: scale(1) translateY(0);
-			}
 		}
 
 		.taskbar-apps button,
@@ -273,13 +258,11 @@
 
 		.bos-qs-media-controls button {
 			flex: 1;
-			height: 32px;
-			border-radius: 9px;
+			height: 34px;
+			border-radius: 10px;
 			border: 1px solid rgba(255, 255, 255, 0.14);
 			background: rgba(255, 255, 255, 0.08);
 			color: inherit;
-			font-size: 12.5px;
-			font-weight: 600;
 			cursor: pointer;
 			display: inline-flex;
 			align-items: center;
@@ -287,12 +270,23 @@
 			transition: background 0.14s ease, transform 0.12s ease;
 		}
 
+		html.light-mode .bos-qs-media-controls button {
+			border-color: rgba(15, 23, 42, 0.12);
+			background: rgba(15, 23, 42, 0.06);
+		}
+
+		.bos-qs-media-controls button svg {
+			width: 15px;
+			height: 15px;
+			fill: currentColor;
+		}
+
 		.bos-qs-media-controls button:hover:not(:disabled) {
 			background: rgba(255, 255, 255, 0.16);
 		}
 
 		.bos-qs-media-controls button:active:not(:disabled) {
-			transform: scale(0.95);
+			transform: scale(0.94);
 		}
 
 		.bos-qs-media-controls button.play-btn {
@@ -302,7 +296,7 @@
 		}
 
 		/* =========================================================
-		   BROWOS BUBBLE (APPLE-STYLED SPRING DYNAMIC ISLAND)
+		   BROWOS BUBBLE (COLOR-TINTED FROSTED GLASS + SPRING MOTION)
 		   ========================================================= */
 		#bosBubbleTriggerZone {
 			position: fixed;
@@ -329,20 +323,20 @@
 			width: 52px;
 			height: 5px;
 			border-radius: 999px;
-			background: rgba(255, 255, 255, 0.26);
+			background: rgba(255, 255, 255, 0.28);
 			backdrop-filter: blur(10px);
 			-webkit-backdrop-filter: blur(10px);
-			opacity: 0.45;
-			transition: width 0.34s cubic-bezier(0.32, 1.25, 0.45, 1), height 0.28s ease, opacity 0.24s ease, background 0.24s ease;
+			opacity: 0.48;
+			transition: width 0.36s cubic-bezier(0.28, 1.32, 0.42, 1), height 0.28s ease, opacity 0.24s ease, background 0.28s ease;
 			pointer-events: none;
 		}
 
 		#bosBubbleTriggerZone:hover .bos-bubble-notch-pill,
 		#bosBubbleTriggerZone.has-activity .bos-bubble-notch-pill {
-			width: 82px;
+			width: 84px;
 			height: 6px;
-			opacity: 0.92;
-			background: rgba(255, 255, 255, 0.65);
+			opacity: 0.95;
+			background: linear-gradient(90deg, var(--accent, #2196f3), #a855f7, #ec4899);
 		}
 
 		#bosBubbleBackdrop {
@@ -361,17 +355,17 @@
 			position: fixed;
 			top: 10px;
 			left: 50%;
-			transform: translateX(-50%) translateY(-22px) scaleX(0.36) scaleY(0.28);
+			transform: translateX(-50%) translateY(-28px) scaleX(0.32) scaleY(0.24);
 			transform-origin: top center;
 			z-index: 146000;
 			width: min(392px, calc(100vw - 24px));
 			opacity: 0;
 			pointer-events: none;
-			filter: blur(8px);
+			filter: blur(10px);
 			transition:
-				transform 0.46s cubic-bezier(0.32, 1.22, 0.44, 1),
+				transform 0.52s cubic-bezier(0.26, 1.34, 0.42, 1),
 				opacity 0.24s cubic-bezier(0.22, 1, 0.36, 1),
-				filter 0.3s ease;
+				filter 0.32s ease;
 		}
 
 		#bosBubbleHost.open {
@@ -382,14 +376,18 @@
 		}
 
 		#bosBubbleCard {
+			position: relative;
 			border-radius: 26px;
-			background: var(--bos-win-glass-bg, rgba(22, 22, 30, 0.72));
-			backdrop-filter: blur(var(--bos-win-glass-blur, 24px)) saturate(185%);
-			-webkit-backdrop-filter: blur(var(--bos-win-glass-blur, 24px)) saturate(185%);
-			border: 1px solid rgba(255, 255, 255, 0.17);
+			background:
+				linear-gradient(135deg, rgba(168, 85, 247, 0.14) 0%, rgba(59, 130, 246, 0.1) 50%, rgba(236, 72, 153, 0.12) 100%),
+				var(--bos-win-glass-bg, rgba(22, 22, 30, 0.74));
+			backdrop-filter: blur(var(--bos-win-glass-blur, 24px)) saturate(190%);
+			-webkit-backdrop-filter: blur(var(--bos-win-glass-blur, 24px)) saturate(190%);
+			border: 1px solid rgba(255, 255, 255, 0.2);
 			box-shadow:
-				0 24px 56px rgba(0, 0, 0, 0.56),
-				inset 0 1px 0 rgba(255, 255, 255, 0.16);
+				0 24px 58px rgba(0, 0, 0, 0.58),
+				0 0 0 1px rgba(168, 85, 247, 0.16),
+				inset 0 1px 0 rgba(255, 255, 255, 0.2);
 			color: #f8fafc;
 			padding: 13px 16px 12px;
 			display: flex;
@@ -397,15 +395,40 @@
 			gap: 10px;
 			touch-action: pan-y;
 			overflow: hidden;
+			transition: background 0.3s ease, border-color 0.3s ease;
 		}
 
 		html.light-mode #bosBubbleCard {
-			background: rgba(248, 249, 252, 0.84);
+			background:
+				linear-gradient(135deg, rgba(168, 85, 247, 0.12) 0%, rgba(59, 130, 246, 0.08) 50%, rgba(236, 72, 153, 0.1) 100%),
+				rgba(248, 249, 252, 0.86);
 			color: #111827;
 			border-color: rgba(15, 23, 42, 0.14);
 			box-shadow:
 				0 20px 48px rgba(15, 23, 42, 0.2),
-				inset 0 1px 0 rgba(255, 255, 255, 0.75);
+				inset 0 1px 0 rgba(255, 255, 255, 0.8);
+		}
+
+		/* Bubble Quick Note color themes */
+		#bosBubbleCard[data-note-tint="amber"] {
+			background: linear-gradient(135deg, rgba(245, 158, 11, 0.26), rgba(217, 119, 6, 0.16)), var(--bos-win-glass-bg, rgba(22, 22, 30, 0.74));
+			border-color: rgba(251, 191, 36, 0.36);
+		}
+		#bosBubbleCard[data-note-tint="mint"] {
+			background: linear-gradient(135deg, rgba(16, 185, 129, 0.24), rgba(5, 150, 105, 0.15)), var(--bos-win-glass-bg, rgba(22, 22, 30, 0.74));
+			border-color: rgba(52, 211, 153, 0.34);
+		}
+		#bosBubbleCard[data-note-tint="sky"] {
+			background: linear-gradient(135deg, rgba(59, 130, 246, 0.26), rgba(14, 165, 233, 0.16)), var(--bos-win-glass-bg, rgba(22, 22, 30, 0.74));
+			border-color: rgba(96, 165, 250, 0.36);
+		}
+		#bosBubbleCard[data-note-tint="rose"] {
+			background: linear-gradient(135deg, rgba(244, 63, 94, 0.26), rgba(236, 72, 153, 0.16)), var(--bos-win-glass-bg, rgba(22, 22, 30, 0.74));
+			border-color: rgba(251, 113, 133, 0.36);
+		}
+		#bosBubbleCard[data-note-tint="violet"] {
+			background: linear-gradient(135deg, rgba(139, 92, 246, 0.28), rgba(168, 85, 247, 0.16)), var(--bos-win-glass-bg, rgba(22, 22, 30, 0.74));
+			border-color: rgba(192, 132, 252, 0.36);
 		}
 
 		.bos-bubble-topbar {
@@ -422,79 +445,45 @@
 		.bos-bubble-title-group {
 			display: flex;
 			align-items: center;
-			gap: 6px;
+			gap: 7px;
 			min-width: 0;
 		}
 
 		.bos-bubble-tag {
 			font-size: 10.5px;
-			font-weight: 500;
-			padding: 1px 7px;
+			font-weight: 600;
+			padding: 2px 8px;
 			border-radius: 999px;
-			background: rgba(255, 255, 255, 0.1);
-			opacity: 0.75;
+			background: rgba(255, 255, 255, 0.12);
+			opacity: 0.85;
 		}
 
 		html.light-mode .bos-bubble-tag {
 			background: rgba(15, 23, 42, 0.08);
 		}
 
-		.bos-bubble-nav {
-			display: flex;
-			align-items: center;
-			gap: 4px;
-		}
-
-		.bos-bubble-nav button {
-			width: 25px;
-			height: 25px;
-			border-radius: 999px;
-			border: 1px solid rgba(255, 255, 255, 0.12);
-			background: rgba(255, 255, 255, 0.07);
-			color: inherit;
-			font-size: 12px;
-			cursor: pointer;
-			display: inline-flex;
-			align-items: center;
-			justify-content: center;
-			transition: background 0.15s ease, transform 0.14s ease;
-		}
-
-		html.light-mode .bos-bubble-nav button {
-			border-color: rgba(15, 23, 42, 0.12);
-			background: rgba(15, 23, 42, 0.05);
-		}
-
-		.bos-bubble-nav button:hover {
-			background: rgba(255, 255, 255, 0.16);
-		}
-
-		.bos-bubble-nav button:active {
-			transform: scale(0.92);
-		}
-
 		.bos-bubble-body {
-			min-height: 76px;
+			min-height: 82px;
 			display: flex;
 			flex-direction: column;
 			justify-content: center;
 		}
 
 		.bos-bubble-body.slide-next {
-			animation: bosBubbleSlideNext 0.3s cubic-bezier(0.25, 1.12, 0.42, 1) both;
+			animation: bosBubbleSlideNext 0.34s cubic-bezier(0.24, 1.24, 0.42, 1) both;
 		}
 
 		.bos-bubble-body.slide-prev {
-			animation: bosBubbleSlidePrev 0.3s cubic-bezier(0.25, 1.12, 0.42, 1) both;
+			animation: bosBubbleSlidePrev 0.34s cubic-bezier(0.24, 1.24, 0.42, 1) both;
 		}
 
 		@keyframes bosBubbleSlideNext {
-			from { opacity: 0; transform: translateX(16px) scale(0.97); }
+			from { opacity: 0; transform: translateX(22px) scale(0.95); }
 			to { opacity: 1; transform: translateX(0) scale(1); }
 		}
 
 		@keyframes bosBubbleSlidePrev {
-			from { opacity: 0; transform: translateX(-16px) scale(0.97); }
+			from { opacity: 0; transform: translateX(-22px) scale(0.95); }
 			to { opacity: 1; transform: translateX(0) scale(1); }
 		}
 
@@ -502,19 +491,19 @@
 			display: flex;
 			align-items: center;
 			justify-content: center;
-			gap: 5px;
+			gap: 6px;
 			padding-top: 2px;
 		}
 
 		.bos-bubble-dot {
-			width: 6px;
-			height: 6px;
+			width: 7px;
+			height: 7px;
 			border-radius: 999px;
 			border: none;
 			padding: 0;
-			background: rgba(255, 255, 255, 0.26);
+			background: rgba(255, 255, 255, 0.28);
 			cursor: pointer;
-			transition: width 0.28s cubic-bezier(0.32, 1.25, 0.45, 1), background 0.2s ease;
+			transition: width 0.32s cubic-bezier(0.28, 1.32, 0.42, 1), background 0.24s ease;
 		}
 
 		html.light-mode .bos-bubble-dot {
@@ -522,8 +511,68 @@
 		}
 
 		.bos-bubble-dot.active {
+			width: 22px;
+			background: linear-gradient(90deg, var(--accent, #2196f3), #a855f7);
+		}
+
+		/* Bubble Quick Note */
+		.bos-bubble-note-box {
+			display: flex;
+			flex-direction: column;
+			gap: 8px;
+		}
+
+		.bos-bubble-note-input {
+			width: 100%;
+			min-height: 72px;
+			max-height: 140px;
+			resize: vertical;
+			border-radius: 12px;
+			border: 1px solid rgba(255, 255, 255, 0.16);
+			background: rgba(0, 0, 0, 0.22);
+			color: inherit;
+			font-family: inherit;
+			font-size: 13px;
+			line-height: 1.45;
+			padding: 8px 10px;
+			outline: none;
+		}
+
+		html.light-mode .bos-bubble-note-input {
+			background: rgba(255, 255, 255, 0.55);
+			border-color: rgba(15, 23, 42, 0.14);
+		}
+
+		.bos-bubble-note-input:focus {
+			border-color: var(--accent, #2196f3);
+		}
+
+		.bos-bubble-note-colors {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 6px;
+		}
+
+		.bos-bubble-note-swatches {
+			display: flex;
+			align-items: center;
+			gap: 6px;
+		}
+
+		.bos-bubble-note-swatch {
 			width: 18px;
-			background: var(--accent, #2196f3);
+			height: 18px;
+			border-radius: 50%;
+			border: 2px solid rgba(255, 255, 255, 0.28);
+			cursor: pointer;
+			padding: 0;
+			transition: transform 0.15s ease, border-color 0.15s ease;
+		}
+
+		.bos-bubble-note-swatch.active {
+			transform: scale(1.18);
+			border-color: #ffffff;
 		}
 
 		/* Bubble Favorite Apps Grid (1-8 apps) */
@@ -563,9 +612,10 @@
 			transform: scale(0.94);
 		}
 
-		.bos-bubble-app-btn img {
-			width: 28px;
-			height: 28px;
+		.bos-bubble-app-btn img,
+		.bos-bubble-app-btn svg {
+			width: 26px;
+			height: 26px;
 			object-fit: contain;
 		}
 
@@ -576,12 +626,12 @@
 			text-overflow: ellipsis;
 		}
 
-		/* Bubble Card Order Manager inside Settings */
+		/* Bubble Card Order & App Block Manager inside Settings */
 		.bos-bubble-card-list {
 			display: flex;
 			flex-direction: column;
 			gap: 6px;
-			margin: 8px 0 12px;
+			margin: 8px 0 10px;
 		}
 
 		.bos-bubble-card-row {
@@ -620,6 +670,13 @@
 		.bos-bubble-card-row-actions button:disabled {
 			opacity: 0.35;
 			cursor: not-allowed;
+		}
+
+		.bos-bubble-blocked-apps {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 6px;
+			margin-top: 8px;
 		}
 
 		/* Preset CSS for Custom App Cards inside BrowOS Bubble */
@@ -1189,19 +1246,14 @@
 	</div>
 	<div id="bosBubbleBackdrop"></div>
 
-	<!-- BrowOS Bubble (Apple-Styled Dynamic Island Container) -->
+	<!-- BrowOS Bubble (Clean Header, No Buttons, No Emojis, Swipe/Dot Switchable) -->
 	<div id="bosBubbleHost" role="region" aria-label="BrowOS Bubble">
 		<div id="bosBubbleCard">
 			<div class="bos-bubble-topbar">
 				<div class="bos-bubble-title-group">
 					<span id="bosBubbleCardTitle">Media</span>
-					<span class="bos-bubble-tag" id="bosBubbleCardCounter">1 / 2</span>
 				</div>
-				<div class="bos-bubble-nav">
-					<button type="button" id="bosBubblePrevBtn" title="Previous card" aria-label="Previous card">‹</button>
-					<button type="button" id="bosBubbleNextBtn" title="Next card" aria-label="Next card">›</button>
-					<button type="button" id="bosBubbleCloseBtn" title="Collapse" aria-label="Collapse">×</button>
-				</div>
+				<span class="bos-bubble-tag" id="bosBubbleCardCounter">1 / 3</span>
 			</div>
 			<div class="bos-bubble-body" id="bosBubbleBody"></div>
 			<div class="bos-bubble-dots" id="bosBubbleDots"></div>
@@ -1572,22 +1624,6 @@
 						</select>
 					</div>
 
-					<h3>BrowOS Bubble</h3>
-
-					<div class="setting-row">
-						<span>Activation mode (double-tap top center)</span>
-
-						<select id="bubbleModeSelect">
-							<option value="off" selected>Off</option>
-							<option value="desktop">Desktop only</option>
-							<option value="everywhere">Desktop &amp; inside any app</option>
-						</select>
-					</div>
-
-					<p class="settings-note">System cards can be toggled on/off and reordered below. App cards pushed via the SDK/API are ordered automatically after them.</p>
-
-					<div class="bos-bubble-card-list" id="bubbleSystemCardsConfig"></div>
-
 					<h3>Your looks</h3>
 
 					<div class="setting-row">
@@ -1725,6 +1761,37 @@
 
 							<input type="file" accept="image/png, image/gif, image/webp" id="cursorUpload" hidden>
 						</label>
+					</div>
+
+					<h3>BrowOS Bubble</h3>
+
+					<div class="setting-row">
+						<span>Open on top double-tap</span>
+
+						<select id="bubbleModeSelect">
+							<option value="off" selected>Off</option>
+							<option value="desktop">Desktop only</option>
+							<option value="everywhere">Desktop and apps</option>
+						</select>
+					</div>
+
+					<p class="settings-note">Choose which built-in cards appear and their order.</p>
+
+					<div class="bos-bubble-card-list" id="bubbleSystemCardsConfig"></div>
+
+					<div class="setting-row">
+						<span>App cards</span>
+
+						<select id="bubbleAppPolicySelect">
+							<option value="all" selected>Allow all apps</option>
+							<option value="selected">Block selected apps</option>
+							<option value="none">Block all apps</option>
+						</select>
+					</div>
+
+					<div id="bubbleBlockedAppsWrap" hidden>
+						<p class="settings-note">Tap apps to block from BrowOS Bubble:</p>
+						<div class="bos-bubble-blocked-apps" id="bubbleBlockedAppsList"></div>
 					</div>
 				</div>
 
@@ -2580,7 +2647,7 @@
 		<button class="flyout-link" id="notificationClear" hidden>Clear all</button>
 	</div>
 
-	<!-- Quick settings (+ OneUI-style Media Player Card) -->
+	<!-- Quick settings (+ OneUI-style Media Player Card with SVG Icons) -->
 	<div class="flyout quick-settings" id="quickSettings">
 		<div class="flyout-header">
 			<h3>Quick settings</h3>
@@ -2595,10 +2662,18 @@
 				<span class="bos-qs-media-badge" id="bosQsMediaBadge">Media</span>
 			</div>
 			<div class="bos-qs-media-controls">
-				<button type="button" id="bosQsMediaPrev" title="Previous">⏮</button>
-				<button type="button" class="play-btn" id="bosQsMediaPlayPause" title="Play / Pause">▶</button>
-				<button type="button" id="bosQsMediaNext" title="Next">⏭</button>
-				<button type="button" id="bosQsMediaStop" title="Stop">⏹</button>
+				<button type="button" id="bosQsMediaPrev" title="Previous" aria-label="Previous">
+					<svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+				</button>
+				<button type="button" class="play-btn" id="bosQsMediaPlayPause" title="Play / Pause" aria-label="Play or Pause">
+					<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+				</button>
+				<button type="button" id="bosQsMediaNext" title="Next" aria-label="Next">
+					<svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+				</button>
+				<button type="button" id="bosQsMediaStop" title="Stop" aria-label="Stop">
+					<svg viewBox="0 0 24 24"><path d="M6 6h12v12H6z"/></svg>
+				</button>
 			</div>
 		</div>
 
@@ -2784,7 +2859,20 @@
 		const BUBBLE_MODE_KEY = "browos-bubble-mode";
 		const BUBBLE_FAVS_KEY = "browos-bubble-favs";
 		const BUBBLE_SYS_CARDS_KEY = "browos-bubble-system-cards";
+		const BUBBLE_APP_POLICY_KEY = "browos-bubble-app-policy";
+		const BUBBLE_BLOCKED_APPS_KEY = "browos-bubble-blocked-apps";
+		const BUBBLE_NOTE_TEXT_KEY = "browos-bubble-note";
+		const BUBBLE_NOTE_COLOR_KEY = "browos-bubble-note-color";
 		const MENU_AUTOFOCUS_KEY = "browos-autofocus-menus";
+
+		const SVG_ICONS = {
+			prev: '<svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>',
+			play: '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>',
+			pause: '<svg viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>',
+			next: '<svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>',
+			stop: '<svg viewBox="0 0 24 24"><path d="M6 6h12v12H6z"/></svg>',
+			edit: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>',
+		};
 
 		function getProfilesMetaSafe() {
 			if (typeof profileMeta === "function") {
@@ -2960,7 +3048,7 @@
 		}
 
 		// =========================================================
-		// ONEUI-STYLE QUICK SETTINGS MEDIA CONTROLLER + DOM AUDIO/VIDEO SYNC
+		// ONEUI-STYLE MEDIA PLAYER + PERSISTENT PAUSE/RESUME FIX
 		// =========================================================
 		const qsMediaTitle = document.getElementById("bosQsMediaTitle");
 		const qsMediaArtist = document.getElementById("bosQsMediaArtist");
@@ -2970,6 +3058,8 @@
 		const qsMediaNext = document.getElementById("bosQsMediaNext");
 		const qsMediaStop = document.getElementById("bosQsMediaStop");
 
+		let trackedDomMedia = null;
+
 		function getCurrentMediaInfo() {
 			if (window.browosApi && window.browosApi.media) {
 				const st = window.browosApi.media.get();
@@ -2977,31 +3067,50 @@
 					return st;
 				}
 			}
+
+			// First check if any iframe currently has an actively playing <audio> or <video>
 			const frames = Array.from(document.querySelectorAll(".app-window iframe"));
 			for (let i = 0; i < frames.length; i++) {
 				try {
 					const doc = frames[i].contentDocument;
 					if (!doc) continue;
-					const el = Array.from(doc.querySelectorAll("audio, video")).find(function (m) {
+					const playingEl = Array.from(doc.querySelectorAll("audio, video")).find(function (m) {
 						return !m.paused && !m.ended;
 					});
-					if (el) {
+					if (playingEl) {
 						const win = frames[i].closest(".app-window");
-						const appName = win ? win.dataset.appName : "Media";
-						return {
-							active: true,
+						trackedDomMedia = {
+							el: playingEl,
+							win: win,
 							appId: win ? win.dataset.appId : "dom",
-							appName: appName,
-							title: el.title || appName + " Audio",
-							artist: appName,
-							playing: true,
-							canNext: false,
-							canPrev: false,
-							_domEl: el,
+							appName: win ? win.dataset.appName : "Media",
 						};
+						break;
 					}
 				} catch (e) {}
 			}
+
+			// Keep tracked DOM media available even when paused so user can resume it!
+			if (trackedDomMedia && trackedDomMedia.el) {
+				const el = trackedDomMedia.el;
+				const winOpen = !trackedDomMedia.win || trackedDomMedia.win.dataset.running;
+				if (el.isConnected && !el.ended && winOpen) {
+					return {
+						active: true,
+						appId: trackedDomMedia.appId,
+						appName: trackedDomMedia.appName,
+						title: el.title || trackedDomMedia.appName + " Audio",
+						artist: trackedDomMedia.appName,
+						playing: !el.paused,
+						canNext: false,
+						canPrev: false,
+						_domEl: el,
+					};
+				} else {
+					trackedDomMedia = null;
+				}
+			}
+
 			return {
 				active: false,
 				title: "Nothing playing",
@@ -3017,15 +3126,26 @@
 			const info = getCurrentMediaInfo();
 			if (info._domEl) {
 				if (cmd === "toggle") {
-					info._domEl.paused ? info._domEl.play().catch(function () {}) : info._domEl.pause();
+					if (info._domEl.paused) {
+						info._domEl.play().catch(function () {});
+					} else {
+						info._domEl.pause();
+					}
 				} else if (cmd === "stop") {
 					info._domEl.pause();
-					info._domEl.currentTime = 0;
+					try { info._domEl.currentTime = 0; } catch (e) {}
+					trackedDomMedia = null;
 				}
 				syncMediaWidgetsUI();
 				return;
 			}
 			if (window.browosApi && window.browosApi.media) {
+				if (cmd === "toggle") {
+					const st = window.browosApi.media.get();
+					if (st && st.active) {
+						window.browosApi.media.update({ playing: !st.playing });
+					}
+				}
 				window.browosApi.media.dispatch(cmd);
 			}
 		}
@@ -3034,17 +3154,27 @@
 			const info = getCurrentMediaInfo();
 			if (qsMediaTitle) qsMediaTitle.textContent = info.title || "Nothing playing";
 			if (qsMediaArtist) qsMediaArtist.textContent = info.artist || "No active media";
-			if (qsMediaBadge) qsMediaBadge.textContent = info.active ? (info.appName || "Playing") : "Media";
-			if (qsMediaPlayPause) qsMediaPlayPause.textContent = info.playing ? "⏸" : "▶";
+			if (qsMediaBadge) {
+				qsMediaBadge.textContent = info.active ? (info.playing ? (info.appName || "Playing") : "Paused") : "Media";
+			}
+			if (qsMediaPlayPause) {
+				qsMediaPlayPause.innerHTML = info.playing ? SVG_ICONS.pause : SVG_ICONS.play;
+			}
 			if (qsMediaPrev) qsMediaPrev.disabled = !info.canPrev;
 			if (qsMediaNext) qsMediaNext.disabled = !info.canNext;
 
 			const triggerZone = document.getElementById("bosBubbleTriggerZone");
 			if (triggerZone) {
-				triggerZone.classList.toggle("has-activity", Boolean(info.playing));
+				triggerZone.classList.toggle("has-activity", Boolean(info.active));
 			}
-			if (typeof renderBubbleCard === "function" && document.getElementById("bosBubbleHost").classList.contains("open")) {
-				renderBubbleCard("none");
+
+			// Update in-place if Bubble is open on the media card so typing in Quick Note isn't interrupted
+			const bubbleHostEl = document.getElementById("bosBubbleHost");
+			if (bubbleHostEl && bubbleHostEl.classList.contains("open")) {
+				const activeCard = getBubbleCards()[bubbleActiveIndex];
+				if (activeCard && activeCard.type === "media") {
+					renderBubbleCard("none");
+				}
 			}
 		}
 
@@ -3054,14 +3184,18 @@
 		if (qsMediaStop) qsMediaStop.onclick = function () { sendMediaCommand("stop"); };
 
 		document.addEventListener("bos-media-changed", syncMediaWidgetsUI);
-		setInterval(syncMediaWidgetsUI, 2000);
+		setInterval(syncMediaWidgetsUI, 1500);
 		syncMediaWidgetsUI();
 
 		// =========================================================
-		// BROWOS BUBBLE (APPLE-STYLED POP-OUT + REORDERABLE/TOGGLEABLE CARDS)
+		// BROWOS BUBBLE (CLEAN, ANIMATED, NOTE CARD & APP BLOCKING)
 		// =========================================================
 		const bubbleModeSelect = document.getElementById("bubbleModeSelect");
 		const bubbleSystemCardsConfigEl = document.getElementById("bubbleSystemCardsConfig");
+		const bubbleAppPolicySelect = document.getElementById("bubbleAppPolicySelect");
+		const bubbleBlockedAppsWrap = document.getElementById("bubbleBlockedAppsWrap");
+		const bubbleBlockedAppsList = document.getElementById("bubbleBlockedAppsList");
+
 		const bubbleTriggerZone = document.getElementById("bosBubbleTriggerZone");
 		const bubbleBackdrop = document.getElementById("bosBubbleBackdrop");
 		const bubbleHost = document.getElementById("bosBubbleHost");
@@ -3070,16 +3204,14 @@
 		const bubbleCardCounter = document.getElementById("bosBubbleCardCounter");
 		const bubbleBody = document.getElementById("bosBubbleBody");
 		const bubbleDots = document.getElementById("bosBubbleDots");
-		const bubblePrevBtn = document.getElementById("bosBubblePrevBtn");
-		const bubbleNextBtn = document.getElementById("bosBubbleNextBtn");
-		const bubbleCloseBtn = document.getElementById("bosBubbleCloseBtn");
 
 		let bubbleActiveIndex = 0;
 		let bubbleEditingFavs = false;
 
 		const DEFAULT_SYSTEM_CARDS = [
-			{ id: "sys-media", title: "Media Controller", type: "media", enabled: true },
+			{ id: "sys-media", title: "Media", type: "media", enabled: true },
 			{ id: "sys-apps", title: "Favorite Apps", type: "apps", enabled: true },
+			{ id: "sys-note", title: "Quick Note", type: "note", enabled: true },
 		];
 
 		function getSystemBubbleCardsConfig() {
@@ -3150,8 +3282,7 @@
 
 				const upBtn = document.createElement("button");
 				upBtn.type = "button";
-				upBtn.textContent = "↑";
-				upBtn.title = "Move up";
+				upBtn.textContent = "Up";
 				upBtn.disabled = idx === 0;
 				upBtn.onclick = function () {
 					const next = getSystemBubbleCardsConfig();
@@ -3163,8 +3294,7 @@
 
 				const downBtn = document.createElement("button");
 				downBtn.type = "button";
-				downBtn.textContent = "↓";
-				downBtn.title = "Move down";
+				downBtn.textContent = "Down";
 				downBtn.disabled = idx === list.length - 1;
 				downBtn.onclick = function () {
 					const next = getSystemBubbleCardsConfig();
@@ -3181,6 +3311,74 @@
 		}
 
 		renderBubbleSystemCardsSettings();
+
+		// App card blocking policy (all | selected | none)
+		function getBubbleAppPolicy() {
+			const p = localStorage.getItem(BUBBLE_APP_POLICY_KEY);
+			return p === "selected" || p === "none" ? p : "all";
+		}
+
+		function getBlockedBubbleApps() {
+			try {
+				const arr = JSON.parse(localStorage.getItem(BUBBLE_BLOCKED_APPS_KEY) || "[]");
+				return Array.isArray(arr) ? arr : [];
+			} catch (e) {
+				return [];
+			}
+		}
+
+		function saveBlockedBubbleApps(ids) {
+			localStorage.setItem(BUBBLE_BLOCKED_APPS_KEY, JSON.stringify(ids));
+			renderBlockedBubbleAppsUI();
+			if (bubbleHost && bubbleHost.classList.contains("open")) {
+				renderBubbleCard("none");
+			}
+		}
+
+		function renderBlockedBubbleAppsUI() {
+			const policy = getBubbleAppPolicy();
+			if (bubbleAppPolicySelect) {
+				bubbleAppPolicySelect.value = policy;
+			}
+			if (bubbleBlockedAppsWrap) {
+				bubbleBlockedAppsWrap.hidden = policy !== "selected";
+			}
+			if (!bubbleBlockedAppsList || policy !== "selected") {
+				return;
+			}
+
+			const blocked = new Set(getBlockedBubbleApps());
+			const catalog = window.browosApi ? window.browosApi.listApps() : [];
+			bubbleBlockedAppsList.innerHTML = "";
+
+			catalog.forEach(function (appItem) {
+				const isBlocked = blocked.has(appItem.id);
+				const chip = document.createElement("button");
+				chip.type = "button";
+				chip.textContent = (isBlocked ? "Blocked: " : "") + appItem.name;
+				chip.style.cssText =
+					"padding:5px 10px;border-radius:999px;font-size:12px;cursor:pointer;border:1px solid rgba(255,255,255,0.18);" +
+					(isBlocked ? "background:rgba(239,68,68,0.24);border-color:rgba(239,68,68,0.45);color:#fca5a5;" : "background:rgba(255,255,255,0.06);color:inherit;");
+				chip.onclick = function () {
+					const next = new Set(getBlockedBubbleApps());
+					if (next.has(appItem.id)) next.delete(appItem.id);
+					else next.add(appItem.id);
+					saveBlockedBubbleApps(Array.from(next));
+				};
+				bubbleBlockedAppsList.appendChild(chip);
+			});
+		}
+
+		if (bubbleAppPolicySelect) {
+			bubbleAppPolicySelect.addEventListener("change", function () {
+				localStorage.setItem(BUBBLE_APP_POLICY_KEY, bubbleAppPolicySelect.value);
+				renderBlockedBubbleAppsUI();
+				if (bubbleHost && bubbleHost.classList.contains("open")) {
+					renderBubbleCard("none");
+				}
+			});
+		}
+		renderBlockedBubbleAppsUI();
 
 		function getBubbleMode() {
 			const m = localStorage.getItem(BUBBLE_MODE_KEY);
@@ -3225,14 +3423,20 @@
 		updateBubbleTriggerVisibility();
 
 		function getBubbleCards() {
-			// System cards in user-defined order (only enabled ones), followed automatically by app cards
+			// System cards in user-defined order (only enabled ones), followed automatically by allowed app cards
 			const cards = getSystemBubbleCardsConfig()
 				.filter(function (c) { return c.enabled; })
 				.map(function (c) { return { id: c.id, title: c.title, type: c.type, isApp: false }; });
 
-			if (window.browosApi && window.browosApi.bubble) {
+			const policy = getBubbleAppPolicy();
+			const blockedSet = new Set(getBlockedBubbleApps());
+
+			if (policy !== "none" && window.browosApi && window.browosApi.bubble) {
 				const customList = window.browosApi.bubble.listCards();
 				customList.forEach(function (c) {
+					if (policy === "selected" && blockedSet.has(c.appId)) {
+						return;
+					}
 					cards.push({
 						id: c.id,
 						title: c.title || c.appName || "App",
@@ -3266,12 +3470,28 @@
 			return tpl.innerHTML;
 		}
 
+		function applyBubbleCardTint(card) {
+			if (!bubbleCardEl) return;
+			if (card && card.type === "note") {
+				const tint = localStorage.getItem(BUBBLE_NOTE_COLOR_KEY) || "default";
+				if (tint && tint !== "default") {
+					bubbleCardEl.dataset.noteTint = tint;
+				} else {
+					delete bubbleCardEl.dataset.noteTint;
+				}
+			} else {
+				delete bubbleCardEl.dataset.noteTint;
+			}
+		}
+
 		function renderBubbleCard(slideDir) {
 			const cards = getBubbleCards();
 			if (bubbleActiveIndex >= cards.length) bubbleActiveIndex = 0;
 			if (bubbleActiveIndex < 0) bubbleActiveIndex = cards.length - 1;
 
 			const current = cards[bubbleActiveIndex];
+			applyBubbleCardTint(current);
+
 			if (bubbleCardTitle) {
 				bubbleCardTitle.textContent = current.title;
 			}
@@ -3307,7 +3527,7 @@
 			if (current.type === "empty") {
 				const msg = document.createElement("div");
 				msg.style.cssText = "text-align:center;font-size:12.5px;opacity:0.74;padding:12px 0;";
-				msg.textContent = "All system cards are turned off. Enable cards in Settings → Personalization.";
+				msg.textContent = "No cards enabled. Turn on cards in Settings → Personalization.";
 				bubbleBody.appendChild(msg);
 				return;
 			}
@@ -3330,28 +3550,87 @@
 
 				const bPrev = document.createElement("button");
 				bPrev.type = "button";
-				bPrev.textContent = "⏮";
+				bPrev.title = "Previous";
+				bPrev.innerHTML = SVG_ICONS.prev;
 				bPrev.onclick = function () { sendMediaCommand("prev"); };
 
 				const bPlay = document.createElement("button");
 				bPlay.type = "button";
 				bPlay.className = "play-btn";
-				bPlay.textContent = info.playing ? "⏸" : "▶";
+				bPlay.title = info.playing ? "Pause" : "Play";
+				bPlay.innerHTML = info.playing ? SVG_ICONS.pause : SVG_ICONS.play;
 				bPlay.onclick = function () { sendMediaCommand("toggle"); };
 
 				const bNext = document.createElement("button");
 				bNext.type = "button";
-				bNext.textContent = "⏭";
+				bNext.title = "Next";
+				bNext.innerHTML = SVG_ICONS.next;
 				bNext.onclick = function () { sendMediaCommand("next"); };
 
 				const bStop = document.createElement("button");
 				bStop.type = "button";
-				bStop.textContent = "⏹";
+				bStop.title = "Stop";
+				bStop.innerHTML = SVG_ICONS.stop;
 				bStop.onclick = function () { sendMediaCommand("stop"); };
 
 				ctrlRow.append(bPrev, bPlay, bNext, bStop);
 				wrap.append(metaRow, ctrlRow);
 				bubbleBody.appendChild(wrap);
+				return;
+			}
+
+			if (current.type === "note") {
+				const noteBox = document.createElement("div");
+				noteBox.className = "bos-bubble-note-box";
+
+				const textarea = document.createElement("textarea");
+				textarea.className = "bos-bubble-note-input";
+				textarea.placeholder = "Write a quick note…";
+				textarea.value = localStorage.getItem(BUBBLE_NOTE_TEXT_KEY) || "";
+				textarea.addEventListener("input", function () {
+					localStorage.setItem(BUBBLE_NOTE_TEXT_KEY, textarea.value);
+				});
+
+				const colorBar = document.createElement("div");
+				colorBar.className = "bos-bubble-note-colors";
+
+				const swatches = document.createElement("div");
+				swatches.className = "bos-bubble-note-swatches";
+
+				const currentTint = localStorage.getItem(BUBBLE_NOTE_COLOR_KEY) || "default";
+				const noteThemes = [
+					{ id: "default", bg: "#2b2d3c", label: "Glass" },
+					{ id: "amber", bg: "#f59e0b", label: "Amber" },
+					{ id: "mint", bg: "#10b981", label: "Mint" },
+					{ id: "sky", bg: "#3b82f6", label: "Sky" },
+					{ id: "rose", bg: "#f43f5e", label: "Rose" },
+					{ id: "violet", bg: "#8b5cf6", label: "Violet" },
+				];
+
+				noteThemes.forEach(function (t) {
+					const sw = document.createElement("button");
+					sw.type = "button";
+					sw.className = "bos-bubble-note-swatch" + (currentTint === t.id ? " active" : "");
+					sw.style.background = t.bg;
+					sw.title = t.label;
+					sw.onclick = function () {
+						localStorage.setItem(BUBBLE_NOTE_COLOR_KEY, t.id);
+						swatches.querySelectorAll(".bos-bubble-note-swatch").forEach(function (s) {
+							s.classList.remove("active");
+						});
+						sw.classList.add("active");
+						applyBubbleCardTint(current);
+					};
+					swatches.appendChild(sw);
+				});
+
+				const savedHint = document.createElement("span");
+				savedHint.style.cssText = "font-size:11px;opacity:0.65;";
+				savedHint.textContent = "Auto-saved";
+
+				colorBar.append(swatches, savedHint);
+				noteBox.append(textarea, colorBar);
+				bubbleBody.appendChild(noteBox);
 				return;
 			}
 
@@ -3364,7 +3643,7 @@
 
 					const head = document.createElement("div");
 					head.style.cssText = "display:flex;align-items:center;justify-content:space-between;font-size:12px;";
-					head.innerHTML = "<span>Select 1–8 favorite apps (" + favIds.length + "/8)</span>";
+					head.innerHTML = "<span>Select 1–8 apps (" + favIds.length + "/8)</span>";
 
 					const doneBtn = document.createElement("button");
 					doneBtn.type = "button";
@@ -3384,9 +3663,9 @@
 						const active = favIds.includes(appItem.id);
 						const chip = document.createElement("button");
 						chip.type = "button";
-						chip.textContent = (active ? "✓ " : "+ ") + appItem.name;
+						chip.textContent = appItem.name;
 						chip.style.cssText =
-							"padding:4px 9px;border-radius:999px;font-size:11.5px;cursor:pointer;border:1px solid rgba(255,255,255,0.18);" +
+							"padding:4px 10px;border-radius:999px;font-size:11.5px;cursor:pointer;border:1px solid rgba(255,255,255,0.18);" +
 							(active ? "background:var(--accent,#2196f3);color:#fff;" : "background:rgba(255,255,255,0.06);color:inherit;");
 						chip.onclick = function () {
 							let next = getBubbleFavIds();
@@ -3434,7 +3713,7 @@
 				const editTile = document.createElement("button");
 				editTile.type = "button";
 				editTile.className = "bos-bubble-app-btn";
-				editTile.innerHTML = '<span style="font-size:16px;line-height:28px;">+</span><span>Edit (1–8)</span>';
+				editTile.innerHTML = SVG_ICONS.edit + "<span>Edit</span>";
 				editTile.onclick = function () {
 					bubbleEditingFavs = true;
 					renderBubbleCard("none");
@@ -3474,25 +3753,11 @@
 		}
 
 		if (bubbleBackdrop) bubbleBackdrop.onclick = closeBubble;
-		if (bubbleCloseBtn) bubbleCloseBtn.onclick = closeBubble;
-		if (bubblePrevBtn) {
-			bubblePrevBtn.onclick = function () {
-				bubbleActiveIndex--;
-				bubbleEditingFavs = false;
-				renderBubbleCard("prev");
-			};
-		}
-		if (bubbleNextBtn) {
-			bubbleNextBtn.onclick = function () {
-				bubbleActiveIndex++;
-				bubbleEditingFavs = false;
-				renderBubbleCard("next");
-			};
-		}
 
 		// Mouse wheel & touch swipe switching on BrowOS Bubble
 		if (bubbleCardEl) {
 			bubbleCardEl.addEventListener("wheel", function (e) {
+				if (e.target && e.target.tagName === "TEXTAREA") return;
 				if (Math.abs(e.deltaX) > 12 || Math.abs(e.deltaY) > 12) {
 					e.preventDefault();
 					const forward = (e.deltaX || e.deltaY) > 0;
@@ -3529,14 +3794,22 @@
 			let lastTapTime = 0;
 			bubbleTriggerZone.addEventListener("dblclick", function (e) {
 				e.preventDefault();
-				openBubble();
+				if (bubbleHost && bubbleHost.classList.contains("open")) {
+					closeBubble();
+				} else {
+					openBubble();
+				}
 			});
 			bubbleTriggerZone.addEventListener("touchend", function (e) {
 				const now = Date.now();
 				if (now - lastTapTime < 350) {
 					e.preventDefault();
 					lastTapTime = 0;
-					openBubble();
+					if (bubbleHost && bubbleHost.classList.contains("open")) {
+						closeBubble();
+					} else {
+						openBubble();
+					}
 				} else {
 					lastTapTime = now;
 				}
