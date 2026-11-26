@@ -221,6 +221,23 @@ window.sdkSendMediaAction = function (appId, action) {
 	}
 };
 
+// Send BrowOS Bubble card button/input actions back to the owning app frame
+window.sdkSendBubbleAction = function (appId, action, value) {
+	const frame = Array.from(document.querySelectorAll(".app-window iframe")).find(function (item) {
+		const win = item.closest(".app-window");
+		return win && win.dataset.appId === appId;
+	});
+	if (!frame || !frame.contentWindow) {
+		return false;
+	}
+	try {
+		frame.contentWindow.postMessage({ browos: 1, event: "bubble-action", action: action, value: value || "" }, "*");
+		return true;
+	} catch (e) {
+		return false;
+	}
+};
+
 const sdkMethods = {
 	hello: function () {
 		return {
