@@ -9,6 +9,7 @@
 	let nextId = 1;
 	const pending = new Map();
 	const mediaListeners = new Set();
+	const bubbleListeners = new Set();
 
 	const inFrame = (function () {
 		try {
@@ -76,6 +77,15 @@
 					fn(data.action);
 				} catch (e) {}
 			});
+			return;
+		}
+
+		if (data.event === "bubble-action" && typeof data.action === "string") {
+			bubbleListeners.forEach(function (fn) {
+				try {
+					fn(data.action, data.value || "");
+				} catch (e) {}
+			});
 		}
 	});
 
@@ -124,6 +134,14 @@
 			},
 			hideCard: function (cardId) {
 				return call("bubble.hideCard", [cardId || "main"]);
+			},
+			onAction: function (callback) {
+				if (typeof callback === "function") {
+					bubbleListeners.add(callback);
+				}
+				return function () {
+					bubbleListeners.delete(callback);
+				};
 			},
 		},
 
