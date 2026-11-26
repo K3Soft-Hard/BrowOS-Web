@@ -131,11 +131,11 @@ const appCatalog = [
 	},
 
 	{
-		id: "recoverbrow",
-		name: "Recover Brow",
+		id: "browchat",
+		name: "BrowChat",
 		category: "apps",
 		builtIn: true,
-		icon: "icons/recover-brow.png",
+		icon: "icons/browchat.png",
 		page: "apps/recoverbrow/index.html",
 		size: [980, 660],
 		credit: "Made for BrowOS",
