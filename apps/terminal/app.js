@@ -1,6 +1,6 @@
 // Terminal: a full Linux-style shell (bsh 3.0) for BrowOS.
-// Mounts the real BrowOS Files store at /files, supports isolated VMs (app-data only),
-// ephemeral no-cache/no-storage Visual BrowOS VM, and two-way BrowOS Bubble cards.
+// Mounts real BrowOS Files at /files, supports isolated CLI VMs,
+// named & ephemeral Visual BrowOS VMs (isolated from OS cache & CLI VMs), and BrowOS Bubble cards.
 
 const term = document.getElementById("term");
 const output = document.getElementById("output");
@@ -10,6 +10,7 @@ const promptEl = document.getElementById("prompt") || (input && input.previousEl
 const MAX_LINES = 1000;
 const STORAGE_VFS_KEY = "browos-terminal-vfs-v2";
 const STORAGE_VMS_KEY = "browos-terminal-vms-v1";
+const STORAGE_VISUAL_VMS_KEY = "browos-terminal-visual-vms-v1";
 const STORAGE_HISTORY_KEY = "browos-terminal-history-v1";
 const STORAGE_ALIASES_KEY = "browos-terminal-aliases-v1";
 const BOOT_TIME = Date.now();
@@ -19,10 +20,13 @@ let historyPosition = history.length;
 let activeAbortController = null;
 let editorSession = null;
 
-// Active isolated VM state (null = host BrowOS shell)
+// Active isolated CLI VM state (null = host BrowOS shell)
 let activeVmId = null;
 let hostSavedPwd = "/files";
 let hostSavedOldPwd = "/home/browos";
+
+// Tracks active Visual VM session for postMessage storage sync
+let activeVisualVmSession = null;
 
 // Tracks the active Bubble card so button/input actions can refresh it
 let activeBubbleState = {
@@ -156,7 +160,7 @@ function writeTodos(tasks) {
 }
 
 // ============================================================================
-// Isolated Virtual Machines Store (App-Data Only, Never Visible in /files)
+// Isolated CLI Virtual Filespaces (App-Data Only, Never Visible in /files)
 // ============================================================================
 
 let vmStore = loadJson(STORAGE_VMS_KEY, {});
@@ -192,10 +196,9 @@ function createVmTree(vmId) {
 			mode: "-rw-r--r--",
 			owner: "vm",
 			content:
-				"Isolated Virtual Filespace: " + vmId + "\n" +
-				"-----------------------------------------\n" +
-				"- Files inside this VM are stored privately in Terminal app data.\n" +
-				"- They do not appear in BrowOS Files (/files).\n" +
+				"Isolated CLI Virtual Filespace: " + vmId + "\n" +
+				"---------------------------------------------\n" +
+				"- Stored privately in Terminal app data (not visible in BrowOS Files).\n" +
 				"- Type 'exit' to return to the host BrowOS shell.\n" +
 				"- Run 'vm export " + vmId + "' on the host to export files out to /files.\n",
 		},
@@ -215,7 +218,7 @@ function createVmTree(vmId) {
 			mtime: now,
 			mode: "-rw-r--r--",
 			owner: "root",
-			content: "[" + new Date(now).toISOString() + "] VM '" + vmId + "' initialized.\n",
+			content: "[" + new Date(now).toISOString() + "] CLI VM '" + vmId + "' initialized.\n",
 		},
 	};
 }
@@ -248,7 +251,7 @@ function enterVm(rawId) {
 	envVars.OLDPWD = "/home/vm";
 	updatePromptDisplay();
 
-	print("Entered isolated VM '" + id + "' (app-data storage only). Type 'exit' to return to BrowOS.", "accent");
+	print("Entered isolated CLI VM '" + id + "' (app-data storage only). Type 'exit' to return to BrowOS.", "accent");
 	return true;
 }
 
@@ -273,23 +276,82 @@ function exitVm() {
 }
 
 // ============================================================================
-// Visual BrowOS VM (No Cache, Sandboxed Ephemeral RAM Storage, In-App Iframe)
+// Visual BrowOS VM Store (Separate Saved Snapshots + Ephemeral Mode, No Cache)
 // ============================================================================
+
+let visualVmStore = loadJson(STORAGE_VISUAL_VMS_KEY, {});
+if (!visualVmStore || typeof visualVmStore !== "object" || Array.isArray(visualVmStore)) {
+	visualVmStore = {};
+}
+
+function persistVisualVmStore() {
+	saveJson(STORAGE_VISUAL_VMS_KEY, visualVmStore);
+}
 
 let visualVmOverlayEl = null;
 
 function closeVisualVm() {
+	const closedId = activeVisualVmSession ? activeVisualVmSession.id : null;
+	activeVisualVmSession = null;
 	if (visualVmOverlayEl) {
 		visualVmOverlayEl.remove();
 		visualVmOverlayEl = null;
-		print("Closed Visual BrowOS VM (all session storage discarded).", "dim");
+		if (closedId) {
+			print("Closed Visual BrowOS VM '" + closedId + "' (virtual state saved separately).", "dim");
+		} else {
+			print("Closed ephemeral Visual BrowOS VM (session discarded).", "dim");
+		}
 	}
 	input.focus();
 }
 
-async function launchVisualBrowOSVm() {
+window.addEventListener("message", function (event) {
+	const data = event.data;
+	if (!data || data.browosVisualVm !== 1 || !activeVisualVmSession || !activeVisualVmSession.id) {
+		return;
+	}
+	if (data.token !== activeVisualVmSession.token) {
+		return;
+	}
+	if (data.type === "sync-storage" && data.storage && typeof data.storage === "object") {
+		const id = activeVisualVmSession.id;
+		if (!visualVmStore[id]) {
+			visualVmStore[id] = { id: id, created: Date.now(), updated: Date.now(), storage: {} };
+		}
+		visualVmStore[id].storage = data.storage;
+		visualVmStore[id].updated = Date.now();
+		persistVisualVmStore();
+	}
+});
+
+async function launchVisualBrowOSVm(rawVisualId) {
 	closeVisualVm();
-	print("Booting ephemeral Visual BrowOS VM (no cache, isolated RAM-only storage)...", "accent");
+
+	const visualId = rawVisualId ? cleanVmId(rawVisualId) : "";
+	const isPersistent = Boolean(visualId);
+
+	if (isPersistent) {
+		if (!visualVmStore[visualId]) {
+			visualVmStore[visualId] = {
+				id: visualId,
+				created: Date.now(),
+				updated: Date.now(),
+				storage: {},
+			};
+			persistVisualVmStore();
+			print("Created & booting saved Visual BrowOS VM '" + visualId + "' (no OS cache, isolated virtual storage)...", "accent");
+		} else {
+			print("Booting saved Visual BrowOS VM '" + visualId + "' (restoring its isolated virtual storage)...", "accent");
+		}
+	} else {
+		print("Booting ephemeral Visual BrowOS VM (no cache, resets on close/reboot)...", "accent");
+	}
+
+	const sessionToken = "vvm-" + Date.now() + "-" + Math.random().toString(36).slice(2, 8);
+	activeVisualVmSession = {
+		id: visualId || null,
+		token: sessionToken,
+	};
 
 	const overlay = document.createElement("div");
 	overlay.id = "bosVisualVmOverlay";
@@ -302,14 +364,33 @@ async function launchVisualBrowOSVm() {
 
 	const titleSpan = document.createElement("span");
 	titleSpan.style.fontWeight = "600";
-	titleSpan.textContent = "Visual VM: BrowOS (No Cache · Ephemeral RAM Storage)";
+	titleSpan.textContent = isPersistent
+		? "Visual VM: " + visualId + " (Saved Isolated Storage · No Cache)"
+		: "Visual VM: Ephemeral (Resets on Close · No Cache)";
 
 	const btnGroup = document.createElement("div");
 	btnGroup.style.cssText = "display:flex;align-items:center;gap:8px;";
 
+	if (isPersistent) {
+		const wipeBtn = document.createElement("button");
+		wipeBtn.type = "button";
+		wipeBtn.textContent = "Reset VM Storage";
+		wipeBtn.style.cssText =
+			"padding:4px 10px;border-radius:7px;border:1px solid rgba(251,191,36,0.4);background:rgba(245,158,11,0.16);color:#fcd34d;font-size:12px;cursor:pointer;";
+		wipeBtn.onclick = function () {
+			if (visualVmStore[visualId]) {
+				visualVmStore[visualId].storage = {};
+				visualVmStore[visualId].updated = Date.now();
+				persistVisualVmStore();
+			}
+			loadFreshVisualBrowOS();
+		};
+		btnGroup.appendChild(wipeBtn);
+	}
+
 	const rebootBtn = document.createElement("button");
 	rebootBtn.type = "button";
-	rebootBtn.textContent = "Reset & Reboot VM";
+	rebootBtn.textContent = isPersistent ? "Reboot VM" : "Reset & Reboot";
 	rebootBtn.style.cssText =
 		"padding:4px 10px;border-radius:7px;border:1px solid rgba(255,255,255,0.18);background:rgba(255,255,255,0.08);color:#fff;font-size:12px;cursor:pointer;";
 
@@ -324,7 +405,7 @@ async function launchVisualBrowOSVm() {
 	bar.append(titleSpan, btnGroup);
 
 	const iframe = document.createElement("iframe");
-	// Omit allow-same-origin so the VM gets an opaque origin and cannot touch host localStorage/IndexedDB/parent
+	// Omit allow-same-origin so the VM gets an opaque origin and cannot touch host localStorage/IndexedDB/CacheStorage
 	iframe.setAttribute("sandbox", "allow-scripts allow-forms allow-popups allow-modals");
 	iframe.style.cssText = "flex:1;width:100%;height:100%;border:none;background:#000;";
 
@@ -332,7 +413,7 @@ async function launchVisualBrowOSVm() {
 	document.body.appendChild(overlay);
 	visualVmOverlayEl = overlay;
 
-	async function loadFreshEphemeralBrowOS() {
+	async function loadFreshVisualBrowOS() {
 		try {
 			const baseUrl = new URL("../../index.html", window.location.href);
 			const fetchUrl = baseUrl.href + "?safemode=1&vm=1&nocache=" + Date.now();
@@ -342,12 +423,27 @@ async function launchVisualBrowOSVm() {
 			}
 			let html = await resp.text();
 
-			// Inject <base> for relative assets + ephemeral RAM-only storage shim so BrowOS runs with zero host storage
+			const initialSnapshot = isPersistent && visualVmStore[visualId] ? visualVmStore[visualId].storage || {} : {};
+			const serializedInit = JSON.stringify(initialSnapshot).replace(/<\/script/gi, "<\\/script");
+
+			// Inject <base> + virtual storage shim (syncs back to parent via postMessage if named ID is used)
 			const shimScript =
 				'<base href="' + baseUrl.href.replace(/"/g, "&quot;") + '">' +
 				"<script>(function(){" +
-				"function makeMemStore(){const m=new Map();return{get length(){return m.size;},key:function(i){return Array.from(m.keys())[i]||null;},getItem:function(k){return m.has(String(k))?m.get(String(k)):null;},setItem:function(k,v){m.set(String(k),String(v));},removeItem:function(k){m.delete(String(k));},clear:function(){m.clear();}};}" +
-				"const ls=makeMemStore(),ss=makeMemStore();" +
+				"const INIT_DATA=" + serializedInit + ";" +
+				"const PERSIST=" + (isPersistent ? "true" : "false") + ";" +
+				"const TOKEN=" + JSON.stringify(sessionToken) + ";" +
+				"let syncTimer=null;" +
+				"function scheduleSync(map){if(!PERSIST)return;clearTimeout(syncTimer);syncTimer=setTimeout(function(){const obj={};map.forEach(function(v,k){obj[k]=v;});try{window.parent.postMessage({browosVisualVm:1,type:'sync-storage',token:TOKEN,storage:obj},'*');}catch(e){}},180);}" +
+				"function makeStore(initial,withSync){const m=new Map(Object.entries(initial||{}));return{" +
+				"get length(){return m.size;}," +
+				"key:function(i){return Array.from(m.keys())[i]||null;}," +
+				"getItem:function(k){return m.has(String(k))?m.get(String(k)):null;}," +
+				"setItem:function(k,v){m.set(String(k),String(v));if(withSync)scheduleSync(m);}," +
+				"removeItem:function(k){m.delete(String(k));if(withSync)scheduleSync(m);}," +
+				"clear:function(){m.clear();if(withSync)scheduleSync(m);}" +
+				"};}" +
+				"const ls=makeStore(INIT_DATA,true),ss=makeStore({},false);" +
 				"try{Object.defineProperty(window,'localStorage',{value:ls,configurable:true});}catch(e){}" +
 				"try{Object.defineProperty(window,'sessionStorage',{value:ss,configurable:true});}catch(e){}" +
 				"try{Object.defineProperty(window,'indexedDB',{value:null,configurable:true});}catch(e){}" +
@@ -372,11 +468,8 @@ async function launchVisualBrowOSVm() {
 		}
 	}
 
-	rebootBtn.onclick = function () {
-		loadFreshEphemeralBrowOS();
-	};
-
-	await loadFreshEphemeralBrowOS();
+	rebootBtn.onclick = loadFreshVisualBrowOS;
+	await loadFreshVisualBrowOS();
 	return true;
 }
 
@@ -959,7 +1052,7 @@ function normalizeUrl(rawUrl) {
 }
 
 // ============================================================================
-// Shell Parser: Variables, Quotes, Pipes (|), Redirections (<, >, >>), Chains
+// Shell Parser
 // ============================================================================
 
 function expandVariables(text) {
@@ -1357,17 +1450,77 @@ const commands = {
 	},
 
 	// ------------------------------------------------------------------------
-	// Isolated Virtual Machines (App-Data Filespaces + Visual BrowOS VM)
+	// Isolated Virtual Machines (CLI Filespaces + Named/Ephemeral Visual VMs)
 	// ------------------------------------------------------------------------
 
 	vm: {
-		about: "manage isolated virtual filespaces & ephemeral Visual BrowOS VM",
-		usage: "vm <create <id> | enter <id> | exit | list | delete <id> | export <id> [folder] | move-out <id> [folder] | visual>",
+		about: "manage isolated CLI filespaces & saved/ephemeral Visual BrowOS VMs",
+		usage: "vm <create <id> | enter <id> | exit | list | delete <id> | export <id> | move-out <id> | visual [id] | visual-list | visual-reset <id> | visual-delete <id>>",
 		run: async function (args) {
 			const sub = (args[0] || "list").toLowerCase();
 
+			// Visual BrowOS VM commands (separate from OS cache and CLI filespaces)
 			if (sub === "visual" || sub === "os" || sub === "gui" || sub === "browos") {
-				return launchVisualBrowOSVm();
+				const subAction = (args[1] || "").toLowerCase();
+				if (subAction === "list" || subAction === "ls") {
+					return commands.vm.run(["visual-list"]);
+				}
+				if (subAction === "delete" || subAction === "rm") {
+					return commands.vm.run(["visual-delete", args[2]]);
+				}
+				if (subAction === "reset" || subAction === "wipe") {
+					return commands.vm.run(["visual-reset", args[2]]);
+				}
+				return launchVisualBrowOSVm(args[1] || "");
+			}
+
+			if (sub === "visual-list" || sub === "vlist") {
+				const ids = Object.keys(visualVmStore).sort();
+				if (!ids.length) {
+					print("No saved Visual BrowOS VMs. Boot one with: vm visual <id>", "dim");
+					return true;
+				}
+				print("VISUAL VM ID        KEYS    SIZE     UPDATED", "accent");
+				ids.forEach(function (id) {
+					const st = visualVmStore[id].storage || {};
+					const keys = Object.keys(st);
+					const bytes = JSON.stringify(st).length;
+					print(
+						id.padEnd(20) +
+							String(keys.length).padEnd(8) +
+							formatBytes(bytes, true).padEnd(9) +
+							formatDateShort(visualVmStore[id].updated)
+					);
+				});
+				return true;
+			}
+
+			if (sub === "visual-reset" || sub === "vreset") {
+				const id = cleanVmId(args[1]);
+				if (!id || !visualVmStore[id]) {
+					print("Usage: vm visual-reset <id>", "err");
+					return false;
+				}
+				visualVmStore[id].storage = {};
+				visualVmStore[id].updated = Date.now();
+				persistVisualVmStore();
+				print("Reset saved virtual storage for Visual VM '" + id + "'.", "accent");
+				return true;
+			}
+
+			if (sub === "visual-delete" || sub === "vdelete" || sub === "vrm") {
+				const id = cleanVmId(args[1]);
+				if (!id || !visualVmStore[id]) {
+					print("Usage: vm visual-delete <id>", "err");
+					return false;
+				}
+				if (activeVisualVmSession && activeVisualVmSession.id === id) {
+					closeVisualVm();
+				}
+				delete visualVmStore[id];
+				persistVisualVmStore();
+				print("Deleted saved Visual VM '" + id + "'.");
+				return true;
 			}
 
 			if (sub === "exit" || sub === "leave" || sub === "host") {
@@ -1381,10 +1534,10 @@ const commands = {
 			if (sub === "list" || sub === "ls") {
 				const ids = Object.keys(vmStore).sort();
 				if (!ids.length) {
-					print("No saved virtual filespaces. Create one with: vm create <id>", "dim");
+					print("No saved CLI virtual filespaces. Create one with: vm create <id>", "dim");
 					return true;
 				}
-				print("VM ID               FILES   SIZE     STATUS", "accent");
+				print("CLI VM ID           FILES   SIZE     STATUS", "accent");
 				ids.forEach(function (id) {
 					const tree = vmStore[id].tree || {};
 					let files = 0;
@@ -1424,7 +1577,7 @@ const commands = {
 					tree: createVmTree(id),
 				};
 				persistVmStore();
-				print("Created isolated virtual filespace '" + id + "' (stored in app data only).", "accent");
+				print("Created isolated CLI virtual filespace '" + id + "' (stored in app data only).", "accent");
 				if (args.includes("--enter") || args.includes("-e")) {
 					return enterVm(id);
 				}
@@ -1451,7 +1604,7 @@ const commands = {
 				}
 				delete vmStore[id];
 				persistVmStore();
-				print("Deleted virtual filespace '" + id + "'.");
+				print("Deleted CLI virtual filespace '" + id + "'.");
 				return true;
 			}
 
@@ -1482,7 +1635,6 @@ const commands = {
 
 				let exportedCount = 0;
 				filePaths.forEach(function (p) {
-					// Strip /home/vm prefix so Documents/foo.txt lands cleanly in destRoot/Documents/foo.txt
 					const relPath = p.startsWith("/home/vm/") ? p.slice("/home/vm/".length) : p.replace(/^\/+/, "");
 					const outFullPath = destRoot + "/" + relPath;
 					writeRealStoreFile(outFullPath, tree[p].content || "", false);
@@ -1513,7 +1665,7 @@ const commands = {
 				return true;
 			}
 
-			print("Usage: vm <create <id> | enter <id> | exit | list | delete <id> | export <id> [folder] | move-out <id> [folder] | visual>", "err");
+			print("Usage: vm <create <id> | enter <id> | exit | list | delete <id> | export <id> | move-out <id> | visual [id] | visual-list | visual-reset <id> | visual-delete <id>>", "err");
 			return false;
 		},
 	},
@@ -2685,7 +2837,7 @@ const commands = {
 			}
 			const size = node.type === "dir" ? 4096 : (typeof node.realSize === "number" ? node.realSize : (node.content || "").length);
 			print("  File: " + resolved, "accent");
-			print("  Type: " + (node.type === "dir" ? "directory" : "regular file") + (activeVmId ? " (VM: " + activeVmId + ")" : isRealStorePath(resolved) ? " (BrowOS Files)" : ""));
+			print("  Type: " + (node.type === "dir" ? "directory" : "regular file") + (activeVmId ? " (CLI VM: " + activeVmId + ")" : isRealStorePath(resolved) ? " (BrowOS Files)" : ""));
 			print("  Size: " + size + " bytes");
 			print("Access: " + (node.mode || (node.type === "dir" ? "drwxr-xr-x" : "-rw-r--r--")) + "  Owner: " + (node.owner || envVars.USER));
 			print("Modify: " + new Date(node.mtime || Date.now()).toISOString());
@@ -4249,19 +4401,20 @@ const commands = {
 
 			print(envVars.USER + "@" + envVars.HOSTNAME, "accent");
 			print("------------------");
-			print("OS:         BrowOS Web Desktop" + (activeVmId ? " (Isolated VM: " + activeVmId + ")" : ""));
-			print("Kernel:     3.0.0-web");
-			print("Shell:      bsh 3.0 (" + Object.keys(commands).length + " built-ins)");
-			print("Files:      " + fileCount + " files (" + formatShortPath(envVars.PWD) + ")");
-			print("Saved VMs:  " + Object.keys(vmStore).length);
+			print("OS:          BrowOS Web Desktop" + (activeVmId ? " (CLI VM: " + activeVmId + ")" : ""));
+			print("Kernel:      3.0.0-web");
+			print("Shell:       bsh 3.0 (" + Object.keys(commands).length + " built-ins)");
+			print("Files:       " + fileCount + " files (" + formatShortPath(envVars.PWD) + ")");
+			print("CLI VMs:     " + Object.keys(vmStore).length + " saved");
+			print("Visual VMs:  " + Object.keys(visualVmStore).length + " saved");
 			if (info) {
-				print("DE:         BrowOS Desktop (" + info.theme + ")");
-				print("Packages:   " + info.installed + " installed, " + info.running + " running");
-				print("Workspace:  " + info.desktop + " of " + info.desktops);
-				print("Resolution: " + info.screen);
-				print("Locale:     " + info.language);
+				print("DE:          BrowOS Desktop (" + info.theme + ")");
+				print("Packages:    " + info.installed + " installed, " + info.running + " running");
+				print("Workspace:   " + info.desktop + " of " + info.desktops);
+				print("Resolution:  " + info.screen);
+				print("Locale:      " + info.language);
 			} else {
-				print("Resolution: " + window.innerWidth + "x" + window.innerHeight);
+				print("Resolution:  " + window.innerWidth + "x" + window.innerHeight);
 			}
 			return true;
 		},
@@ -4762,7 +4915,6 @@ async function handleBubbleCommandExecution(cmdLine) {
 	const api = os(true);
 	if (!api || !api.bubble) return;
 
-	// If the card template has a [data-bubble-output] element, update its text in place; otherwise append output block
 	let nextHtml = activeBubbleState.templateHtml || "";
 	if (nextHtml.includes("data-bubble-output")) {
 		const tpl = document.createElement("template");
@@ -4876,7 +5028,7 @@ function handleTabCompletion() {
 	let appendSpace = true;
 
 	const subcommands = {
-		vm: ["create", "enter", "exit", "list", "delete", "export", "move-out", "visual"],
+		vm: ["create", "enter", "exit", "list", "delete", "export", "move-out", "visual", "visual-list", "visual-reset", "visual-delete"],
 		bubble: ["show", "html", "shell", "hide", "list"],
 		apps: ["list", "running", "open", "close", "info"],
 		systemctl: ["status", "list-units", "start", "stop", "restart", "reboot", "poweroff"],
@@ -4895,6 +5047,13 @@ function handleTabCompletion() {
 		["enter", "start", "use", "switch", "delete", "rm", "remove", "export", "move-out", "pull"].includes((parts[1] || "").toLowerCase())
 	) {
 		matches = Object.keys(vmStore).filter(function (id) {
+			return id.toLowerCase().startsWith(currentArg.toLowerCase());
+		});
+	} else if (
+		cmdName === "vm" &&
+		["visual", "visual-reset", "visual-delete"].includes((parts[1] || "").toLowerCase())
+	) {
+		matches = Object.keys(visualVmStore).filter(function (id) {
 			return id.toLowerCase().startsWith(currentArg.toLowerCase());
 		});
 	} else if (
@@ -5062,6 +5221,6 @@ syncFromBrowOSFiles();
 updatePromptDisplay();
 
 print("BrowOS Shell (bsh 3.0) - Mounted real BrowOS Files at /files", "accent");
-print("Commands: 'vm create <id>' for isolated VMs, 'vm visual' for ephemeral BrowOS GUI, 'bubble shell' for Bubble CLI.", "dim");
+print("Commands: 'vm create <id>' (CLI VM), 'vm visual [id]' (Visual VM), 'bubble shell' (Bubble CLI).", "dim");
 
 input.focus();
