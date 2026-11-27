@@ -1,4 +1,4 @@
-// BrowOS Browser — Non-destructive In-App Iframe Tabs, Custom Search Engines & Clean Settings
+// BrowOS Browser — Frosted Glass UI, Editable Search Engines, Bookmarks, History & BrowOS Bubble Search
 
 (function () {
 	const browserWindow = document.getElementById("browserWindow");
@@ -11,11 +11,14 @@
 
 	const STORAGE_KEYS = {
 		engine: "browos-search-engine",
-		customEngines: "browos-custom-engines",
+		engines: "browos-browser-engines-v2",
+		legacyCustomEngines: "browos-custom-engines",
 		settings: "browos-browser-settings",
+		bookmarks: "browos-browser-bookmarks",
+		history: "browos-browser-history",
 	};
 
-	const DEFAULT_ENGINES = {
+	const BUILTIN_DEFAULTS = {
 		google: { name: "Google", url: "https://www.google.com/search?q=", builtIn: true },
 		duckduckgo: { name: "DuckDuckGo", url: "https://duckduckgo.com/?q=", builtIn: true },
 		bing: { name: "Bing", url: "https://www.bing.com/search?q=", builtIn: true },
@@ -31,6 +34,8 @@
 		strictSandbox: false,
 		homeMode: "search", // "search" | "url"
 		customHomeUrl: "https://example.com",
+		bubbleSearchEnabled: true,
+		bubbleSearchEngine: "default", // "default" or an engine key
 	};
 
 	function loadJson(key, fallback) {
@@ -38,33 +43,83 @@
 			const raw = localStorage.getItem(key);
 			if (!raw) return fallback;
 			const parsed = JSON.parse(raw);
-			return parsed && typeof parsed === "object" ? parsed : fallback;
+			return parsed !== null && typeof parsed === "object" ? parsed : fallback;
 		} catch (e) {
 			return fallback;
 		}
 	}
 
-	let customEngines = loadJson(STORAGE_KEYS.customEngines, {});
+	function saveJson(key, val) {
+		try {
+			localStorage.setItem(key, JSON.stringify(val));
+		} catch (e) {}
+	}
+
+	// Initialize editable engines store (migrates any legacy custom engines seamlessly)
+	let enginesMap = (function initEngines() {
+		const saved = loadJson(STORAGE_KEYS.engines, null);
+		if (saved && Object.keys(saved).length > 0) {
+			return saved;
+		}
+		const merged = JSON.parse(JSON.stringify(BUILTIN_DEFAULTS));
+		const legacy = loadJson(STORAGE_KEYS.legacyCustomEngines, {});
+		Object.entries(legacy).forEach(([k, v]) => {
+			if (v && v.name && v.url) {
+				merged[k] = { name: v.name, url: v.url, builtIn: false };
+			}
+		});
+		saveJson(STORAGE_KEYS.engines, merged);
+		return merged;
+	})();
+
 	let settings = Object.assign({}, DEFAULT_SETTINGS, loadJson(STORAGE_KEYS.settings, {}));
 	let searchEngine = localStorage.getItem(STORAGE_KEYS.engine) || "google";
 
-	function getAllEngines() {
-		return Object.assign({}, DEFAULT_ENGINES, customEngines);
+	if (!enginesMap[searchEngine]) {
+		searchEngine = Object.keys(enginesMap)[0] || "google";
 	}
 
-	if (!getAllEngines()[searchEngine]) {
-		searchEngine = "google";
-	}
+	let bookmarks = (function initBookmarks() {
+		const saved = loadJson(STORAGE_KEYS.bookmarks, null);
+		return Array.isArray(saved) ? saved : [];
+	})();
+
+	let historyItems = (function initHistory() {
+		const saved = loadJson(STORAGE_KEYS.history, null);
+		return Array.isArray(saved) ? saved : [];
+	})();
+
+	let editingEngineKey = null;
 
 	function saveSettings() {
-		localStorage.setItem(STORAGE_KEYS.settings, JSON.stringify(settings));
+		saveJson(STORAGE_KEYS.settings, settings);
+		syncBubbleSearchCard();
 	}
 
-	function saveCustomEngines() {
-		localStorage.setItem(STORAGE_KEYS.customEngines, JSON.stringify(customEngines));
+	function saveEngines() {
+		saveJson(STORAGE_KEYS.engines, enginesMap);
+		syncBubbleSearchCard();
 	}
 
-	// Prevent mobile Google Password Manager / iOS Keychain bar on search & URL inputs
+	function saveBookmarks() {
+		saveJson(STORAGE_KEYS.bookmarks, bookmarks);
+		renderHomeBookmarksBar();
+		syncBookmarkStarButton();
+	}
+
+	function saveHistory() {
+		saveJson(STORAGE_KEYS.history, historyItems);
+	}
+
+	function escapeHtml(str) {
+		return String(str || "")
+			.replace(/&/g, "&amp;")
+			.replace(/</g, "&lt;")
+			.replace(/>/g, "&gt;")
+			.replace(/"/g, "&quot;");
+	}
+
+	// Prevent mobile password manager bar on search & URL inputs
 	function preventPasswordBar(inputEl) {
 		if (!inputEl) return;
 		inputEl.setAttribute("readonly", "readonly");
@@ -94,79 +149,162 @@
 		}, true);
 	});
 
-	// --- Styles (Isolated to bos-* classes, never alters #browserWindow box model) ---
+	// Dynamic window header height sync so top bars align cleanly across Compact/Normal/Large/XLarge
+	function syncBrowserHeaderOffset() {
+		const header = browserWindow.querySelector(".window-header");
+		const h = header ? Math.max(32, header.offsetHeight) : 46;
+		browserWindow.style.setProperty("--bos-browser-hdr", h + "px");
+	}
+
+	syncBrowserHeaderOffset();
+	const headerEl = browserWindow.querySelector(".window-header");
+	if (headerEl && window.ResizeObserver) {
+		new ResizeObserver(syncBrowserHeaderOffset).observe(headerEl);
+	}
+
+	// ============================================================================
+	// Frosted Glass Styles (Matching BrowOS UI in Dark & Light Mode)
+	// ============================================================================
 	const styleEl = document.createElement("style");
 	styleEl.textContent = `
+		#browserWindow {
+			--bos-browser-hdr: 46px;
+			--bos-br-glass: rgba(20, 22, 31, 0.64);
+			--bos-br-glass-strong: rgba(24, 26, 38, 0.82);
+			--bos-br-glass-subtle: rgba(255, 255, 255, 0.07);
+			--bos-br-glass-hover: rgba(255, 255, 255, 0.14);
+			--bos-br-border: rgba(255, 255, 255, 0.14);
+			--bos-br-input: rgba(10, 11, 16, 0.56);
+		}
+		html.light-mode #browserWindow {
+			--bos-br-glass: rgba(245, 247, 252, 0.72);
+			--bos-br-glass-strong: rgba(252, 253, 255, 0.88);
+			--bos-br-glass-subtle: rgba(15, 23, 42, 0.05);
+			--bos-br-glass-hover: rgba(15, 23, 42, 0.11);
+			--bos-br-border: rgba(15, 23, 42, 0.12);
+			--bos-br-input: rgba(255, 255, 255, 0.82);
+		}
 		body.bos-dragging iframe {
 			pointer-events: none !important;
 		}
+
+		/* Corner Action Buttons (Bookmarks/History + Settings) */
+		#browserWindow .bos-corner-actions {
+			position: absolute;
+			top: calc(var(--bos-browser-hdr) + 10px);
+			right: 12px;
+			z-index: 15;
+			display: flex;
+			align-items: center;
+			gap: 6px;
+		}
+		#browserWindow.bos-iframe-mode:not(.bos-tabs-bottom) .bos-corner-actions {
+			top: calc(var(--bos-browser-hdr) + 46px);
+		}
+		#browserWindow .bos-glass-icon-btn {
+			height: 32px;
+			padding: 0 10px;
+			border-radius: 10px;
+			border: 1px solid var(--bos-br-border);
+			background: var(--bos-br-glass);
+			backdrop-filter: blur(20px) saturate(165%);
+			-webkit-backdrop-filter: blur(20px) saturate(165%);
+			box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+			color: inherit;
+			font-family: inherit;
+			font-size: 12.5px;
+			font-weight: 500;
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			gap: 5px;
+			cursor: pointer;
+			transition: background 0.15s ease, transform 0.12s ease, border-color 0.15s ease;
+		}
+		#browserWindow .bos-glass-icon-btn:hover {
+			background: var(--bos-br-glass-hover);
+			border-color: var(--accent, #2196f3);
+		}
+		#browserWindow .bos-glass-icon-btn:active {
+			transform: scale(0.95);
+		}
+
+		/* Home Screen Bookmarks Strip */
+		#bosHomeBookmarks {
+			display: flex;
+			flex-wrap: wrap;
+			align-items: center;
+			justify-content: center;
+			gap: 6px;
+			max-width: 520px;
+			margin-top: 10px;
+		}
+		#bosHomeBookmarks[hidden] {
+			display: none !important;
+		}
+		.bos-home-bm-chip {
+			display: inline-flex;
+			align-items: center;
+			gap: 6px;
+			padding: 5px 11px;
+			border-radius: 999px;
+			border: 1px solid var(--bos-br-border);
+			background: var(--bos-br-glass);
+			backdrop-filter: blur(18px) saturate(160%);
+			-webkit-backdrop-filter: blur(18px) saturate(160%);
+			color: inherit;
+			font-family: inherit;
+			font-size: 12px;
+			cursor: pointer;
+			max-width: 165px;
+			transition: background 0.15s ease, transform 0.12s ease;
+		}
+		.bos-home-bm-chip:hover {
+			background: var(--bos-br-glass-hover);
+			transform: translateY(-1px);
+		}
+		.bos-home-bm-chip span {
+			white-space: nowrap;
+			overflow: hidden;
+			text-overflow: ellipsis;
+		}
+
 		#browserWindow .bos-mode-link {
 			background: none;
 			border: none;
 			color: inherit;
 			font: inherit;
 			font-size: 12.5px;
-			opacity: 0.78;
+			opacity: 0.82;
 			cursor: pointer;
-			padding: 2px 6px;
-			border-radius: 4px;
+			padding: 3px 8px;
+			border-radius: 6px;
 			text-decoration: underline;
 			text-underline-offset: 3px;
 		}
 		#browserWindow .bos-mode-link:hover {
 			opacity: 1;
-			background: rgba(255, 255, 255, 0.08);
-		}
-		#browserWindow .bos-corner-settings {
-			position: absolute;
-			top: 44px;
-			right: 10px;
-			z-index: 15;
-			width: 30px;
-			height: 30px;
-			border-radius: 7px;
-			border: 1px solid rgba(255, 255, 255, 0.14);
-			background: rgba(255, 255, 255, 0.06);
-			color: inherit;
-			font-size: 15px;
-			line-height: 1;
-			display: flex;
-			align-items: center;
-			justify-content: center;
-			cursor: pointer;
-		}
-		#browserWindow .bos-corner-settings:hover {
-			background: rgba(255, 255, 255, 0.14);
-		}
-		#browserEngines button {
-			display: inline-flex;
-			align-items: center;
-			gap: 5px;
-		}
-		#browserEngines .bos-engine-del {
-			font-size: 12px;
-			opacity: 0.7;
-			padding: 0 2px;
-		}
-		#browserEngines .bos-engine-del:hover {
-			opacity: 1;
-			color: #ef4444;
+			background: var(--bos-br-glass-subtle);
 		}
 
-		/* Top/Bottom Tab Bar Docked Inside Window Below Header */
+		/* Frosted Glass Tab Strip */
 		#bosTabStrip {
 			position: absolute;
 			left: 0;
 			right: 0;
-			top: 36px;
+			top: var(--bos-browser-hdr);
+			height: 36px;
 			z-index: 20;
 			display: none;
 			align-items: center;
-			gap: 4px;
-			padding: 5px 8px;
-			background: #0c0c10;
-			border-bottom: 1px solid #22222b;
+			gap: 5px;
+			padding: 4px 10px;
+			background: var(--bos-br-glass);
+			backdrop-filter: blur(22px) saturate(170%);
+			-webkit-backdrop-filter: blur(22px) saturate(170%);
+			border-bottom: 1px solid var(--bos-br-border);
 			overflow-x: auto;
+			box-sizing: border-box;
 		}
 		#browserWindow.bos-iframe-mode #bosTabStrip {
 			display: flex;
@@ -175,35 +313,39 @@
 			top: auto;
 			bottom: 0;
 			border-bottom: none;
-			border-top: 1px solid #22222b;
-		}
-		#browserWindow.bos-iframe-mode:not(.bos-tabs-bottom) .bos-corner-settings {
-			top: 80px;
+			border-top: 1px solid var(--bos-br-border);
 		}
 		#bosTabStrip.style-pills .bos-tab {
 			border-radius: 999px;
-			padding: 4px 11px;
+			padding: 3px 12px;
 		}
 		.bos-tab {
 			display: flex;
 			align-items: center;
 			gap: 6px;
 			min-width: 86px;
-			max-width: 180px;
-			padding: 5px 9px;
-			border-radius: 6px;
-			border: 1px solid #22222b;
-			background: #14141a;
-			color: #a0a0ae;
+			max-width: 185px;
+			padding: 4px 10px;
+			border-radius: 8px;
+			border: 1px solid var(--bos-br-border);
+			background: var(--bos-br-glass-subtle);
+			color: inherit;
+			opacity: 0.78;
 			font-size: 12px;
 			cursor: pointer;
 			flex-shrink: 0;
 			user-select: none;
+			transition: background 0.14s ease, border-color 0.14s ease, opacity 0.14s ease;
+		}
+		.bos-tab:hover {
+			opacity: 0.96;
+			background: var(--bos-br-glass-hover);
 		}
 		.bos-tab.active {
-			background: #1e1e26;
-			border-color: #3b82f6;
-			color: #ffffff;
+			opacity: 1;
+			background: var(--bos-br-glass-strong);
+			border-color: var(--accent, #2196f3);
+			font-weight: 600;
 		}
 		.bos-tab-title {
 			flex: 1;
@@ -219,7 +361,7 @@
 			line-height: 1;
 			padding: 0 2px;
 			cursor: pointer;
-			opacity: 0.7;
+			opacity: 0.65;
 		}
 		.bos-tab-close:hover {
 			opacity: 1;
@@ -228,72 +370,97 @@
 		.bos-new-tab-btn {
 			width: 26px;
 			height: 26px;
-			border-radius: 6px;
-			border: 1px solid #22222b;
-			background: #14141a;
-			color: #f3f3f8;
+			border-radius: 8px;
+			border: 1px solid var(--bos-br-border);
+			background: var(--bos-br-glass-subtle);
+			color: inherit;
 			font-size: 15px;
 			cursor: pointer;
 			flex-shrink: 0;
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
 		}
 		.bos-new-tab-btn:hover {
-			background: #22222c;
+			background: var(--bos-br-glass-hover);
 		}
 
-		/* Overlay Container Only When Viewing an Active Iframe URL */
+		/* Frosted Glass Iframe Navigation Bar & Stage */
 		#bosIframeOverlay {
 			position: absolute;
 			left: 0;
 			right: 0;
-			top: 72px;
+			top: calc(var(--bos-browser-hdr) + 36px);
 			bottom: 0;
 			z-index: 18;
 			display: none;
 			flex-direction: column;
-			background: #0e0e13;
+			background: transparent;
 		}
 		#browserWindow.bos-in-iframe #bosIframeOverlay {
 			display: flex;
 		}
 		#browserWindow.bos-in-iframe.bos-tabs-bottom #bosIframeOverlay {
-			top: 36px;
+			top: var(--bos-browser-hdr);
 			bottom: 36px;
 		}
 		.bos-nav-bar {
 			display: flex;
 			align-items: center;
-			gap: 5px;
-			padding: 5px 8px;
-			background: #101015;
-			border-bottom: 1px solid #22222b;
+			gap: 6px;
+			padding: 6px 10px;
+			background: var(--bos-br-glass);
+			backdrop-filter: blur(22px) saturate(170%);
+			-webkit-backdrop-filter: blur(22px) saturate(170%);
+			border-bottom: 1px solid var(--bos-br-border);
 			flex-shrink: 0;
 		}
 		.bos-nav-btn {
-			padding: 5px 8px;
-			border-radius: 6px;
-			border: 1px solid #24242e;
-			background: #181820;
-			color: #e4e4ec;
-			font-size: 12px;
+			padding: 5px 9px;
+			border-radius: 9px;
+			border: 1px solid var(--bos-br-border);
+			background: var(--bos-br-glass-subtle);
+			color: inherit;
+			font-family: inherit;
+			font-size: 12.5px;
 			cursor: pointer;
 			white-space: nowrap;
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			gap: 4px;
+			transition: background 0.14s ease, border-color 0.14s ease;
 		}
 		.bos-nav-btn:hover {
-			background: #24242f;
+			background: var(--bos-br-glass-hover);
+		}
+		.bos-nav-btn.primary {
+			background: var(--accent, #2196f3);
+			border-color: transparent;
+			color: #ffffff;
+			font-weight: 600;
+		}
+		.bos-nav-btn.bookmarked {
+			color: #fbbf24;
+			border-color: rgba(251, 191, 36, 0.45);
+			background: rgba(251, 191, 36, 0.14);
 		}
 		.bos-url-input {
 			flex: 1;
 			min-width: 70px;
-			padding: 5px 9px;
-			border-radius: 6px;
-			border: 1px solid #262632;
-			background: #08080b;
-			color: #f3f3f8;
+			padding: 6px 11px;
+			border-radius: 10px;
+			border: 1px solid var(--bos-br-border);
+			background: var(--bos-br-input);
+			backdrop-filter: blur(14px);
+			-webkit-backdrop-filter: blur(14px);
+			color: inherit;
+			font-family: inherit;
 			font-size: 12.5px;
 			outline: none;
 		}
 		.bos-url-input:focus {
-			border-color: #3b82f6;
+			border-color: var(--accent, #2196f3);
 		}
 		.bos-frame-stage {
 			position: relative;
@@ -314,42 +481,47 @@
 			display: block;
 		}
 
-		/* Simple Settings Dialog */
-		#bosSettingsModal {
+		/* Frosted Glass Modals (Settings & Bookmarks/History Library) */
+		.bos-browser-modal {
 			position: absolute;
-			inset: 36px 0 0 0;
+			inset: var(--bos-browser-hdr) 0 0 0;
 			z-index: 40;
-			background: rgba(0, 0, 0, 0.78);
+			background: rgba(8, 10, 16, 0.46);
+			backdrop-filter: blur(12px);
+			-webkit-backdrop-filter: blur(12px);
 			display: none;
 			align-items: center;
 			justify-content: center;
-			padding: 12px;
+			padding: 14px;
 		}
-		#bosSettingsModal.open {
+		.bos-browser-modal.open {
 			display: flex;
 		}
-		.bos-settings-card {
+		.bos-glass-card {
 			width: 100%;
-			max-width: 400px;
+			max-width: 470px;
 			max-height: 100%;
 			overflow-y: auto;
-			background: #111116;
-			border: 1px solid #262630;
-			border-radius: 10px;
-			padding: 14px;
-			color: #f3f3f8;
+			background: var(--bos-br-glass-strong);
+			backdrop-filter: blur(28px) saturate(180%);
+			-webkit-backdrop-filter: blur(28px) saturate(180%);
+			border: 1px solid var(--bos-br-border);
+			border-radius: 16px;
+			box-shadow: 0 22px 54px rgba(0, 0, 0, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.14);
+			padding: 15px 16px;
+			color: inherit;
 			display: flex;
 			flex-direction: column;
-			gap: 10px;
+			gap: 11px;
 		}
 		.bos-settings-head {
 			display: flex;
 			align-items: center;
 			justify-content: space-between;
-			border-bottom: 1px solid #22222b;
+			border-bottom: 1px solid var(--bos-br-border);
 			padding-bottom: 8px;
 			font-weight: 600;
-			font-size: 13.5px;
+			font-size: 14px;
 		}
 		.bos-setting-row {
 			display: flex;
@@ -360,64 +532,132 @@
 		}
 		.bos-setting-row select,
 		.bos-setting-row input[type="text"],
-		.bos-engine-form input {
-			background: #181820;
-			border: 1px solid #2a2a35;
-			color: #f3f3f8;
-			padding: 5px 8px;
-			border-radius: 6px;
+		.bos-engine-form input,
+		.bos-lib-form input {
+			background: var(--bos-br-input);
+			border: 1px solid var(--bos-br-border);
+			color: inherit;
+			padding: 6px 9px;
+			border-radius: 8px;
+			font-family: inherit;
 			font-size: 12px;
 			outline: none;
 		}
+		.bos-setting-row select:focus,
+		.bos-setting-row input[type="text"]:focus,
+		.bos-engine-form input:focus,
+		.bos-lib-form input:focus {
+			border-color: var(--accent, #2196f3);
+		}
 		.bos-engine-section {
-			border-top: 1px solid #22222b;
+			border-top: 1px solid var(--bos-br-border);
 			padding-top: 10px;
 			display: flex;
 			flex-direction: column;
-			gap: 7px;
+			gap: 8px;
 			font-size: 12.5px;
 		}
-		.bos-engine-form {
+		.bos-engine-form,
+		.bos-lib-form {
 			display: flex;
+			flex-wrap: wrap;
 			gap: 6px;
 		}
-		.bos-engine-form input {
+		.bos-engine-form input,
+		.bos-lib-form input {
 			flex: 1;
-			min-width: 0;
+			min-width: 110px;
 		}
-		.bos-engine-list {
+		.bos-engine-list,
+		.bos-lib-list {
 			display: flex;
 			flex-direction: column;
-			gap: 4px;
-			max-height: 115px;
+			gap: 5px;
+			max-height: 185px;
 			overflow-y: auto;
 		}
-		.bos-engine-item {
+		.bos-engine-item,
+		.bos-lib-item {
 			display: flex;
 			align-items: center;
 			justify-content: space-between;
 			gap: 8px;
-			padding: 4px 8px;
-			border-radius: 6px;
-			background: #17171e;
+			padding: 6px 9px;
+			border-radius: 9px;
+			border: 1px solid var(--bos-br-border);
+			background: var(--bos-br-glass-subtle);
 			font-size: 12px;
+		}
+		.bos-lib-item-main {
+			flex: 1;
+			min-width: 0;
+			cursor: pointer;
+			display: flex;
+			flex-direction: column;
+		}
+		.bos-lib-item-title {
+			font-weight: 600;
+			white-space: nowrap;
+			overflow: hidden;
+			text-overflow: ellipsis;
+		}
+		.bos-lib-item-sub {
+			font-size: 11px;
+			opacity: 0.68;
+			white-space: nowrap;
+			overflow: hidden;
+			text-overflow: ellipsis;
+		}
+		.bos-lib-tabs {
+			display: flex;
+			gap: 6px;
+		}
+		.bos-lib-tab-btn {
+			flex: 1;
+			padding: 6px 10px;
+			border-radius: 9px;
+			border: 1px solid var(--bos-br-border);
+			background: var(--bos-br-glass-subtle);
+			color: inherit;
+			font-family: inherit;
+			font-size: 12.5px;
+			font-weight: 600;
+			cursor: pointer;
+		}
+		.bos-lib-tab-btn.active {
+			background: var(--accent, #2196f3);
+			border-color: transparent;
+			color: #ffffff;
 		}
 	`;
 	document.head.appendChild(styleEl);
 
-	// --- Attach Corner Settings Button & Clickable "Opens in new tab" Link ---
+	// ============================================================================
+	// Corner Controls (Bookmarks & History + Settings) & Home Bookmarks Bar
+	// ============================================================================
+	const cornerActions = document.createElement("div");
+	cornerActions.className = "bos-corner-actions";
+
+	const cornerLibraryBtn = document.createElement("button");
+	cornerLibraryBtn.type = "button";
+	cornerLibraryBtn.className = "bos-glass-icon-btn";
+	cornerLibraryBtn.title = "Bookmarks & History";
+	cornerLibraryBtn.innerHTML = "<span>★</span><span>Library</span>";
+
 	const cornerSettingsBtn = document.createElement("button");
 	cornerSettingsBtn.type = "button";
-	cornerSettingsBtn.className = "bos-corner-settings";
-	cornerSettingsBtn.title = "Settings";
+	cornerSettingsBtn.className = "bos-glass-icon-btn";
+	cornerSettingsBtn.title = "Browser Settings";
 	cornerSettingsBtn.textContent = "⚙";
-	browserWindow.appendChild(cornerSettingsBtn);
+
+	cornerActions.append(cornerLibraryBtn, cornerSettingsBtn);
+	browserWindow.appendChild(cornerActions);
 
 	let modeToggleBtn = null;
 	const walker = document.createTreeWalker(browserWindow, NodeFilter.SHOW_ELEMENT);
 	while (walker.nextNode()) {
 		const el = walker.currentNode;
-		if (el.children.length === 0 && /opens in new tab/i.test(el.textContent.trim())) {
+		if (el.children.length === 0 && /opens in a new tab|opens in new tab/i.test(el.textContent.trim())) {
 			el.textContent = "";
 			modeToggleBtn = document.createElement("button");
 			modeToggleBtn.type = "button";
@@ -435,7 +675,38 @@
 		enginesContainer.insertAdjacentElement("afterend", modeToggleBtn);
 	}
 
-	// --- Tab Strip & Iframe Overlay (Non-Destructive Siblings) ---
+	const homeBookmarksEl = document.createElement("div");
+	homeBookmarksEl.id = "bosHomeBookmarks";
+	enginesContainer.insertAdjacentElement("afterend", homeBookmarksEl);
+
+	function renderHomeBookmarksBar() {
+		homeBookmarksEl.innerHTML = "";
+		if (!bookmarks.length) {
+			homeBookmarksEl.hidden = true;
+			return;
+		}
+		homeBookmarksEl.hidden = false;
+		bookmarks.slice(0, 6).forEach((bm) => {
+			const chip = document.createElement("button");
+			chip.type = "button";
+			chip.className = "bos-home-bm-chip";
+			chip.title = bm.url;
+			chip.innerHTML = `<span>★</span><span>${escapeHtml(bm.title || bm.url)}</span>`;
+			chip.addEventListener("click", () => {
+				recordHistoryEntry(bm.url, bm.title);
+				if (settings.openMode === "iframe") {
+					openUrlInCurrentOrNewTab(bm.url);
+				} else {
+					window.open(bm.url, "_blank", "noopener");
+				}
+			});
+			homeBookmarksEl.appendChild(chip);
+		});
+	}
+
+	// ============================================================================
+	// Tab Strip & Frosted Iframe Navigation Overlay
+	// ============================================================================
 	const tabStripEl = document.createElement("div");
 	tabStripEl.id = "bosTabStrip";
 	browserWindow.appendChild(tabStripEl);
@@ -448,7 +719,9 @@
 			<button type="button" class="bos-nav-btn" id="bosBackBtn" title="Back">←</button>
 			<button type="button" class="bos-nav-btn" id="bosReloadBtn" title="Reload">↻</button>
 			<input type="text" class="bos-url-input" id="bosAddressInput" placeholder="Search or enter address">
-			<button type="button" class="bos-nav-btn" id="bosPopoutBtn" title="Open in new tab">↗</button>
+			<button type="button" class="bos-nav-btn" id="bosBookmarkStarBtn" title="Bookmark this page">☆</button>
+			<button type="button" class="bos-nav-btn" id="bosIframeLibraryBtn" title="Bookmarks & History">☰</button>
+			<button type="button" class="bos-nav-btn" id="bosPopoutBtn" title="Open in new browser tab">↗</button>
 			<button type="button" class="bos-nav-btn" id="bosIframeSettingsBtn" title="Settings">⚙</button>
 		</div>
 		<div class="bos-frame-stage" id="bosFrameStage"></div>
@@ -457,6 +730,7 @@
 
 	const frameStageEl = document.getElementById("bosFrameStage");
 	const addressInputEl = document.getElementById("bosAddressInput");
+	const bookmarkStarBtn = document.getElementById("bosBookmarkStarBtn");
 	preventPasswordBar(addressInputEl);
 
 	let tabs = [
@@ -464,19 +738,34 @@
 	];
 	let activeTabId = tabs[0].id;
 
+	function getActiveTab() {
+		return tabs.find((t) => t.id === activeTabId) || tabs[0];
+	}
+
+	function syncBookmarkStarButton() {
+		if (!bookmarkStarBtn) return;
+		const current = getActiveTab();
+		const activeUrl = current && current.type === "url" ? current.url : "";
+		const isSaved = Boolean(activeUrl && bookmarks.some((b) => b.url === activeUrl));
+		bookmarkStarBtn.textContent = isSaved ? "★" : "☆";
+		bookmarkStarBtn.classList.toggle("bookmarked", isSaved);
+		bookmarkStarBtn.title = isSaved ? "Remove bookmark" : "Bookmark this page";
+	}
+
 	function syncModeUI() {
 		const isIframeMode = settings.openMode === "iframe";
-		modeToggleBtn.textContent = isIframeMode ? "Opens in iframe ▾" : "Opens in new tab ▾";
+		modeToggleBtn.textContent = isIframeMode ? "Opens in iframe ▾" : "Opens in a new tab ▾";
 		browserWindow.classList.toggle("bos-iframe-mode", isIframeMode);
 		browserWindow.classList.toggle("bos-tabs-bottom", settings.tabBarPosition === "bottom");
 
-		const activeTab = tabs.find((t) => t.id === activeTabId);
+		const activeTab = getActiveTab();
 		const showingFrame = isIframeMode && activeTab && activeTab.type === "url";
 		browserWindow.classList.toggle("bos-in-iframe", showingFrame);
 
 		if (isIframeMode) {
 			renderTabs();
 		}
+		syncBookmarkStarButton();
 	}
 
 	modeToggleBtn.addEventListener("click", () => {
@@ -485,62 +774,9 @@
 		syncModeUI();
 	});
 
-	// --- Search Engines ---
-	function renderEngines() {
-		const all = getAllEngines();
-		if (!all[searchEngine]) {
-			searchEngine = "google";
-			localStorage.setItem(STORAGE_KEYS.engine, searchEngine);
-		}
-
-		enginesContainer.innerHTML = "";
-
-		Object.entries(all).forEach(([key, engine]) => {
-			const btn = document.createElement("button");
-			btn.type = "button";
-			btn.dataset.engine = key;
-			btn.classList.toggle("active", key === searchEngine);
-
-			const label = document.createElement("span");
-			label.textContent = engine.name;
-			btn.appendChild(label);
-
-			if (!engine.builtIn) {
-				const del = document.createElement("span");
-				del.className = "bos-engine-del";
-				del.textContent = "×";
-				del.addEventListener("click", (ev) => {
-					ev.stopPropagation();
-					delete customEngines[key];
-					saveCustomEngines();
-					if (searchEngine === key) {
-						searchEngine = "google";
-						localStorage.setItem(STORAGE_KEYS.engine, searchEngine);
-					}
-					renderEngines();
-					renderSettingsEnginesList();
-				});
-				btn.appendChild(del);
-			}
-
-			btn.addEventListener("click", () => {
-				searchEngine = key;
-				localStorage.setItem(STORAGE_KEYS.engine, searchEngine);
-				renderEngines();
-			});
-
-			enginesContainer.appendChild(btn);
-		});
-
-		const addBtn = document.createElement("button");
-		addBtn.type = "button";
-		addBtn.textContent = "+";
-		addBtn.title = "Add search engine";
-		addBtn.addEventListener("click", () => openSettingsModal(true));
-		enginesContainer.appendChild(addBtn);
-	}
-
-	// --- URL & Query Resolver ---
+	// ============================================================================
+	// URL & Search Engine Resolution
+	// ============================================================================
 	function webAddress(text) {
 		if (/\s/.test(text)) return null;
 		let value = text;
@@ -559,15 +795,15 @@
 		return null;
 	}
 
-	function resolveQueryOrUrl(rawText) {
-		const text = rawText.trim();
+	function resolveQueryOrUrl(rawText, engineOverrideKey) {
+		const text = String(rawText || "").trim();
 		if (!text) return null;
 
 		const direct = webAddress(text);
 		if (direct) return direct;
 
-		const all = getAllEngines();
-		const engine = all[searchEngine] || DEFAULT_ENGINES.google;
+		const key = engineOverrideKey && enginesMap[engineOverrideKey] ? engineOverrideKey : searchEngine;
+		const engine = enginesMap[key] || enginesMap[Object.keys(enginesMap)[0]] || BUILTIN_DEFAULTS.google;
 		const encoded = encodeURIComponent(text);
 
 		if (engine.url.includes("{q}")) {
@@ -576,7 +812,107 @@
 		return engine.url + encoded;
 	}
 
-	// --- Tabs Management ---
+	// ============================================================================
+	// History & Bookmarks Helpers
+	// ============================================================================
+	function recordHistoryEntry(url, titleHint) {
+		if (!url) return;
+		let label = titleHint || "";
+		if (!label) {
+			try {
+				label = new URL(url).hostname.replace(/^www\./, "");
+			} catch (e) {
+				label = url;
+			}
+		}
+		// Deduplicate immediate consecutive identical URL
+		if (historyItems.length > 0 && historyItems[0].url === url) {
+			historyItems[0].visitedAt = Date.now();
+			if (titleHint) historyItems[0].title = titleHint;
+		} else {
+			historyItems.unshift({
+				id: "hist-" + Date.now() + "-" + Math.random().toString(36).slice(2, 5),
+				url: url,
+				title: label,
+				visitedAt: Date.now(),
+			});
+			if (historyItems.length > 250) {
+				historyItems.length = 250;
+			}
+		}
+		saveHistory();
+	}
+
+	function updateLatestHistoryTitle(url, title) {
+		if (!url || !title) return;
+		const match = historyItems.find((h) => h.url === url);
+		if (match) {
+			match.title = title;
+			saveHistory();
+		}
+	}
+
+	function toggleBookmarkForCurrentPage() {
+		const current = getActiveTab();
+		if (!current || current.type !== "url" || !current.url) return;
+
+		const idx = bookmarks.findIndex((b) => b.url === current.url);
+		if (idx !== -1) {
+			bookmarks.splice(idx, 1);
+		} else {
+			bookmarks.unshift({
+				id: "bm-" + Date.now(),
+				title: current.title || current.url,
+				url: current.url,
+				createdAt: Date.now(),
+			});
+		}
+		saveBookmarks();
+	}
+
+	if (bookmarkStarBtn) {
+		bookmarkStarBtn.addEventListener("click", toggleBookmarkForCurrentPage);
+	}
+
+	// ============================================================================
+	// Search Engines Rendering & Editing
+	// ============================================================================
+	function renderEngines() {
+		if (!enginesMap[searchEngine]) {
+			searchEngine = Object.keys(enginesMap)[0] || "google";
+			localStorage.setItem(STORAGE_KEYS.engine, searchEngine);
+		}
+
+		enginesContainer.innerHTML = "";
+
+		Object.entries(enginesMap).forEach(([key, engine]) => {
+			const btn = document.createElement("button");
+			btn.type = "button";
+			btn.dataset.engine = key;
+			btn.classList.toggle("active", key === searchEngine);
+			btn.textContent = engine.name;
+
+			btn.addEventListener("click", () => {
+				searchEngine = key;
+				localStorage.setItem(STORAGE_KEYS.engine, searchEngine);
+				renderEngines();
+				syncBubbleSearchCard();
+			});
+
+			enginesContainer.appendChild(btn);
+		});
+
+		const editEnginesBtn = document.createElement("button");
+		editEnginesBtn.type = "button";
+		editEnginesBtn.textContent = "+ / Edit";
+		editEnginesBtn.title = "Add or edit search engines";
+		editEnginesBtn.addEventListener("click", () => openSettingsModal(true));
+		enginesContainer.appendChild(editEnginesBtn);
+	}
+
+	// ============================================================================
+	// Tabs Management
+	// ============================================================================
 	function formatTabLabel(tab) {
 		if (tab.type === "home") return "New Tab";
 		if (settings.showTabUrls) return tab.url.replace(/^https?:\/\//i, "");
@@ -618,7 +954,8 @@
 		newBtn.textContent = "+";
 		newBtn.addEventListener("click", () => {
 			if (settings.homeMode === "url" && settings.customHomeUrl) {
-				openUrlInNewTab(settings.customHomeUrl);
+				const resolved = resolveQueryOrUrl(settings.customHomeUrl);
+				if (resolved) openUrlInNewTab(resolved);
 			} else {
 				const homeTab = {
 					id: "tab-" + Date.now() + "-" + Math.random().toString(36).slice(2, 5),
@@ -645,6 +982,7 @@
 					const docTitle = iframe.contentDocument && iframe.contentDocument.title;
 					if (docTitle) {
 						tab.title = docTitle;
+						updateLatestHistoryTitle(url, docTitle);
 						renderTabs();
 					}
 				} catch (e) {}
@@ -659,11 +997,12 @@
 		} catch (e) {
 			tab.title = url;
 		}
+		recordHistoryEntry(url, tab.title);
 		tab.iframe.src = url;
 	}
 
 	function openUrlInCurrentOrNewTab(url) {
-		let current = tabs.find((t) => t.id === activeTabId);
+		let current = getActiveTab();
 		if (!current) {
 			current = { id: "tab-" + Date.now(), type: "home", title: "New Tab", url: "", iframe: null };
 			tabs.push(current);
@@ -693,7 +1032,7 @@
 				t.iframe.classList.toggle("active", t.id === id && t.type === "url");
 			}
 		});
-		const current = tabs.find((t) => t.id === id);
+		const current = getActiveTab();
 		if (current && current.type === "url") {
 			addressInputEl.value = current.url;
 		}
@@ -716,7 +1055,7 @@
 	}
 
 	document.getElementById("bosHomeBtn").addEventListener("click", () => {
-		const current = tabs.find((t) => t.id === activeTabId);
+		const current = getActiveTab();
 		if (current) {
 			if (current.iframe) {
 				current.iframe.remove();
@@ -730,7 +1069,7 @@
 	});
 
 	document.getElementById("bosBackBtn").addEventListener("click", () => {
-		const current = tabs.find((t) => t.id === activeTabId);
+		const current = getActiveTab();
 		if (!current || !current.iframe) return;
 		try {
 			current.iframe.contentWindow.history.back();
@@ -738,13 +1077,13 @@
 	});
 
 	document.getElementById("bosReloadBtn").addEventListener("click", () => {
-		const current = tabs.find((t) => t.id === activeTabId);
+		const current = getActiveTab();
 		if (!current || !current.iframe) return;
 		current.iframe.src = current.url;
 	});
 
 	document.getElementById("bosPopoutBtn").addEventListener("click", () => {
-		const current = tabs.find((t) => t.id === activeTabId);
+		const current = getActiveTab();
 		if (current && current.url) {
 			window.open(current.url, "_blank", "noopener");
 		}
@@ -759,13 +1098,236 @@
 		}
 	});
 
-	// --- Settings Modal ---
+	// ============================================================================
+	// Bookmarks & History Library Modal
+	// ============================================================================
+	const libraryModal = document.createElement("div");
+	libraryModal.id = "bosLibraryModal";
+	libraryModal.className = "bos-browser-modal";
+	libraryModal.innerHTML = `
+		<div class="bos-glass-card">
+			<div class="bos-settings-head">
+				<span>Bookmarks &amp; History</span>
+				<button type="button" class="bos-nav-btn" id="bosCloseLibraryBtn">Done</button>
+			</div>
+
+			<div class="bos-lib-tabs">
+				<button type="button" class="bos-lib-tab-btn active" data-lib-tab="bookmarks">Bookmarks</button>
+				<button type="button" class="bos-lib-tab-btn" data-lib-tab="history">History</button>
+			</div>
+
+			<!-- Bookmarks View -->
+			<div id="bosBookmarksPane" style="display:flex;flex-direction:column;gap:8px;">
+				<div class="bos-lib-form">
+					<input type="text" id="bosBmTitleInput" placeholder="Bookmark title">
+					<input type="text" id="bosBmUrlInput" placeholder="https://...">
+					<button type="button" class="bos-nav-btn primary" id="bosAddBmBtn">Save</button>
+				</div>
+				<div class="bos-lib-list" id="bosBookmarksList"></div>
+			</div>
+
+			<!-- History View -->
+			<div id="bosHistoryPane" style="display:none;flex-direction:column;gap:8px;">
+				<div class="bos-lib-form">
+					<input type="text" id="bosHistFilterInput" placeholder="Search history...">
+					<button type="button" class="bos-nav-btn" id="bosClearHistoryBtn" style="color:#f87171;">Clear All</button>
+				</div>
+				<div class="bos-lib-list" id="bosHistoryList"></div>
+			</div>
+		</div>
+	`;
+	browserWindow.appendChild(libraryModal);
+
+	const bmTitleInput = document.getElementById("bosBmTitleInput");
+	const bmUrlInput = document.getElementById("bosBmUrlInput");
+	const histFilterInput = document.getElementById("bosHistFilterInput");
+	preventPasswordBar(bmTitleInput);
+	preventPasswordBar(bmUrlInput);
+	preventPasswordBar(histFilterInput);
+
+	let editingBookmarkId = null;
+
+	function navigateFromLibrary(url) {
+		libraryModal.classList.remove("open");
+		recordHistoryEntry(url);
+		if (settings.openMode === "iframe") {
+			openUrlInCurrentOrNewTab(url);
+		} else {
+			window.open(url, "_blank", "noopener");
+		}
+	}
+
+	function renderBookmarksList() {
+		const listEl = document.getElementById("bosBookmarksList");
+		listEl.innerHTML = "";
+
+		if (!bookmarks.length) {
+			listEl.innerHTML = `<div style="text-align:center;opacity:0.65;padding:16px;font-size:12px;">No bookmarks yet. Click ☆ in the address bar or add one above.</div>`;
+			return;
+		}
+
+		bookmarks.forEach((bm) => {
+			const row = document.createElement("div");
+			row.className = "bos-lib-item";
+
+			const main = document.createElement("div");
+			main.className = "bos-lib-item-main";
+			main.innerHTML = `
+				<span class="bos-lib-item-title">${escapeHtml(bm.title || bm.url)}</span>
+				<span class="bos-lib-item-sub">${escapeHtml(bm.url)}</span>
+			`;
+			main.addEventListener("click", () => navigateFromLibrary(bm.url));
+
+			const editBtn = document.createElement("button");
+			editBtn.type = "button";
+			editBtn.className = "bos-nav-btn";
+			editBtn.textContent = "Edit";
+			editBtn.addEventListener("click", () => {
+				editingBookmarkId = bm.id;
+				bmTitleInput.value = bm.title || "";
+				bmUrlInput.value = bm.url || "";
+				document.getElementById("bosAddBmBtn").textContent = "Update";
+				bmTitleInput.focus();
+			});
+
+			const delBtn = document.createElement("button");
+			delBtn.type = "button";
+			delBtn.className = "bos-nav-btn";
+			delBtn.style.color = "#f87171";
+			delBtn.textContent = "×";
+			delBtn.addEventListener("click", () => {
+				bookmarks = bookmarks.filter((x) => x.id !== bm.id);
+				saveBookmarks();
+				renderBookmarksList();
+			});
+
+			row.append(main, editBtn, delBtn);
+			listEl.appendChild(row);
+		});
+	}
+
+	function renderHistoryList() {
+		const listEl = document.getElementById("bosHistoryList");
+		const q = (histFilterInput.value || "").trim().toLowerCase();
+		listEl.innerHTML = "";
+
+		const filtered = historyItems.filter(
+			(h) => !q || (h.title && h.title.toLowerCase().includes(q)) || h.url.toLowerCase().includes(q)
+		);
+
+		if (!filtered.length) {
+			listEl.innerHTML = `<div style="text-align:center;opacity:0.65;padding:16px;font-size:12px;">No browsing history found.</div>`;
+			return;
+		}
+
+		filtered.forEach((item) => {
+			const row = document.createElement("div");
+			row.className = "bos-lib-item";
+
+			const timeStr = new Date(item.visitedAt || Date.now()).toLocaleTimeString([], {
+				hour: "2-digit",
+				minute: "2-digit",
+			});
+
+			const main = document.createElement("div");
+			main.className = "bos-lib-item-main";
+			main.innerHTML = `
+				<span class="bos-lib-item-title">${escapeHtml(item.title || item.url)}</span>
+				<span class="bos-lib-item-sub">${timeStr} · ${escapeHtml(item.url)}</span>
+			`;
+			main.addEventListener("click", () => navigateFromLibrary(item.url));
+
+			const delBtn = document.createElement("button");
+			delBtn.type = "button";
+			delBtn.className = "bos-nav-btn";
+			delBtn.style.color = "#f87171";
+			delBtn.textContent = "×";
+			delBtn.addEventListener("click", () => {
+				historyItems = historyItems.filter((x) => x.id !== item.id);
+				saveHistory();
+				renderHistoryList();
+			});
+
+			row.append(main, delBtn);
+			listEl.appendChild(row);
+		});
+	}
+
+	function openLibraryModal(initialTab) {
+		editingBookmarkId = null;
+		const active = getActiveTab();
+		bmTitleInput.value = active && active.type === "url" ? active.title : "";
+		bmUrlInput.value = active && active.type === "url" ? active.url : "";
+		document.getElementById("bosAddBmBtn").textContent = "Save";
+
+		const tabName = initialTab || "bookmarks";
+		libraryModal.querySelectorAll(".bos-lib-tab-btn").forEach((b) => {
+			b.classList.toggle("active", b.dataset.libTab === tabName);
+		});
+		document.getElementById("bosBookmarksPane").style.display = tabName === "bookmarks" ? "flex" : "none";
+		document.getElementById("bosHistoryPane").style.display = tabName === "history" ? "flex" : "none";
+
+		renderBookmarksList();
+		renderHistoryList();
+		libraryModal.classList.add("open");
+	}
+
+	libraryModal.querySelectorAll(".bos-lib-tab-btn").forEach((btn) => {
+		btn.addEventListener("click", () => openLibraryModal(btn.dataset.libTab));
+	});
+
+	document.getElementById("bosAddBmBtn").addEventListener("click", () => {
+		const title = bmTitleInput.value.trim();
+		const resolvedUrl = webAddress(bmUrlInput.value.trim()) || resolveQueryOrUrl(bmUrlInput.value.trim());
+		if (!resolvedUrl) return;
+
+		if (editingBookmarkId) {
+			const target = bookmarks.find((b) => b.id === editingBookmarkId);
+			if (target) {
+				target.title = title || resolvedUrl;
+				target.url = resolvedUrl;
+			}
+			editingBookmarkId = null;
+			document.getElementById("bosAddBmBtn").textContent = "Save";
+		} else {
+			bookmarks.unshift({
+				id: "bm-" + Date.now(),
+				title: title || resolvedUrl,
+				url: resolvedUrl,
+				createdAt: Date.now(),
+			});
+		}
+
+		bmTitleInput.value = "";
+		bmUrlInput.value = "";
+		saveBookmarks();
+		renderBookmarksList();
+	});
+
+	histFilterInput.addEventListener("input", renderHistoryList);
+
+	document.getElementById("bosClearHistoryBtn").addEventListener("click", () => {
+		historyItems = [];
+		saveHistory();
+		renderHistoryList();
+	});
+
+	cornerLibraryBtn.addEventListener("click", () => openLibraryModal("bookmarks"));
+	document.getElementById("bosIframeLibraryBtn").addEventListener("click", () => openLibraryModal("bookmarks"));
+	document.getElementById("bosCloseLibraryBtn").addEventListener("click", () => {
+		libraryModal.classList.remove("open");
+	});
+
+	// ============================================================================
+	// Settings Modal (Search Engine Editor + Bubble Search Settings)
+	// ============================================================================
 	const settingsModal = document.createElement("div");
 	settingsModal.id = "bosSettingsModal";
+	settingsModal.className = "bos-browser-modal";
 	settingsModal.innerHTML = `
-		<div class="bos-settings-card">
+		<div class="bos-glass-card">
 			<div class="bos-settings-head">
-				<span>Settings</span>
+				<span>Browser Settings</span>
 				<button type="button" class="bos-nav-btn" id="bosCloseSettingsBtn">Done</button>
 			</div>
 
@@ -773,8 +1335,23 @@
 				<span>Open mode</span>
 				<select id="bosSetOpenMode">
 					<option value="tab">New tab</option>
-					<option value="iframe">Iframe</option>
+					<option value="iframe">Iframe (In-App)</option>
 				</select>
+			</div>
+
+			<div class="bos-setting-row">
+				<span>Default search engine</span>
+				<select id="bosSetDefaultEngine"></select>
+			</div>
+
+			<div class="bos-setting-row">
+				<span>Show Search in BrowOS Bubble</span>
+				<input type="checkbox" id="bosSetBubbleSearch">
+			</div>
+
+			<div class="bos-setting-row" id="bosBubbleEngineRow">
+				<span>Bubble search engine</span>
+				<select id="bosSetBubbleEngine"></select>
 			</div>
 
 			<div class="bos-setting-row">
@@ -822,11 +1399,15 @@
 			</div>
 
 			<div class="bos-engine-section">
-				<span>Search engines</span>
+				<div style="display:flex;align-items:center;justify-content:space-between;">
+					<span style="font-weight:600;">Manage &amp; Edit Search Engines</span>
+					<button type="button" class="bos-nav-btn" id="bosResetEnginesBtn">Reset defaults</button>
+				</div>
 				<div class="bos-engine-form">
-					<input type="text" id="bosNewEngineName" placeholder="Name">
-					<input type="text" id="bosNewEngineUrl" placeholder="https://...">
-					<button type="button" class="bos-nav-btn" id="bosAddEngineSubmit">Add</button>
+					<input type="text" id="bosNewEngineName" placeholder="Engine name">
+					<input type="text" id="bosNewEngineUrl" placeholder="https://example.com/search?q=">
+					<button type="button" class="bos-nav-btn primary" id="bosAddEngineSubmit">Add</button>
+					<button type="button" class="bos-nav-btn" id="bosCancelEngineEditBtn" hidden>Cancel</button>
 				</div>
 				<div class="bos-engine-list" id="bosSettingsEngineList"></div>
 			</div>
@@ -835,6 +1416,10 @@
 	browserWindow.appendChild(settingsModal);
 
 	const setOpenMode = document.getElementById("bosSetOpenMode");
+	const setDefaultEngine = document.getElementById("bosSetDefaultEngine");
+	const setBubbleSearch = document.getElementById("bosSetBubbleSearch");
+	const setBubbleEngine = document.getElementById("bosSetBubbleEngine");
+	const bubbleEngineRow = document.getElementById("bosBubbleEngineRow");
 	const setTabPos = document.getElementById("bosSetTabPos");
 	const setTabStyle = document.getElementById("bosSetTabStyle");
 	const setShowUrls = document.getElementById("bosSetShowUrls");
@@ -843,37 +1428,105 @@
 	const setHomeMode = document.getElementById("bosSetHomeMode");
 	const setCustomHome = document.getElementById("bosSetCustomHome");
 	const customHomeRow = document.getElementById("bosCustomHomeRow");
+	const engineNameInput = document.getElementById("bosNewEngineName");
+	const engineUrlInput = document.getElementById("bosNewEngineUrl");
+	const addEngineSubmitBtn = document.getElementById("bosAddEngineSubmit");
+	const cancelEngineEditBtn = document.getElementById("bosCancelEngineEditBtn");
 
 	preventPasswordBar(setCustomHome);
-	preventPasswordBar(document.getElementById("bosNewEngineName"));
-	preventPasswordBar(document.getElementById("bosNewEngineUrl"));
+	preventPasswordBar(engineNameInput);
+	preventPasswordBar(engineUrlInput);
+
+	function populateEngineSelects() {
+		if (setDefaultEngine) {
+			setDefaultEngine.innerHTML = "";
+			Object.entries(enginesMap).forEach(([key, eng]) => {
+				const opt = document.createElement("option");
+				opt.value = key;
+				opt.textContent = eng.name;
+				setDefaultEngine.appendChild(opt);
+			});
+			setDefaultEngine.value = searchEngine;
+		}
+
+		if (setBubbleEngine) {
+			setBubbleEngine.innerHTML = "";
+			const defOpt = document.createElement("option");
+			defOpt.value = "default";
+			defOpt.textContent = "Same as default (" + ((enginesMap[searchEngine] && enginesMap[searchEngine].name) || "Google") + ")";
+			setBubbleEngine.appendChild(defOpt);
+
+			Object.entries(enginesMap).forEach(([key, eng]) => {
+				const opt = document.createElement("option");
+				opt.value = key;
+				opt.textContent = eng.name;
+				setBubbleEngine.appendChild(opt);
+			});
+
+			setBubbleEngine.value =
+				settings.bubbleSearchEngine === "default" || enginesMap[settings.bubbleSearchEngine]
+					? settings.bubbleSearchEngine
+					: "default";
+		}
+	}
+
+	function clearEngineEditorForm() {
+		editingEngineKey = null;
+		engineNameInput.value = "";
+		engineUrlInput.value = "";
+		addEngineSubmitBtn.textContent = "Add";
+		cancelEngineEditBtn.hidden = true;
+	}
 
 	function renderSettingsEnginesList() {
+		populateEngineSelects();
 		const list = document.getElementById("bosSettingsEngineList");
 		list.innerHTML = "";
-		const all = getAllEngines();
 
-		Object.entries(all).forEach(([key, eng]) => {
+		Object.entries(enginesMap).forEach(([key, eng]) => {
 			const row = document.createElement("div");
 			row.className = "bos-engine-item";
 
-			const nameSpan = document.createElement("span");
-			nameSpan.textContent = eng.name;
-			row.appendChild(nameSpan);
+			const info = document.createElement("div");
+			info.style.cssText = "flex:1;min-width:0;display:flex;flex-direction:column;";
+			info.innerHTML = `
+				<span style="font-weight:600;">${escapeHtml(eng.name)}${key === searchEngine ? " (Default)" : ""}</span>
+				<span style="font-size:11px;opacity:0.66;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(eng.url)}</span>
+			`;
+			row.appendChild(info);
 
-			if (!eng.builtIn) {
+			const editBtn = document.createElement("button");
+			editBtn.type = "button";
+			editBtn.className = "bos-nav-btn";
+			editBtn.textContent = "Edit";
+			editBtn.addEventListener("click", () => {
+				editingEngineKey = key;
+				engineNameInput.value = eng.name;
+				engineUrlInput.value = eng.url;
+				addEngineSubmitBtn.textContent = "Save";
+				cancelEngineEditBtn.hidden = false;
+				engineNameInput.focus();
+			});
+			row.appendChild(editBtn);
+
+			if (Object.keys(enginesMap).length > 1) {
 				const rm = document.createElement("button");
 				rm.type = "button";
 				rm.className = "bos-nav-btn";
 				rm.style.color = "#f87171";
-				rm.textContent = "Remove";
+				rm.textContent = "Delete";
 				rm.addEventListener("click", () => {
-					delete customEngines[key];
-					saveCustomEngines();
+					delete enginesMap[key];
+					if (editingEngineKey === key) clearEngineEditorForm();
 					if (searchEngine === key) {
-						searchEngine = "google";
+						searchEngine = Object.keys(enginesMap)[0] || "google";
 						localStorage.setItem(STORAGE_KEYS.engine, searchEngine);
 					}
+					if (settings.bubbleSearchEngine === key) {
+						settings.bubbleSearchEngine = "default";
+						saveSettings();
+					}
+					saveEngines();
 					renderEngines();
 					renderSettingsEnginesList();
 				});
@@ -885,7 +1538,10 @@
 	}
 
 	function openSettingsModal(focusEngine) {
+		clearEngineEditorForm();
 		setOpenMode.value = settings.openMode;
+		setBubbleSearch.checked = settings.bubbleSearchEnabled !== false;
+		bubbleEngineRow.style.display = setBubbleSearch.checked ? "flex" : "none";
 		setTabPos.value = settings.tabBarPosition;
 		setTabStyle.value = settings.tabBarStyle;
 		setShowUrls.checked = Boolean(settings.showTabUrls);
@@ -897,13 +1553,14 @@
 		renderSettingsEnginesList();
 		settingsModal.classList.add("open");
 		if (focusEngine) {
-			document.getElementById("bosNewEngineName").focus();
+			engineNameInput.focus();
 		}
 	}
 
 	cornerSettingsBtn.addEventListener("click", () => openSettingsModal(false));
 	document.getElementById("bosIframeSettingsBtn").addEventListener("click", () => openSettingsModal(false));
 	document.getElementById("bosCloseSettingsBtn").addEventListener("click", () => {
+		clearEngineEditorForm();
 		settingsModal.classList.remove("open");
 	});
 
@@ -911,6 +1568,22 @@
 		settings.openMode = setOpenMode.value;
 		saveSettings();
 		syncModeUI();
+	});
+	setDefaultEngine.addEventListener("change", () => {
+		searchEngine = setDefaultEngine.value;
+		localStorage.setItem(STORAGE_KEYS.engine, searchEngine);
+		renderEngines();
+		renderSettingsEnginesList();
+		syncBubbleSearchCard();
+	});
+	setBubbleSearch.addEventListener("change", () => {
+		settings.bubbleSearchEnabled = setBubbleSearch.checked;
+		bubbleEngineRow.style.display = settings.bubbleSearchEnabled ? "flex" : "none";
+		saveSettings();
+	});
+	setBubbleEngine.addEventListener("change", () => {
+		settings.bubbleSearchEngine = setBubbleEngine.value;
+		saveSettings();
 	});
 	setTabPos.addEventListener("change", () => {
 		settings.tabBarPosition = setTabPos.value;
@@ -945,31 +1618,272 @@
 		saveSettings();
 	});
 
-	document.getElementById("bosAddEngineSubmit").addEventListener("click", () => {
-		const nameInput = document.getElementById("bosNewEngineName");
-		const urlInput = document.getElementById("bosNewEngineUrl");
-		const name = nameInput.value.trim();
-		let url = urlInput.value.trim();
+	cancelEngineEditBtn.addEventListener("click", clearEngineEditorForm);
+
+	document.getElementById("bosResetEnginesBtn").addEventListener("click", () => {
+		enginesMap = JSON.parse(JSON.stringify(BUILTIN_DEFAULTS));
+		searchEngine = "google";
+		localStorage.setItem(STORAGE_KEYS.engine, searchEngine);
+		settings.bubbleSearchEngine = "default";
+		clearEngineEditorForm();
+		saveEngines();
+		saveSettings();
+		renderEngines();
+		renderSettingsEnginesList();
+	});
+
+	addEngineSubmitBtn.addEventListener("click", () => {
+		const name = engineNameInput.value.trim();
+		let url = engineUrlInput.value.trim();
 
 		if (!name || !url) return;
 		if (!/^https?:\/\//i.test(url)) {
 			url = "https://" + url;
 		}
 
-		const id = "custom-" + name.toLowerCase().replace(/[^a-z0-9]+/g, "-") + "-" + Date.now().toString(36);
-		customEngines[id] = { name, url, builtIn: false };
-		saveCustomEngines();
+		if (editingEngineKey && enginesMap[editingEngineKey]) {
+			enginesMap[editingEngineKey].name = name;
+			enginesMap[editingEngineKey].url = url;
+			searchEngine = editingEngineKey;
+		} else {
+			const id = "custom-" + name.toLowerCase().replace(/[^a-z0-9]+/g, "-") + "-" + Date.now().toString(36);
+			enginesMap[id] = { name, url, builtIn: false };
+			searchEngine = id;
+		}
 
-		searchEngine = id;
 		localStorage.setItem(STORAGE_KEYS.engine, searchEngine);
-
-		nameInput.value = "";
-		urlInput.value = "";
+		clearEngineEditorForm();
+		saveEngines();
 		renderEngines();
 		renderSettingsEnginesList();
 	});
 
-	// --- Main Search / Launch Handler ---
+	// ============================================================================
+	// BrowOS Bubble Search Card (Mini Iframe in Bubble + Open in App Iframe Mode)
+	// ============================================================================
+	let lastBubbleTarget = "";
+
+	function getActiveBubbleEngine() {
+		const chosenKey =
+			settings.bubbleSearchEngine && settings.bubbleSearchEngine !== "default" && enginesMap[settings.bubbleSearchEngine]
+				? settings.bubbleSearchEngine
+				: searchEngine;
+		return enginesMap[chosenKey] || enginesMap[Object.keys(enginesMap)[0]] || BUILTIN_DEFAULTS.google;
+	}
+
+	function buildBubbleSearchHtml() {
+		const activeEng = getActiveBubbleEngine();
+		const engineName = escapeHtml(activeEng.name);
+		const engineUrl = escapeHtml(activeEng.url);
+
+		return `
+			<div style="display:flex;flex-direction:column;gap:7px;">
+				<div style="display:flex;gap:5px;align-items:center;">
+					<input
+						type="text"
+						id="bosBubbleQueryInput"
+						data-bubble-input
+						placeholder="Search ${engineName} or URL..."
+						autocomplete="off"
+						autocorrect="off"
+						autocapitalize="off"
+						spellcheck="false"
+						style="flex:1;min-width:0;padding:6px 9px;border-radius:9px;"
+					>
+					<button type="button" id="bosBubbleSearchBtn" style="padding:6px 10px;">Search</button>
+					<button type="button" id="bosBubbleOpenAppBtn" style="padding:6px 9px;background:rgba(255,255,255,0.16);" title="Open in Browser app (iframe mode)">Open in App</button>
+				</div>
+
+				<div id="bosBubbleMiniWrap" style="display:none;flex-direction:column;gap:5px;">
+					<div style="display:flex;align-items:center;justify-content:space-between;gap:6px;font-size:11px;opacity:0.86;">
+						<span id="bosBubbleMiniLabel" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;"></span>
+						<div style="display:flex;gap:4px;flex-shrink:0;">
+							<button type="button" id="bosBubbleMiniReload" style="padding:2px 7px;font-size:11px;background:rgba(255,255,255,0.12);">↻</button>
+							<button type="button" id="bosBubbleMiniClose" style="padding:2px 7px;font-size:11px;background:rgba(239,68,68,0.28);">×</button>
+						</div>
+					</div>
+					<iframe
+						id="bosBubbleMiniFrame"
+						sandbox="allow-scripts allow-forms allow-same-origin allow-popups"
+						style="width:100%;height:215px;border:1px solid rgba(255,255,255,0.18);border-radius:10px;background:#ffffff;"
+					></iframe>
+				</div>
+			</div>
+
+			<script>
+			(function () {
+				var ENGINE_URL = ${JSON.stringify(activeEng.url)};
+				var inp = document.getElementById("bosBubbleQueryInput");
+				var searchBtn = document.getElementById("bosBubbleSearchBtn");
+				var openAppBtn = document.getElementById("bosBubbleOpenAppBtn");
+				var miniWrap = document.getElementById("bosBubbleMiniWrap");
+				var miniFrame = document.getElementById("bosBubbleMiniFrame");
+				var miniLabel = document.getElementById("bosBubbleMiniLabel");
+				var miniReload = document.getElementById("bosBubbleMiniReload");
+				var miniClose = document.getElementById("bosBubbleMiniClose");
+				var currentUrl = "";
+
+				function resolveInput(raw) {
+					var text = String(raw || "").trim();
+					if (!text) return "";
+					if (!/\\s/.test(text)) {
+						var candidate = /^https?:\\/\\//i.test(text)
+							? text
+							: (/^[a-z0-9-]+(\\.[a-z0-9-]+)+(:\\d+)?(\\/.*)?$/i.test(text) ? "https://" + text : "");
+						if (candidate) {
+							try {
+								var u = new URL(candidate);
+								if (u.protocol === "http:" || u.protocol === "https:") return u.href;
+							} catch (e) {}
+						}
+					}
+					var enc = encodeURIComponent(text);
+					return ENGINE_URL.indexOf("{q}") !== -1 ? ENGINE_URL.replace(/\\{q\\}/g, enc) : ENGINE_URL + enc;
+				}
+
+				function notifyParentHeight() {
+					try {
+						var h = Math.max(64, Math.min(340, document.body.scrollHeight || 84));
+						window.parent.postMessage({ browosBubbleFrame: 1, type: "resize", height: h }, "*");
+					} catch (e) {}
+				}
+
+				function runBubbleMiniSearch() {
+					var raw = inp.value.trim();
+					var resolved = resolveInput(raw);
+					if (!resolved) return;
+					currentUrl = resolved;
+					miniLabel.textContent = resolved.replace(/^https?:\\/\\//i, "");
+					miniWrap.style.display = "flex";
+					miniFrame.src = resolved;
+					notifyParentHeight();
+					if (typeof window.bubbleAction === "function") {
+						window.bubbleAction("bubble-record-history", resolved);
+					}
+				}
+
+				searchBtn.addEventListener("click", function (e) {
+					e.preventDefault();
+					e.stopPropagation();
+					runBubbleMiniSearch();
+				});
+
+				inp.addEventListener("keydown", function (e) {
+					if (e.key === "Enter") {
+						e.preventDefault();
+						e.stopPropagation();
+						runBubbleMiniSearch();
+					}
+				});
+
+				openAppBtn.addEventListener("click", function (e) {
+					e.preventDefault();
+					e.stopPropagation();
+					var payload = inp.value.trim() || currentUrl;
+					if (typeof window.bubbleAction === "function") {
+						window.bubbleAction("bubble-open-in-app", payload);
+						window.bubbleAction("open-app", "");
+					}
+				});
+
+				miniReload.addEventListener("click", function () {
+					if (currentUrl) miniFrame.src = currentUrl;
+				});
+
+				miniClose.addEventListener("click", function () {
+					miniWrap.style.display = "none";
+					miniFrame.src = "about:blank";
+					currentUrl = "";
+					notifyParentHeight();
+				});
+			})();
+			<\/script>
+		`;
+	}
+
+	function syncBubbleSearchCard() {
+		const api = window.browosApi;
+		if (!api || !api.bubble) return;
+
+		if (settings.bubbleSearchEnabled === false) {
+			api.bubble.hideCard("browser:search");
+			return;
+		}
+
+		api.bubble.showCard({
+			id: "browser:search",
+			appId: "browser",
+			appName: "Browser",
+			title: "Browser",
+			html: buildBubbleSearchHtml(),
+		});
+	}
+
+	function openQueryInBrowserAppIframeMode(rawQueryOrUrl) {
+		const engineKey =
+			settings.bubbleSearchEngine && settings.bubbleSearchEngine !== "default" && enginesMap[settings.bubbleSearchEngine]
+				? settings.bubbleSearchEngine
+				: searchEngine;
+
+		const resolved = resolveQueryOrUrl(rawQueryOrUrl || lastBubbleTarget, engineKey);
+
+		// Ensure Browser window is open and visible
+		if (typeof launchApp === "function") {
+			launchApp("browser");
+		} else {
+			browserWindow.classList.add("show");
+			browserWindow.classList.remove("minimized");
+		}
+
+		// Force in-app iframe rendering mode (not new tab)
+		if (settings.openMode !== "iframe") {
+			settings.openMode = "iframe";
+			saveSettings();
+		}
+
+		if (resolved) {
+			openUrlInNewTab(resolved);
+		} else {
+			syncModeUI();
+		}
+		lastBubbleTarget = "";
+	}
+
+	// Hook sdkSendBubbleAction so Bubble Search actions open in-app iframe mode & log history
+	function installBubbleActionBridge() {
+		if (typeof window.sdkSendBubbleAction !== "function" || window.sdkSendBubbleAction.__bosBrowserHooked) {
+			return false;
+		}
+		const prevBridge = window.sdkSendBubbleAction;
+		const wrappedBridge = function (appId, action, value) {
+			if (appId === "browser") {
+				if (action === "bubble-record-history" && value) {
+					lastBubbleTarget = value;
+					recordHistoryEntry(value);
+					return;
+				}
+				if (action === "bubble-open-in-app") {
+					openQueryInBrowserAppIframeMode(value);
+					return;
+				}
+			}
+			return prevBridge.apply(this, arguments);
+		};
+		wrappedBridge.__bosBrowserHooked = true;
+		window.sdkSendBubbleAction = wrappedBridge;
+		return true;
+	}
+
+	if (!installBubbleActionBridge()) {
+		window.addEventListener("load", () => {
+			installBubbleActionBridge();
+			syncBubbleSearchCard();
+		});
+	}
+
+	// ============================================================================
+	// Main Home Search / Launch Handler
+	// ============================================================================
 	function openBrowserSearch() {
 		const text = browserInput.value.trim();
 		if (text === "") return;
@@ -980,6 +1894,7 @@
 		if (settings.openMode === "iframe") {
 			openUrlInCurrentOrNewTab(url);
 		} else {
+			recordHistoryEntry(url);
 			window.open(url, "_blank", "noopener");
 		}
 
@@ -994,7 +1909,13 @@
 		}
 	});
 
-	// Init
+	// Initial Render
 	renderEngines();
+	renderHomeBookmarksBar();
 	syncModeUI();
+	syncBubbleSearchCard();
+	setTimeout(() => {
+		installBubbleActionBridge();
+		syncBubbleSearchCard();
+	}, 400);
 })();
