@@ -297,14 +297,14 @@
 		}
 
 		/* =========================================================
-		   BROWOS BUBBLE (SLOWER SPRING + PLAYING/IDLE COLOR MODES)
+		   BROWOS BUBBLE (SLOWER SPRING + PER-DESKTOP & PLAYING COLORS + SANDBOXED SCRIPTS)
 		   ========================================================= */
 		#bosBubbleTriggerZone {
 			position: fixed;
 			top: 0;
 			left: 50%;
 			transform: translateX(-50%);
-			width: 190px;
+			width: 196px;
 			height: 34px;
 			z-index: 145000;
 			display: none;
@@ -330,6 +330,11 @@
 			opacity: 0.52;
 			transition: width 0.44s cubic-bezier(0.24, 1.2, 0.4, 1), height 0.34s ease, opacity 0.3s ease, background 0.35s ease;
 			pointer-events: none;
+		}
+
+		html[data-bubble-hide-pill="1"] .bos-bubble-notch-pill {
+			opacity: 0 !important;
+			visibility: hidden !important;
 		}
 
 		#bosBubbleTriggerZone:hover .bos-bubble-notch-pill,
@@ -370,7 +375,7 @@
 			transform: translateX(-50%) translateY(-30px) scaleX(0.32) scaleY(0.24);
 			transform-origin: top center;
 			z-index: 146000;
-			width: min(392px, calc(100vw - 24px));
+			width: min(396px, calc(100vw - 24px));
 			opacity: 0;
 			pointer-events: none;
 			filter: blur(12px);
@@ -467,7 +472,7 @@
 			border-color: rgba(var(--bos-bubble-custom-rgb), 0.4);
 		}
 
-		/* Bubble Quick Note color themes (override card tint while on Note card) */
+		/* Bubble Quick Note color themes */
 		#bosBubbleCard[data-note-tint="amber"] {
 			background: linear-gradient(135deg, rgba(245, 158, 11, 0.26), rgba(217, 119, 6, 0.16)), var(--bos-win-glass-bg, rgba(22, 22, 30, 0.74)) !important;
 			border-color: rgba(251, 191, 36, 0.36) !important;
@@ -737,37 +742,9 @@
 			margin-top: 8px;
 		}
 
-		/* Preset CSS for Custom App Cards inside BrowOS Bubble */
 		.bos-bubble-custom-slot {
-			font-size: 13px;
-			line-height: 1.42;
-			color: inherit;
-		}
-
-		.bos-bubble-custom-slot h1,
-		.bos-bubble-custom-slot h2,
-		.bos-bubble-custom-slot h3,
-		.bos-bubble-custom-slot h4 {
-			margin: 0 0 4px;
-			font-size: 14px;
-			font-weight: 600;
-		}
-
-		.bos-bubble-custom-slot p {
-			margin: 0 0 6px;
-			font-size: 12.5px;
-			opacity: 0.85;
-		}
-
-		.bos-bubble-custom-slot button {
-			padding: 5px 11px;
-			border-radius: 8px;
-			border: 1px solid rgba(255, 255, 255, 0.18);
-			background: var(--accent, #2196f3);
-			color: #fff;
-			font-size: 12px;
-			font-weight: 600;
-			cursor: pointer;
+			width: 100%;
+			min-height: 72px;
 		}
 
 		/* =========================================================
@@ -848,7 +825,8 @@
 
 		html[data-window-fullscreen="1"] .taskbar,
 		html[data-window-fullscreen="1"] .taskbar-blur,
-		html[data-window-fullscreen="1"] .taskbar-restore-box {
+		html[data-window-fullscreen="1"] .taskbar-restore-box,
+		html[data-window-fullscreen="1"] #bosTaskbarHoverZone {
 			display: none !important;
 		}
 
@@ -885,21 +863,44 @@
 		}
 
 		/* =========================================================
-		   TASKBAR SCALE (0.25x - 2x), GLASS & HIDEABLE ICONS
+		   TASKBAR: OVAL vs WINDOWS FULL-WIDTH BAR, SCALE, AUTO-HIDE & AUTO-OPEN
 		   ========================================================= */
 		.taskbar-blur,
 		.taskbar {
 			zoom: var(--taskbar-scale, 1);
 			backdrop-filter: blur(22px) saturate(160%);
 			-webkit-backdrop-filter: blur(22px) saturate(160%);
-			transition: transform 0.24s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.2s ease !important;
+			transition: transform 0.26s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.22s ease !important;
 		}
 
-		html[data-taskbar-hidden="1"] .taskbar,
-		html[data-taskbar-hidden="1"] .taskbar-blur {
+		/* Windows-style full-width bottom bar mode */
+		html[data-taskbar-style="windows"] .taskbar,
+		html[data-taskbar-style="windows"] .taskbar-blur {
+			left: 0 !important;
+			right: 0 !important;
+			bottom: 0 !important;
+			width: 100% !important;
+			max-width: none !important;
+			transform: none !important;
+			border-radius: 0 !important;
+			border-left: none !important;
+			border-right: none !important;
+			border-bottom: none !important;
+			padding-left: 14px !important;
+			padding-right: 14px !important;
+			box-sizing: border-box !important;
+		}
+
+		html[data-taskbar-hidden="1"]:not([data-taskbar-hover-open="1"]) .taskbar,
+		html[data-taskbar-hidden="1"]:not([data-taskbar-hover-open="1"]) .taskbar-blur {
 			transform: translateY(calc(100% + 24px)) !important;
 			opacity: 0 !important;
 			pointer-events: none !important;
+		}
+
+		html[data-taskbar-style="windows"][data-taskbar-hidden="1"]:not([data-taskbar-hover-open="1"]) .taskbar,
+		html[data-taskbar-style="windows"][data-taskbar-hidden="1"]:not([data-taskbar-hover-open="1"]) .taskbar-blur {
+			transform: translateY(100%) !important;
 		}
 
 		html[data-taskbar-hide-disabled="1"] .taskbar-hide-btn,
@@ -917,6 +918,21 @@
 		html[data-tb-hide-clipboard="1"] .taskbar [aria-label*="clipboard" i] { display: none !important; }
 		html[data-tb-hide-bell="1"] #bellButton { display: none !important; }
 		html[data-tb-hide-quick="1"] #quickButton { display: none !important; }
+
+		#bosTaskbarHoverZone {
+			position: fixed;
+			left: 0;
+			right: 0;
+			bottom: 0;
+			height: 10px;
+			z-index: 99997;
+			display: none;
+			background: transparent;
+		}
+
+		html[data-taskbar-hidden="1"][data-taskbar-autoopen="1"]:not([data-taskbar-hover-open="1"]) #bosTaskbarHoverZone {
+			display: block;
+		}
 
 		.taskbar-restore-box {
 			position: fixed;
@@ -942,7 +958,7 @@
 			box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
 		}
 
-		html[data-taskbar-hidden="1"] .taskbar-restore-box {
+		html[data-taskbar-hidden="1"]:not([data-taskbar-hover-open="1"]) .taskbar-restore-box {
 			opacity: 1 !important;
 			pointer-events: auto !important;
 			transform: translateX(-50%) translateY(0) !important;
@@ -1298,8 +1314,8 @@
 </head>
 
 <body>
-	<!-- Top-center double-tap sensor for BrowOS Bubble -->
-	<div id="bosBubbleTriggerZone" title="Double-tap to open BrowOS Bubble" aria-label="BrowOS Bubble Trigger">
+	<!-- Top-center tap/double-tap sensor for BrowOS Bubble -->
+	<div id="bosBubbleTriggerZone" title="Open BrowOS Bubble" aria-label="BrowOS Bubble Trigger">
 		<span class="bos-bubble-notch-pill"></span>
 	</div>
 	<div id="bosBubbleBackdrop"></div>
@@ -1824,17 +1840,67 @@
 					<h3>BrowOS Bubble</h3>
 
 					<div class="setting-row">
-						<span>Open on top double-tap</span>
+						<span>Open on desktop</span>
 
-						<select id="bubbleModeSelect">
+						<select id="bubbleDesktopTriggerSelect">
 							<option value="off" selected>Off</option>
-							<option value="desktop">Desktop only</option>
-							<option value="everywhere">Desktop and apps</option>
+							<option value="single">Single tap</option>
+							<option value="double">Double tap</option>
 						</select>
 					</div>
 
 					<div class="setting-row">
-						<span>Color when idle</span>
+						<span>Open when an app is open</span>
+
+						<select id="bubbleAppTriggerSelect">
+							<option value="off" selected>Off</option>
+							<option value="single">Single tap</option>
+							<option value="double">Double tap</option>
+						</select>
+					</div>
+
+					<div class="setting-row">
+						<span>Hide top bar pill (keep tap area)</span>
+
+						<label class="switch">
+							<input type="checkbox" id="bubbleHidePillToggle">
+							<span class="slider"></span>
+						</label>
+					</div>
+
+					<div class="setting-row">
+						<span>Auto-collapse timer</span>
+
+						<select id="bubbleAutoCloseSelect">
+							<option value="0" selected>Off</option>
+							<option value="5">5 seconds</option>
+							<option value="10">10 seconds</option>
+							<option value="20">20 seconds</option>
+						</select>
+					</div>
+
+					<div class="setting-row">
+						<span>Sync idle color across all desktops</span>
+
+						<label class="switch">
+							<input type="checkbox" id="bubbleSyncDesktopColorsToggle" checked>
+							<span class="slider"></span>
+						</label>
+					</div>
+
+					<div class="setting-row" id="bubbleDesktopPickerRow" hidden>
+						<span>Desktop to customize</span>
+
+						<select id="bubbleDesktopTargetSelect">
+							<option value="1">Desktop 1</option>
+							<option value="2">Desktop 2</option>
+							<option value="3">Desktop 3</option>
+							<option value="4">Desktop 4</option>
+						</select>
+					</div>
+
+					<div class="setting-row">
+						<span id="bubbleIdleStyleLabel">Color when idle</span>
 
 						<div style="display:flex;align-items:center;gap:8px;">
 							<select id="bubbleIdleStyleSelect">
@@ -1924,6 +1990,33 @@
 				<!-- Taskbar -->
 				<div class="settings-page" id="taskbarPage">
 					<h2>Taskbar</h2>
+
+					<div class="setting-row">
+						<span>Taskbar style</span>
+
+						<select id="taskbarStyleSelect">
+							<option value="oval" selected>Floating pill (Oval)</option>
+							<option value="windows">Bottom bar (Windows)</option>
+						</select>
+					</div>
+
+					<div class="setting-row">
+						<span>Auto-hide when app is maximized</span>
+
+						<label class="switch">
+							<input type="checkbox" id="taskbarAutoHideToggle">
+							<span class="slider"></span>
+						</label>
+					</div>
+
+					<div class="setting-row">
+						<span>Auto-open when hovering near bottom edge</span>
+
+						<label class="switch">
+							<input type="checkbox" id="taskbarAutoOpenToggle">
+							<span class="slider"></span>
+						</label>
+					</div>
 
 					<div class="setting-row">
 						<span>Scale (0.25x – 2x)</span>
@@ -2652,7 +2745,7 @@
 	<div class="taskbar-blur"></div>
 
 	<!-- Taskbar -->
-	<div class="taskbar">
+	<div class="taskbar" id="mainTaskbar">
 		<div class="taskbar-left">
 			<button class="start-button" id="startButton">
 				<img src="icons/browos-logo.png" alt="Start">
@@ -2702,6 +2795,9 @@
 			</button>
 		</div>
 	</div>
+
+	<!-- Thin bottom hover sensor for Taskbar Auto-Open -->
+	<div id="bosTaskbarHoverZone" aria-hidden="true"></div>
 
 	<!-- Small bottom box to bring taskbar back -->
 	<button class="taskbar-restore-box" id="taskbarRestoreBox" title="Show taskbar" aria-label="Show taskbar">
@@ -2940,7 +3036,15 @@
 		const WIPE_PENDING_CODE_KEY = "browos-wipe-pending-code";
 		const MASTER_RESET_ENABLED_KEY = "browos-master-reset-enabled";
 		const COMPUTER_SAVER_KEY = "browos-computer-saver";
-		const BUBBLE_MODE_KEY = "browos-bubble-mode";
+		const MENU_AUTOFOCUS_KEY = "browos-autofocus-menus";
+
+		// Bubble keys
+		const BUBBLE_DESKTOP_TRIGGER_KEY = "browos-bubble-desktop-trigger";
+		const BUBBLE_APP_TRIGGER_KEY = "browos-bubble-app-trigger";
+		const BUBBLE_HIDE_PILL_KEY = "browos-bubble-hide-pill";
+		const BUBBLE_AUTOCLOSE_KEY = "browos-bubble-autoclose";
+		const BUBBLE_SYNC_DESKTOPS_KEY = "browos-bubble-sync-desktops";
+		const BUBBLE_DESKTOP_STYLES_KEY = "browos-bubble-desktop-styles";
 		const BUBBLE_FAVS_KEY = "browos-bubble-favs";
 		const BUBBLE_SYS_CARDS_KEY = "browos-bubble-system-cards";
 		const BUBBLE_APP_POLICY_KEY = "browos-bubble-app-policy";
@@ -2951,7 +3055,11 @@
 		const BUBBLE_IDLE_COLOR_KEY = "browos-bubble-idle-color";
 		const BUBBLE_PLAYING_STYLE_KEY = "browos-bubble-playing-style";
 		const BUBBLE_PLAYING_COLOR_KEY = "browos-bubble-playing-color";
-		const MENU_AUTOFOCUS_KEY = "browos-autofocus-menus";
+
+		// Taskbar keys
+		const TASKBAR_STYLE_KEY = "browos-taskbar-style";
+		const TASKBAR_AUTOHIDE_KEY = "browos-taskbar-autohide";
+		const TASKBAR_AUTOOPEN_KEY = "browos-taskbar-autoopen";
 
 		const SVG_ICONS = {
 			prev: '<svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>',
@@ -2979,6 +3087,14 @@
 				}
 			}
 			return "59, 130, 246";
+		}
+
+		function getActiveDesktopNumber() {
+			if (typeof currentDesktop === "number" && currentDesktop >= 1) {
+				return currentDesktop;
+			}
+			const btn = document.getElementById("desktopSwitchButton");
+			return (btn && parseInt(btn.textContent, 10)) || 1;
 		}
 
 		function getProfilesMetaSafe() {
@@ -3255,14 +3371,44 @@
 			}
 		}
 
+		function getDesktopIdleStyleMap() {
+			try {
+				const raw = JSON.parse(localStorage.getItem(BUBBLE_DESKTOP_STYLES_KEY) || "{}");
+				return raw && typeof raw === "object" ? raw : {};
+			} catch (e) {
+				return {};
+			}
+		}
+
+		function saveDesktopIdleStyleMap(map) {
+			localStorage.setItem(BUBBLE_DESKTOP_STYLES_KEY, JSON.stringify(map));
+		}
+
+		function resolveIdleColorSpec(desktopNum) {
+			const syncAll = localStorage.getItem(BUBBLE_SYNC_DESKTOPS_KEY) !== "off";
+			if (!syncAll) {
+				const map = getDesktopIdleStyleMap();
+				const entry = map[String(desktopNum)];
+				if (entry && entry.style) {
+					return {
+						style: entry.style,
+						hex: entry.hex || "#3b82f6",
+					};
+				}
+			}
+			return {
+				style: localStorage.getItem(BUBBLE_IDLE_STYLE_KEY) || "grey",
+				hex: localStorage.getItem(BUBBLE_IDLE_COLOR_KEY) || "#3b82f6",
+			};
+		}
+
 		function applyBubbleStateColor(isMusicPlaying) {
-			const idleStyle = localStorage.getItem(BUBBLE_IDLE_STYLE_KEY) || "grey";
-			const idleHex = localStorage.getItem(BUBBLE_IDLE_COLOR_KEY) || "#3b82f6";
 			const playStyle = localStorage.getItem(BUBBLE_PLAYING_STYLE_KEY) || "colorful";
 			const playHex = localStorage.getItem(BUBBLE_PLAYING_COLOR_KEY) || "#a855f7";
+			const idleSpec = resolveIdleColorSpec(getActiveDesktopNumber());
 
-			const activeStyle = isMusicPlaying ? playStyle : idleStyle;
-			const activeHex = isMusicPlaying ? playHex : idleHex;
+			const activeStyle = isMusicPlaying ? playStyle : idleSpec.style;
+			const activeHex = isMusicPlaying ? playHex : idleSpec.hex;
 
 			document.documentElement.style.setProperty("--bos-bubble-custom-rgb", hexToRgbTriplet(activeHex));
 
@@ -3312,9 +3458,16 @@
 		syncMediaWidgetsUI();
 
 		// =========================================================
-		// BROWOS BUBBLE (COLOR SETTINGS, REORDERABLE CARDS, NOTE)
+		// BROWOS BUBBLE (SEPARATE DESKTOP/APP TRIGGERS, PER-DESKTOP COLORS, SANDBOXED SCRIPTS)
 		// =========================================================
-		const bubbleModeSelect = document.getElementById("bubbleModeSelect");
+		const bubbleDesktopTriggerSelect = document.getElementById("bubbleDesktopTriggerSelect");
+		const bubbleAppTriggerSelect = document.getElementById("bubbleAppTriggerSelect");
+		const bubbleHidePillToggle = document.getElementById("bubbleHidePillToggle");
+		const bubbleAutoCloseSelect = document.getElementById("bubbleAutoCloseSelect");
+		const bubbleSyncDesktopColorsToggle = document.getElementById("bubbleSyncDesktopColorsToggle");
+		const bubbleDesktopPickerRow = document.getElementById("bubbleDesktopPickerRow");
+		const bubbleDesktopTargetSelect = document.getElementById("bubbleDesktopTargetSelect");
+		const bubbleIdleStyleLabel = document.getElementById("bubbleIdleStyleLabel");
 		const bubbleIdleStyleSelect = document.getElementById("bubbleIdleStyleSelect");
 		const bubbleIdleColorInput = document.getElementById("bubbleIdleColorInput");
 		const bubblePlayingStyleSelect = document.getElementById("bubblePlayingStyleSelect");
@@ -3335,29 +3488,144 @@
 
 		let bubbleActiveIndex = 0;
 		let bubbleEditingFavs = false;
+		let bubbleAutoCloseTimer = null;
+
+		function getDesktopTriggerMode() {
+			const v = localStorage.getItem(BUBBLE_DESKTOP_TRIGGER_KEY);
+			return v === "single" || v === "double" ? v : "off";
+		}
+
+		function getAppTriggerMode() {
+			const v = localStorage.getItem(BUBBLE_APP_TRIGGER_KEY);
+			return v === "single" || v === "double" ? v : "off";
+		}
+
+		function updateBubbleTriggerVisibility() {
+			const deskMode = getDesktopTriggerMode();
+			const appMode = getAppTriggerMode();
+			if (!bubbleTriggerZone) return;
+			if (deskMode === "off" && appMode === "off") {
+				bubbleTriggerZone.classList.remove("enabled");
+				closeBubble();
+			} else {
+				bubbleTriggerZone.classList.add("enabled");
+			}
+		}
+
+		function applyBubbleHidePill(hidden) {
+			if (hidden) document.documentElement.dataset.bubbleHidePill = "1";
+			else delete document.documentElement.dataset.bubbleHidePill;
+		}
+
+		if (bubbleDesktopTriggerSelect) {
+			bubbleDesktopTriggerSelect.value = getDesktopTriggerMode();
+			bubbleDesktopTriggerSelect.onchange = function () {
+				localStorage.setItem(BUBBLE_DESKTOP_TRIGGER_KEY, bubbleDesktopTriggerSelect.value);
+				updateBubbleTriggerVisibility();
+			};
+		}
+
+		if (bubbleAppTriggerSelect) {
+			bubbleAppTriggerSelect.value = getAppTriggerMode();
+			bubbleAppTriggerSelect.onchange = function () {
+				localStorage.setItem(BUBBLE_APP_TRIGGER_KEY, bubbleAppTriggerSelect.value);
+				updateBubbleTriggerVisibility();
+			};
+		}
+
+		const hidePillSaved = localStorage.getItem(BUBBLE_HIDE_PILL_KEY) === "on";
+		applyBubbleHidePill(hidePillSaved);
+		if (bubbleHidePillToggle) {
+			bubbleHidePillToggle.checked = hidePillSaved;
+			bubbleHidePillToggle.onchange = function () {
+				const on = bubbleHidePillToggle.checked;
+				localStorage.setItem(BUBBLE_HIDE_PILL_KEY, on ? "on" : "off");
+				applyBubbleHidePill(on);
+			};
+		}
+
+		if (bubbleAutoCloseSelect) {
+			bubbleAutoCloseSelect.value = localStorage.getItem(BUBBLE_AUTOCLOSE_KEY) || "0";
+			bubbleAutoCloseSelect.onchange = function () {
+				localStorage.setItem(BUBBLE_AUTOCLOSE_KEY, bubbleAutoCloseSelect.value);
+				scheduleBubbleAutoClose();
+			};
+		}
+
+		function refreshIdleColorControlsUI() {
+			const syncAll = localStorage.getItem(BUBBLE_SYNC_DESKTOPS_KEY) !== "off";
+			if (bubbleSyncDesktopColorsToggle) bubbleSyncDesktopColorsToggle.checked = syncAll;
+			if (bubbleDesktopPickerRow) bubbleDesktopPickerRow.hidden = syncAll;
+
+			const targetDesk = bubbleDesktopTargetSelect ? bubbleDesktopTargetSelect.value : "1";
+			if (bubbleIdleStyleLabel) {
+				bubbleIdleStyleLabel.textContent = syncAll ? "Color when idle" : "Desktop " + targetDesk + " idle color";
+			}
+
+			let style = localStorage.getItem(BUBBLE_IDLE_STYLE_KEY) || "grey";
+			let hex = localStorage.getItem(BUBBLE_IDLE_COLOR_KEY) || "#3b82f6";
+
+			if (!syncAll) {
+				const map = getDesktopIdleStyleMap();
+				if (map[targetDesk]) {
+					style = map[targetDesk].style || style;
+					hex = map[targetDesk].hex || hex;
+				}
+			}
+
+			if (bubbleIdleStyleSelect) bubbleIdleStyleSelect.value = style;
+			if (bubbleIdleColorInput) {
+				bubbleIdleColorInput.value = hex;
+				bubbleIdleColorInput.hidden = style !== "custom";
+			}
+		}
+
+		function saveCurrentIdleColorSetting() {
+			const syncAll = localStorage.getItem(BUBBLE_SYNC_DESKTOPS_KEY) !== "off";
+			const style = bubbleIdleStyleSelect ? bubbleIdleStyleSelect.value : "grey";
+			const hex = bubbleIdleColorInput ? bubbleIdleColorInput.value : "#3b82f6";
+
+			if (syncAll) {
+				localStorage.setItem(BUBBLE_IDLE_STYLE_KEY, style);
+				localStorage.setItem(BUBBLE_IDLE_COLOR_KEY, hex);
+			} else {
+				const targetDesk = bubbleDesktopTargetSelect ? bubbleDesktopTargetSelect.value : "1";
+				const map = getDesktopIdleStyleMap();
+				map[targetDesk] = { style: style, hex: hex };
+				saveDesktopIdleStyleMap(map);
+			}
+			syncMediaWidgetsUI();
+		}
 
 		function initBubbleColorSettings() {
-			const idleStyle = localStorage.getItem(BUBBLE_IDLE_STYLE_KEY) || "grey";
-			const idleHex = localStorage.getItem(BUBBLE_IDLE_COLOR_KEY) || "#3b82f6";
-			const playStyle = localStorage.getItem(BUBBLE_PLAYING_STYLE_KEY) || "colorful";
-			const playHex = localStorage.getItem(BUBBLE_PLAYING_COLOR_KEY) || "#a855f7";
+			if (bubbleSyncDesktopColorsToggle) {
+				bubbleSyncDesktopColorsToggle.onchange = function () {
+					localStorage.setItem(BUBBLE_SYNC_DESKTOPS_KEY, bubbleSyncDesktopColorsToggle.checked ? "on" : "off");
+					refreshIdleColorControlsUI();
+					syncMediaWidgetsUI();
+				};
+			}
+
+			if (bubbleDesktopTargetSelect) {
+				bubbleDesktopTargetSelect.value = String(getActiveDesktopNumber());
+				bubbleDesktopTargetSelect.onchange = refreshIdleColorControlsUI;
+			}
 
 			if (bubbleIdleStyleSelect) {
-				bubbleIdleStyleSelect.value = idleStyle;
 				bubbleIdleStyleSelect.onchange = function () {
-					localStorage.setItem(BUBBLE_IDLE_STYLE_KEY, bubbleIdleStyleSelect.value);
 					if (bubbleIdleColorInput) bubbleIdleColorInput.hidden = bubbleIdleStyleSelect.value !== "custom";
-					syncMediaWidgetsUI();
+					saveCurrentIdleColorSetting();
 				};
 			}
+
 			if (bubbleIdleColorInput) {
-				bubbleIdleColorInput.value = idleHex;
-				bubbleIdleColorInput.hidden = idleStyle !== "custom";
-				bubbleIdleColorInput.oninput = function () {
-					localStorage.setItem(BUBBLE_IDLE_COLOR_KEY, bubbleIdleColorInput.value);
-					syncMediaWidgetsUI();
-				};
+				bubbleIdleColorInput.oninput = saveCurrentIdleColorSetting;
 			}
+
+			refreshIdleColorControlsUI();
+
+			const playStyle = localStorage.getItem(BUBBLE_PLAYING_STYLE_KEY) || "colorful";
+			const playHex = localStorage.getItem(BUBBLE_PLAYING_COLOR_KEY) || "#a855f7";
 
 			if (bubblePlayingStyleSelect) {
 				bubblePlayingStyleSelect.value = playStyle;
@@ -3378,6 +3646,7 @@
 		}
 
 		initBubbleColorSettings();
+		updateBubbleTriggerVisibility();
 
 		const DEFAULT_SYSTEM_CARDS = [
 			{ id: "sys-media", title: "Media", type: "media", enabled: true },
@@ -3551,11 +3820,6 @@
 		}
 		renderBlockedBubbleAppsUI();
 
-		function getBubbleMode() {
-			const m = localStorage.getItem(BUBBLE_MODE_KEY);
-			return m === "desktop" || m === "everywhere" ? m : "off";
-		}
-
 		function getBubbleFavIds() {
 			try {
 				const parsed = JSON.parse(localStorage.getItem(BUBBLE_FAVS_KEY) || "null");
@@ -3571,27 +3835,6 @@
 		function saveBubbleFavIds(ids) {
 			localStorage.setItem(BUBBLE_FAVS_KEY, JSON.stringify(ids.slice(0, 8)));
 		}
-
-		function updateBubbleTriggerVisibility() {
-			const mode = getBubbleMode();
-			if (!bubbleTriggerZone) return;
-			if (mode === "off") {
-				bubbleTriggerZone.classList.remove("enabled");
-				closeBubble();
-				return;
-			}
-			bubbleTriggerZone.classList.add("enabled");
-		}
-
-		const initialBubbleMode = getBubbleMode();
-		if (bubbleModeSelect) {
-			bubbleModeSelect.value = initialBubbleMode;
-			bubbleModeSelect.addEventListener("change", function () {
-				localStorage.setItem(BUBBLE_MODE_KEY, bubbleModeSelect.value);
-				updateBubbleTriggerVisibility();
-			});
-		}
-		updateBubbleTriggerVisibility();
 
 		function getBubbleCards() {
 			const cards = getSystemBubbleCardsConfig()
@@ -3609,6 +3852,7 @@
 					}
 					cards.push({
 						id: c.id,
+						appId: c.appId,
 						title: c.title || c.appName || "App",
 						type: "custom",
 						isApp: true,
@@ -3624,20 +3868,41 @@
 			return cards;
 		}
 
-		function sanitizeBubbleHtml(rawHtml) {
-			const tpl = document.createElement("template");
-			tpl.innerHTML = String(rawHtml || "");
-			tpl.content.querySelectorAll("script, iframe, object, embed, link, meta").forEach(function (el) {
-				el.remove();
-			});
-			tpl.content.querySelectorAll("*").forEach(function (el) {
-				Array.from(el.attributes).forEach(function (attr) {
-					if (/^on/i.test(attr.name)) {
-						el.removeAttribute(attr.name);
-					}
-				});
-			});
-			return tpl.innerHTML;
+		// Sandboxed srcdoc wrapper allowing <script> tags & <canvas> games safely inside BrowOS Bubble
+		function buildSandboxedBubbleDoc(rawHtml) {
+			const isLight = document.documentElement.classList.contains("light-mode");
+			const accent = document.documentElement.style.getPropertyValue("--accent") || "#2196f3";
+			const textColor = isLight ? "#111827" : "#f8fafc";
+			const inputBg = isLight ? "rgba(255,255,255,0.65)" : "rgba(0,0,0,0.28)";
+			const borderCol = isLight ? "rgba(15,23,42,0.16)" : "rgba(255,255,255,0.2)";
+
+			const presetCss =
+				"<style>" +
+				"*{box-sizing:border-box;}" +
+				"html,body{margin:0;padding:0;background:transparent;color:" + textColor + ";font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:13px;line-height:1.42;overflow:hidden;}" +
+				"h1,h2,h3,h4{margin:0 0 4px;font-size:14px;font-weight:600;}" +
+				"p{margin:0 0 6px;font-size:12.5px;opacity:0.88;}" +
+				"button{padding:5px 11px;border-radius:8px;border:1px solid " + borderCol + ";background:" + accent + ";color:#fff;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;}" +
+				"button:active{transform:scale(0.96);}" +
+				"input[type='text']{padding:5px 8px;border-radius:8px;border:1px solid " + borderCol + ";background:" + inputBg + ";color:inherit;font-family:inherit;font-size:12px;outline:none;}" +
+				"canvas{display:block;max-width:100%;border-radius:10px;}" +
+				"</style>";
+
+			const bridgeScript =
+				"<script>(function(){" +
+				"function sendHeight(){try{var h=Math.max(64,Math.min(340,document.body.scrollHeight||document.documentElement.scrollHeight||84));window.parent.postMessage({browosBubbleFrame:1,type:'resize',height:h},'*');}catch(e){}}" +
+				"window.bubbleAction=function(action,value){try{window.parent.postMessage({browosBubbleFrame:1,type:'action',action:String(action||''),value:String(value||'')},'*');}catch(e){}};" +
+				"document.addEventListener('click',function(e){var btn=e.target&&e.target.closest?e.target.closest('[data-bubble-action]'):null;if(!btn)return;var inp=document.querySelector('[data-bubble-input]');var val=btn.dataset.bubblePrompt||(inp?inp.value.trim():'');if(inp&&!btn.dataset.bubblePrompt)inp.value='';window.bubbleAction(btn.dataset.bubbleAction,val);});" +
+				"document.addEventListener('keydown',function(e){if(e.key!=='Enter')return;var inp=e.target&&e.target.closest?e.target.closest('[data-bubble-input]'):null;if(!inp)return;e.preventDefault();var val=inp.value.trim();if(!val)return;inp.value='';window.bubbleAction('send-input',val);});" +
+				"window.addEventListener('load',function(){sendHeight();if(window.ResizeObserver){new ResizeObserver(sendHeight).observe(document.body);}});" +
+				"setTimeout(sendHeight,40);" +
+				"})();<\/script>";
+
+			const content = String(rawHtml || "");
+			if (/<html[\s>]/i.test(content)) {
+				return content.replace(/<head[^>]*>/i, function (m) { return m + presetCss + bridgeScript; });
+			}
+			return "<!DOCTYPE html><html><head><meta charset='UTF-8'>" + presetCss + bridgeScript + "</head><body>" + content + "</body></html>";
 		}
 
 		function applyBubbleCardTint(card) {
@@ -3654,7 +3919,14 @@
 			}
 		}
 
+		let activeBubbleFrameListener = null;
+
 		function renderBubbleCard(slideDir) {
+			if (activeBubbleFrameListener) {
+				window.removeEventListener("message", activeBubbleFrameListener);
+				activeBubbleFrameListener = null;
+			}
+
 			const cards = getBubbleCards();
 			if (bubbleActiveIndex >= cards.length) bubbleActiveIndex = 0;
 			if (bubbleActiveIndex < 0) bubbleActiveIndex = cards.length - 1;
@@ -3759,6 +4031,7 @@
 				textarea.value = localStorage.getItem(BUBBLE_NOTE_TEXT_KEY) || "";
 				textarea.addEventListener("input", function () {
 					localStorage.setItem(BUBBLE_NOTE_TEXT_KEY, textarea.value);
+					scheduleBubbleAutoClose();
 				});
 
 				const colorBar = document.createElement("div");
@@ -3897,35 +4170,85 @@
 			if (current.type === "custom") {
 				const slot = document.createElement("div");
 				slot.className = "bos-bubble-custom-slot";
-				slot.innerHTML = sanitizeBubbleHtml(current.html);
+
+				const frame = document.createElement("iframe");
+				frame.setAttribute("sandbox", "allow-scripts");
+				frame.style.cssText = "width:100%;height:96px;border:none;background:transparent;display:block;overflow:hidden;";
+				frame.srcdoc = buildSandboxedBubbleDoc(current.html);
+
+				activeBubbleFrameListener = function (ev) {
+					if (ev.source !== frame.contentWindow || !ev.data || ev.data.browosBubbleFrame !== 1) {
+						return;
+					}
+					scheduleBubbleAutoClose();
+					if (ev.data.type === "resize" && typeof ev.data.height === "number") {
+						frame.style.height = Math.max(64, Math.min(340, ev.data.height)) + "px";
+						return;
+					}
+					if (ev.data.type === "action") {
+						if (ev.data.action === "open-app") {
+							closeBubble();
+							if (typeof launchApp === "function") launchApp(current.appId);
+							else if (window.browosApi) window.browosApi.openApp(current.appId);
+							return;
+						}
+						if (typeof window.sdkSendBubbleAction === "function") {
+							window.sdkSendBubbleAction(current.appId, ev.data.action, ev.data.value);
+						}
+					}
+				};
+
+				window.addEventListener("message", activeBubbleFrameListener);
+				slot.appendChild(frame);
 				bubbleBody.appendChild(slot);
 			}
 		}
 
-		function openBubble() {
-			const mode = getBubbleMode();
-			if (mode === "off") return;
-			if (mode === "desktop") {
-				const hasVisibleWindow = Boolean(document.querySelector(".app-window.show"));
-				if (hasVisibleWindow) {
+		function scheduleBubbleAutoClose() {
+			clearTimeout(bubbleAutoCloseTimer);
+			const sec = parseInt(localStorage.getItem(BUBBLE_AUTOCLOSE_KEY) || "0", 10) || 0;
+			if (sec <= 0 || !bubbleHost || !bubbleHost.classList.contains("open")) {
+				return;
+			}
+			bubbleAutoCloseTimer = setTimeout(function () {
+				const activeEl = document.activeElement;
+				if (activeEl && (activeEl.tagName === "TEXTAREA" || activeEl.tagName === "INPUT" || activeEl.tagName === "IFRAME")) {
+					scheduleBubbleAutoClose();
 					return;
 				}
-			}
+				closeBubble();
+			}, sec * 1000);
+		}
+
+		function getRequiredTriggerForCurrentState() {
+			const hasOpenApp = Boolean(document.querySelector(".app-window.show"));
+			return hasOpenApp ? getAppTriggerMode() : getDesktopTriggerMode();
+		}
+
+		function openBubble() {
+			const req = getRequiredTriggerForCurrentState();
+			if (req === "off") return;
 			bubbleEditingFavs = false;
 			renderBubbleCard("none");
 			if (bubbleHost) bubbleHost.classList.add("open");
 			if (bubbleBackdrop) bubbleBackdrop.classList.add("open");
+			scheduleBubbleAutoClose();
 		}
 
 		function closeBubble() {
+			clearTimeout(bubbleAutoCloseTimer);
+			if (activeBubbleFrameListener) {
+				window.removeEventListener("message", activeBubbleFrameListener);
+				activeBubbleFrameListener = null;
+			}
 			if (bubbleHost) bubbleHost.classList.remove("open");
 			if (bubbleBackdrop) bubbleBackdrop.classList.remove("open");
 		}
 
 		if (bubbleBackdrop) bubbleBackdrop.onclick = closeBubble;
 
-		// Mouse wheel & touch swipe switching on BrowOS Bubble
 		if (bubbleCardEl) {
+			bubbleCardEl.addEventListener("pointerdown", scheduleBubbleAutoClose, { passive: true });
 			bubbleCardEl.addEventListener("wheel", function (e) {
 				if (e.target && e.target.tagName === "TEXTAREA") return;
 				if (Math.abs(e.deltaX) > 12 || Math.abs(e.deltaY) > 12) {
@@ -3934,6 +4257,7 @@
 					bubbleActiveIndex += forward ? 1 : -1;
 					bubbleEditingFavs = false;
 					renderBubbleCard(forward ? "next" : "prev");
+					scheduleBubbleAutoClose();
 				}
 			}, { passive: false });
 
@@ -3955,34 +4279,49 @@
 					bubbleActiveIndex += forward ? 1 : -1;
 					bubbleEditingFavs = false;
 					renderBubbleCard(forward ? "next" : "prev");
+					scheduleBubbleAutoClose();
 				}
 			}, { passive: true });
 		}
 
-		// Top-center double-tap / double-click detection (desktop + tablet touch)
+		// Top-center single-tap or double-tap detection (desktop + app states)
 		if (bubbleTriggerZone) {
 			let lastTapTime = 0;
+			function handleTriggerGesture(isDoubleClickEvent) {
+				const req = getRequiredTriggerForCurrentState();
+				if (req === "off") return;
+
+				if (req === "single" && !isDoubleClickEvent) {
+					if (bubbleHost && bubbleHost.classList.contains("open")) closeBubble();
+					else openBubble();
+					return;
+				}
+
+				if (req === "double") {
+					if (isDoubleClickEvent) {
+						if (bubbleHost && bubbleHost.classList.contains("open")) closeBubble();
+						else openBubble();
+						return;
+					}
+					const now = Date.now();
+					if (now - lastTapTime < 360) {
+						lastTapTime = 0;
+						if (bubbleHost && bubbleHost.classList.contains("open")) closeBubble();
+						else openBubble();
+					} else {
+						lastTapTime = now;
+					}
+				}
+			}
+
+			bubbleTriggerZone.addEventListener("click", function (e) {
+				e.preventDefault();
+				handleTriggerGesture(false);
+			});
+
 			bubbleTriggerZone.addEventListener("dblclick", function (e) {
 				e.preventDefault();
-				if (bubbleHost && bubbleHost.classList.contains("open")) {
-					closeBubble();
-				} else {
-					openBubble();
-				}
-			});
-			bubbleTriggerZone.addEventListener("touchend", function (e) {
-				const now = Date.now();
-				if (now - lastTapTime < 350) {
-					e.preventDefault();
-					lastTapTime = 0;
-					if (bubbleHost && bubbleHost.classList.contains("open")) {
-						closeBubble();
-					} else {
-						openBubble();
-					}
-				} else {
-					lastTapTime = now;
-				}
+				handleTriggerGesture(true);
 			});
 		}
 
@@ -3993,7 +4332,7 @@
 		});
 
 		// =========================================================
-		// SMOOTH DESKTOP SWITCH ANIMATION (WITHOUT EXTRA BAR)
+		// SMOOTH DESKTOP SWITCH ANIMATION + PER-DESKTOP BUBBLE COLOR SYNC
 		// =========================================================
 		const desktopSwitchBtnEl = document.getElementById("desktopSwitchButton");
 		if (desktopSwitchBtnEl) {
@@ -4005,6 +4344,7 @@
 						shell.classList.remove("bos-desktop-switching");
 					}, 240);
 				}
+				syncMediaWidgetsUI();
 			}).observe(desktopSwitchBtnEl, { childList: true, characterData: true, subtree: true });
 		}
 
@@ -4167,16 +4507,148 @@
 		}
 
 		// =========================================================
+		// TASKBAR STYLE (OVAL vs WINDOWS BAR), AUTO-HIDE & AUTO-OPEN
+		// =========================================================
+		const taskbarStyleSelect = document.getElementById("taskbarStyleSelect");
+		const taskbarAutoHideToggle = document.getElementById("taskbarAutoHideToggle");
+		const taskbarAutoOpenToggle = document.getElementById("taskbarAutoOpenToggle");
+		const taskbarHoverZone = document.getElementById("bosTaskbarHoverZone");
+		const mainTaskbarEl = document.getElementById("mainTaskbar");
+
+		let tbManuallyHidden = localStorage.getItem("browos-taskbar-hidden") === "1";
+		let tbCollapsedByAuto = false;
+
+		function applyTaskbarStyle(style) {
+			const mode = style === "windows" ? "windows" : "oval";
+			document.documentElement.dataset.taskbarStyle = mode;
+			syncMaximizedWindowsNow();
+		}
+
+		const savedTbStyle = localStorage.getItem(TASKBAR_STYLE_KEY) || "oval";
+		applyTaskbarStyle(savedTbStyle);
+		if (taskbarStyleSelect) {
+			taskbarStyleSelect.value = savedTbStyle;
+			taskbarStyleSelect.onchange = function () {
+				localStorage.setItem(TASKBAR_STYLE_KEY, taskbarStyleSelect.value);
+				applyTaskbarStyle(taskbarStyleSelect.value);
+			};
+		}
+
+		function isTaskbarAutoHideEnabled() {
+			return localStorage.getItem(TASKBAR_AUTOHIDE_KEY) === "on";
+		}
+
+		function isTaskbarAutoOpenEnabled() {
+			return localStorage.getItem(TASKBAR_AUTOOPEN_KEY) === "on";
+		}
+
+		function applyTaskbarAutoOpenAttr() {
+			if (isTaskbarAutoOpenEnabled()) {
+				document.documentElement.dataset.taskbarAutoopen = "1";
+			} else {
+				delete document.documentElement.dataset.taskbarAutoopen;
+				delete document.documentElement.dataset.taskbarHoverOpen;
+			}
+		}
+
+		applyTaskbarAutoOpenAttr();
+
+		if (taskbarAutoOpenToggle) {
+			taskbarAutoOpenToggle.checked = isTaskbarAutoOpenEnabled();
+			taskbarAutoOpenToggle.onchange = function () {
+				localStorage.setItem(TASKBAR_AUTOOPEN_KEY, taskbarAutoOpenToggle.checked ? "on" : "off");
+				applyTaskbarAutoOpenAttr();
+			};
+		}
+
+		function setTbHidden(hidden, isAuto) {
+			if (hidden) {
+				document.documentElement.dataset.taskbarHidden = "1";
+				if (isAuto) {
+					tbCollapsedByAuto = true;
+				} else {
+					tbManuallyHidden = true;
+					tbCollapsedByAuto = false;
+					localStorage.setItem("browos-taskbar-hidden", "1");
+				}
+			} else {
+				delete document.documentElement.dataset.taskbarHidden;
+				delete document.documentElement.dataset.taskbarHoverOpen;
+				if (!isAuto) {
+					tbManuallyHidden = false;
+					tbCollapsedByAuto = false;
+					localStorage.setItem("browos-taskbar-hidden", "0");
+				} else {
+					tbCollapsedByAuto = false;
+				}
+			}
+			syncMaximizedWindowsNow();
+		}
+
+		function evaluateTaskbarAutoHide() {
+			if (!isTaskbarAutoHideEnabled()) {
+				if (tbCollapsedByAuto && !tbManuallyHidden) {
+					setTbHidden(false, true);
+				}
+				return;
+			}
+
+			const hasMaximizedVisible = Boolean(
+				document.querySelector(".app-window.show.maximized:not(.bos-true-fullscreen)")
+			);
+
+			if (hasMaximizedVisible) {
+				if (document.documentElement.dataset.taskbarHidden !== "1") {
+					setTbHidden(true, true);
+				}
+			} else if (tbCollapsedByAuto && !tbManuallyHidden) {
+				setTbHidden(false, true);
+			}
+		}
+
+		if (taskbarAutoHideToggle) {
+			taskbarAutoHideToggle.checked = isTaskbarAutoHideEnabled();
+			taskbarAutoHideToggle.onchange = function () {
+				localStorage.setItem(TASKBAR_AUTOHIDE_KEY, taskbarAutoHideToggle.checked ? "on" : "off");
+				evaluateTaskbarAutoHide();
+			};
+		}
+
+		if (taskbarHoverZone) {
+			taskbarHoverZone.addEventListener("pointerenter", function () {
+				if (document.documentElement.dataset.taskbarHidden === "1" && isTaskbarAutoOpenEnabled()) {
+					document.documentElement.dataset.taskbarHoverOpen = "1";
+				}
+			});
+		}
+
+		if (mainTaskbarEl) {
+			mainTaskbarEl.addEventListener("pointerleave", function (e) {
+				if (document.documentElement.dataset.taskbarHoverOpen !== "1") return;
+				// Keep open if Start menu or a flyout is currently open
+				if (document.querySelector(".start-menu.open, .apps-panel.open, .flyout.open")) {
+					return;
+				}
+				const rect = mainTaskbarEl.getBoundingClientRect();
+				if (e.clientY < rect.top - 4) {
+					delete document.documentElement.dataset.taskbarHoverOpen;
+				}
+			});
+		}
+
+		// =========================================================
 		// VIEWPORT, MAXIMIZE & FROSTED WIDGETS SYNC
 		// =========================================================
 		function syncMaximizedWindowsNow() {
 			const shell = document.querySelector(".desktop-shell");
 			const taskbar = document.querySelector(".taskbar");
 			const taskbarHidden = document.documentElement.dataset.taskbarHidden === "1";
+			const isWindowsBar = document.documentElement.dataset.taskbarStyle === "windows";
 			const w = shell ? shell.offsetWidth : window.innerWidth;
 			const h = shell ? shell.offsetHeight : window.innerHeight;
 			const tbScale = parseFloat(localStorage.getItem("browos-taskbar-scale") || "1") || 1;
-			const tbSpace = !taskbarHidden && taskbar ? Math.round(taskbar.offsetHeight * tbScale) + 12 : 0;
+			const tbGap = isWindowsBar ? 0 : 12;
+			const tbSpace = !taskbarHidden && taskbar ? Math.round(taskbar.offsetHeight * tbScale) + tbGap : 0;
 
 			document.documentElement.style.setProperty("--bos-tb-safe-bottom", tbSpace + "px");
 
@@ -4394,29 +4866,24 @@
 			}
 		});
 
-		// Taskbar hide/restore
+		// Taskbar manual hide/restore
 		const hideToggle = document.getElementById("taskbarHideFeatureToggle");
 		const hideBtn = document.getElementById("taskbarHideButton");
 		const restoreBtn = document.getElementById("taskbarRestoreBox");
-
-		function setTbHidden(hidden) {
-			if (hidden) document.documentElement.dataset.taskbarHidden = "1";
-			else delete document.documentElement.dataset.taskbarHidden;
-			localStorage.setItem("browos-taskbar-hidden", hidden ? "1" : "0");
-			syncMaximizedWindowsNow();
-		}
 
 		function setTbFeature(enabled) {
 			if (enabled) delete document.documentElement.dataset.taskbarHideDisabled;
 			else {
 				document.documentElement.dataset.taskbarHideDisabled = "1";
-				setTbHidden(false);
+				if (tbManuallyHidden) setTbHidden(false, false);
 			}
 		}
 
 		const featureOn = localStorage.getItem("browos-taskbar-hide-enabled") !== "off";
 		setTbFeature(featureOn);
-		if (featureOn && localStorage.getItem("browos-taskbar-hidden") === "1") setTbHidden(true);
+		if (featureOn && tbManuallyHidden) {
+			setTbHidden(true, false);
+		}
 
 		if (hideToggle) {
 			hideToggle.checked = featureOn;
@@ -4426,8 +4893,18 @@
 				setTbFeature(on);
 			};
 		}
-		if (hideBtn) hideBtn.onclick = function (e) { e.stopPropagation(); setTbHidden(true); };
-		if (restoreBtn) restoreBtn.onclick = function (e) { e.stopPropagation(); setTbHidden(false); };
+		if (hideBtn) hideBtn.onclick = function (e) { e.stopPropagation(); setTbHidden(true, false); };
+		if (restoreBtn) restoreBtn.onclick = function (e) { e.stopPropagation(); setTbHidden(false, false); };
+
+		// Observe window open/close/maximize changes to drive Taskbar Auto-Hide
+		new MutationObserver(function () {
+			evaluateTaskbarAutoHide();
+		}).observe(document.body, {
+			attributes: true,
+			attributeFilter: ["class"],
+			subtree: true,
+		});
+		evaluateTaskbarAutoHide();
 
 		// Lock screen curtain blur toggle
 		const lockBlurToggle = document.getElementById("lockBlurCurtainToggle");
@@ -4960,7 +5437,10 @@
 
 		document.addEventListener("click", function (e) {
 			if (e.target.closest(".window-maximize")) {
-				setTimeout(syncMaximizedWindowsNow, 0);
+				setTimeout(function () {
+					syncMaximizedWindowsNow();
+					evaluateTaskbarAutoHide();
+				}, 0);
 			}
 		}, true);
 	})();
