@@ -1,88 +1,194 @@
-// Frame hooks
+// Frame hooks: tracks all same-origin app iframes, binds permission-gated window.browos,
+// and blocks app iframes from bypassing permissions via raw localStorage or parent.browosApi.
 
-// Keyboard and mouse events inside an app's frame never reach the desktop page.
-// Features that need to see them (shortcuts, idle detection) register here, and the
-// callback runs for the desktop and for every app frame that is on the same origin.
-// Websites loaded from the internet are cross-origin, so nothing can be hooked there.
+(function () {
+	const documentCallbacks = new Set();
+	const hookedFrames = new WeakSet();
 
-const hookedDocuments = new WeakSet();
+	const PRIVILEGED_SYSTEM_APPS = new Set([
+		"files",
+		"settings",
+		"taskmanager",
+		"browstore",
+		"recoverbrow",
+		"modmanager",
+	]);
 
-const documentHooks = [];
+	const PROTECTED_STORAGE_PREFIXES = [
+		"browos-filestore:",
+		"browos-profiles",
+	];
 
-function ensureAppSharedBridge(doc) {
-	try {
-		if (!doc || doc === document || !doc.defaultView) {
-			return;
+	const PROTECTED_STORAGE_KEYS = new Set([
+		"browos-sdk-grants",
+		"browos-pin",
+		"browos-wipe-pin",
+		"browos-os-code",
+		"browos-biometric-cred",
+		"browos-biometric-auto",
+		"browos-pin-fails",
+		"browos-pin-lockout-until",
+		"browos-pin-limit-mode",
+		"browos-master-reset-enabled",
+		"browos-wipe-pending-code",
+	]);
+
+	function isProtectedStorageKey(key) {
+		const k = String(key || "");
+		if (PROTECTED_STORAGE_KEYS.has(k)) {
+			return true;
 		}
-		if (doc.defaultView.__bosThemeAndFilesHooked || doc.getElementById("bosAutoSharedBridge")) {
-			return;
+		for (let i = 0; i < PROTECTED_STORAGE_PREFIXES.length; i++) {
+			if (k.startsWith(PROTECTED_STORAGE_PREFIXES[i])) {
+				return true;
+			}
 		}
-		const script = doc.createElement("script");
-		script.id = "bosAutoSharedBridge";
-		script.src = new URL("apps/shared/theme.js", window.location.href).href;
-		(doc.head || doc.documentElement).appendChild(script);
-	} catch (e) {}
-}
-
-function hookDocument(doc) {
-	if (!doc || hookedDocuments.has(doc)) {
-		return;
+		return false;
 	}
 
-	hookedDocuments.add(doc);
-
-	ensureAppSharedBridge(doc);
-
-	documentHooks.forEach(function (hook) {
-		hook(doc);
-	});
-}
-
-function sameOriginDocument(frame) {
-	try {
-		// reading this throws for another origin
-		return frame.contentDocument || null;
-	} catch (error) {
-		return null;
+	function sameOriginDocument(frame) {
+		try {
+			return frame && frame.contentDocument ? frame.contentDocument : null;
+		} catch (e) {
+			return null;
+		}
 	}
-}
 
-function scanFrames() {
-	document.querySelectorAll("iframe").forEach(function (frame) {
+	function onEveryDocument(callback) {
+		if (typeof callback !== "function") return;
+		documentCallbacks.add(callback);
+		try {
+			callback(document);
+		} catch (e) {}
+		document.querySelectorAll(".app-window iframe").forEach(function (frame) {
+			const doc = sameOriginDocument(frame);
+			if (doc) {
+				try {
+					callback(doc);
+				} catch (e) {}
+			}
+		});
+	}
+
+	function hardenIframeWindow(frame) {
+		const win = frame && frame.contentWindow;
 		const doc = sameOriginDocument(frame);
+		if (!win || !doc) return;
 
-		// "about:blank" is the document before the app has loaded
-		if (doc && doc.readyState !== "uninitialized" && doc.URL !== "about:blank") {
-			hookDocument(doc);
+		const appWindow = frame.closest(".app-window");
+		const appMeta = {
+			id: (appWindow && appWindow.dataset.appId) || "unknown-app",
+			name: (appWindow && appWindow.dataset.appName) || "App",
+		};
+
+		// 1. Bind permission-gated window.browos on the iframe
+		if (typeof window.browosApiForApp === "function") {
+			try {
+				Object.defineProperty(win, "browos", {
+					value: window.browosApiForApp(appMeta),
+					configurable: true,
+					writable: false,
+				});
+			} catch (e) {
+				win.browos = window.browosApiForApp(appMeta);
+			}
 		}
+
+		// 2. Prevent non-system apps from touching protected OS/Files localStorage keys directly
+		if (!PRIVILEGED_SYSTEM_APPS.has(appMeta.id) && win.Storage && win.Storage.prototype) {
+			try {
+				if (!win.Storage.prototype.__bosGuarded) {
+					const origGetItem = win.Storage.prototype.getItem;
+					const origSetItem = win.Storage.prototype.setItem;
+					const origRemoveItem = win.Storage.prototype.removeItem;
+					const origKey = win.Storage.prototype.key;
+					const origClear = win.Storage.prototype.clear;
+
+					win.Storage.prototype.getItem = function (k) {
+						if (this === win.localStorage && isProtectedStorageKey(k)) {
+							return null;
+						}
+						return origGetItem.apply(this, arguments);
+					};
+
+					win.Storage.prototype.setItem = function (k, v) {
+						if (this === win.localStorage && isProtectedStorageKey(k)) {
+							throw new DOMException("Access to protected BrowOS storage key denied.", "SecurityError");
+						}
+						return origSetItem.apply(this, arguments);
+					};
+
+					win.Storage.prototype.removeItem = function (k) {
+						if (this === win.localStorage && isProtectedStorageKey(k)) {
+							return;
+						}
+						return origRemoveItem.apply(this, arguments);
+					};
+
+					win.Storage.prototype.key = function (idx) {
+						if (this === win.localStorage) {
+							const k = origKey.apply(this, arguments);
+							return isProtectedStorageKey(k) ? null : k;
+						}
+						return origKey.apply(this, arguments);
+					};
+
+					win.Storage.prototype.clear = function () {
+						if (this === win.localStorage) {
+							const toRemove = [];
+							for (let i = 0; i < this.length; i++) {
+								const k = origKey.call(this, i);
+								if (k && !isProtectedStorageKey(k)) {
+									toRemove.push(k);
+								}
+							}
+							toRemove.forEach((k) => origRemoveItem.call(this, k));
+							return;
+						}
+						return origClear.apply(this, arguments);
+					};
+
+					win.Storage.prototype.__bosGuarded = true;
+				}
+			} catch (e) {}
+		}
+
+		// 3.Notify registered document listeners (idle activity, etc.)
+		documentCallbacks.forEach(function (cb) {
+			try {
+				cb(doc);
+			} catch (e) {}
+		});
+	}
+
+	function attachFrameHook(frame) {
+		if (!frame || hookedFrames.has(frame)) return;
+		hookedFrames.add(frame);
+
+		frame.addEventListener("load", function () {
+			hardenIframeWindow(frame);
+		});
+
+		if (sameOriginDocument(frame)) {
+			hardenIframeWindow(frame);
+		}
+	}
+
+	function scanAllFrames() {
+		document.querySelectorAll(".app-window iframe").forEach(attachFrameHook);
+	}
+
+	if (document.readyState === "loading") {
+		document.addEventListener("DOMContentLoaded", scanAllFrames);
+	} else {
+		scanAllFrames();
+	}
+
+	new MutationObserver(scanAllFrames).observe(document.documentElement, {
+		childList: true,
+		subtree: true,
 	});
-}
 
-// runs the callback now for the desktop and later for every frame that appears
-function onEveryDocument(callback) {
-	documentHooks.push(callback);
-
-	hookedDocuments.has(document) ? callback(document) : hookDocument(document);
-
-	// documents that were hooked before this callback was registered
-	document.querySelectorAll("iframe").forEach(function (frame) {
-		const doc = sameOriginDocument(frame);
-
-		if (doc && hookedDocuments.has(doc)) {
-			callback(doc);
-		}
-	});
-}
-
-// frames load when an app is opened for the first time, and they can navigate later
-document.addEventListener(
-	"load",
-	function (event) {
-		if (event.target && event.target.tagName === "IFRAME") {
-			scanFrames();
-		}
-	},
-	true
-);
-
-setInterval(scanFrames, 3000);
+	window.sameOriginDocument = sameOriginDocument;
+	window.onEveryDocument = onEveryDocument;
+})();
