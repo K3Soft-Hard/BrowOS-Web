@@ -1,6 +1,5 @@
 // The BrowOS API
-// What apps that run in a frame (Terminal, Pomodoro, Recycle Bin...) can ask the desktop to do.
-// They reach it as window.browos, see apps/shared/theme.js.
+// Host desktop API + per-app permission-gated API factory (browosApiForApp).
 
 (function () {
 	const extraApps = [
@@ -100,7 +99,7 @@
 		);
 	}
 
-	// Delegated Bubble action router (handles clicks & Enter inside custom app cards without editing index.html)
+	// Delegated Bubble action router (handles clicks & Enter inside custom app cards)
 	function setupBubbleActionBridge() {
 		const bubbleBody = document.getElementById("bosBubbleBody");
 		if (!bubbleBody || bubbleBody.dataset.apiBridgeAttached === "1") {
@@ -172,7 +171,7 @@
 		setupBubbleActionBridge();
 	}
 
-	window.browosApi = {
+	const rawApi = {
 		notify: notify,
 
 		keepAwake: function (key, on) {
@@ -298,7 +297,7 @@
 					if (typeof mediaState.onAction === "function") {
 						mediaState.onAction("stop");
 					}
-					window.browosApi.media.clear();
+					rawApi.media.clear();
 					return;
 				}
 				if (typeof mediaState.onAction === "function") {
@@ -368,5 +367,108 @@
 			remove: binDelete,
 			empty: binEmpty,
 		},
+	};
+
+	window.browosApi = rawApi;
+
+	// Build a permission-gated API view bound to a specific app window
+	window.browosApiForApp = function (appMeta) {
+		const app = {
+			id: (appMeta && appMeta.id) || "unknown-app",
+			name: (appMeta && appMeta.name) || "App",
+		};
+
+		const SYSTEM_EXEMPT_APPS = new Set(["files", "settings", "taskmanager", "browstore", "recoverbrow", "modmanager"]);
+		const isSystemExempt = SYSTEM_EXEMPT_APPS.has(app.id);
+
+		function requirePerm(feature) {
+			if (isSystemExempt) {
+				return Promise.resolve();
+			}
+			if (typeof window.sdkAllowed === "function") {
+				return window.sdkAllowed(app, feature).then(function (allowed) {
+					if (!allowed) {
+						throw new Error("Permission denied: " + app.name + " cannot " + feature + ".");
+					}
+				});
+			}
+			return Promise.resolve();
+		}
+
+		function gateAsync(feature, fn) {
+			return function () {
+				const args = arguments;
+				return requirePerm(feature).then(function () {
+					return fn.apply(null, args);
+				});
+			};
+		}
+
+		const gatedFiles =
+			app.id === "files"
+				? rawApi.files
+				: {
+						kind: rawApi.files.kind,
+						node: gateAsync("files", rawApi.files.node),
+						list: gateAsync("files", rawApi.files.list),
+						path: gateAsync("files", rawApi.files.path),
+						search: gateAsync("files", rawApi.files.search),
+						totalSize: gateAsync("files", rawApi.files.totalSize),
+						mkdir: gateAsync("files", rawApi.files.mkdir),
+						write: gateAsync("files", rawApi.files.write),
+						read: gateAsync("files", rawApi.files.read),
+						text: gateAsync("files", rawApi.files.text),
+						rename: gateAsync("files", rawApi.files.rename),
+						move: gateAsync("files", rawApi.files.move),
+						remove: gateAsync("files", rawApi.files.remove),
+						restore: gateAsync("files", rawApi.files.restore),
+						emptyTrash: gateAsync("files", rawApi.files.emptyTrash),
+						download: gateAsync("files", rawApi.files.download),
+						open: gateAsync("files", rawApi.files.open),
+						openWith: gateAsync("files", rawApi.files.openWith),
+						takeOpenRequest: rawApi.files.takeOpenRequest,
+				  };
+
+		return {
+			listApps: rawApi.listApps,
+			runningApps: rawApi.runningApps,
+			systemInfo: rawApi.systemInfo,
+			files: gatedFiles,
+
+			notify: gateAsync("notify", rawApi.notify),
+			openApp: gateAsync("openApp", rawApi.openApp),
+			keepAwake: gateAsync("keepAwake", rawApi.keepAwake),
+
+			media: {
+				get: rawApi.media.get,
+				update: gateAsync("media", function (info) {
+					return rawApi.media.update(Object.assign({}, info, { appId: app.id, appName: app.name }));
+				}),
+				clear: function () {
+					return rawApi.media.clear(app.id);
+				},
+				dispatch: rawApi.media.dispatch,
+			},
+
+			bubble: {
+				listCards: rawApi.bubble.listCards,
+				showCard: gateAsync("bubble", function (card) {
+					const rawId = card && card.id ? String(card.id) : app.id + ":main";
+					const scopedId = rawId.startsWith(app.id + ":") ? rawId : app.id + ":" + rawId;
+					return rawApi.bubble.showCard({
+						id: scopedId,
+						appId: app.id,
+						appName: app.name,
+						title: (card && card.title) || app.name,
+						html: (card && card.html) || "",
+					});
+				}),
+				hideCard: function (id) {
+					const rawId = id ? String(id) : app.id + ":main";
+					const scopedId = rawId.startsWith(app.id + ":") ? rawId : app.id + ":" + rawId;
+					return rawApi.bubble.hideCard(scopedId);
+				},
+			},
+		};
 	};
 })();
