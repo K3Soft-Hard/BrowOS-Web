@@ -1,6 +1,6 @@
 // Terminal: a full Linux-style shell (bsh 3.0) for BrowOS.
-// Mounts real BrowOS Files at /files, supports isolated CLI VMs,
-// named & ephemeral Visual BrowOS VMs (isolated from OS cache & CLI VMs), and BrowOS Bubble cards.
+// Mounts permission-gated BrowOS Files at /files, supports isolated CLI VMs,
+// named & ephemeral Visual BrowOS VMs, BrowOS Bubble cards, and rm -rf / --no-preserve-root.
 
 const term = document.getElementById("term");
 const output = document.getElementById("output");
@@ -126,13 +126,7 @@ function escapeHtml(str) {
 }
 
 function getDesktopApi() {
-	if (window.browos) return window.browos;
-	try {
-		if (window.parent && window.parent !== window && window.parent.browosApi) {
-			return window.parent.browosApi;
-		}
-	} catch (e) {}
-	return null;
+	return window.browos || null;
 }
 
 function os(silent) {
@@ -268,7 +262,6 @@ function exitVm() {
 	envVars.HOME = "/home/browos";
 	envVars.PWD = hostSavedPwd || "/files";
 	envVars.OLDPWD = hostSavedOldPwd || "/home/browos";
-	syncFromBrowOSFiles();
 	updatePromptDisplay();
 
 	print("Exited VM '" + prevId + "'. Returned to host BrowOS shell.", "accent");
@@ -405,7 +398,6 @@ async function launchVisualBrowOSVm(rawVisualId) {
 	bar.append(titleSpan, btnGroup);
 
 	const iframe = document.createElement("iframe");
-	// Omit allow-same-origin so the VM gets an opaque origin and cannot touch host localStorage/IndexedDB/CacheStorage
 	iframe.setAttribute("sandbox", "allow-scripts allow-forms allow-popups allow-modals");
 	iframe.style.cssText = "flex:1;width:100%;height:100%;border:none;background:#000;";
 
@@ -426,7 +418,6 @@ async function launchVisualBrowOSVm(rawVisualId) {
 			const initialSnapshot = isPersistent && visualVmStore[visualId] ? visualVmStore[visualId].storage || {} : {};
 			const serializedInit = JSON.stringify(initialSnapshot).replace(/<\/script/gi, "<\\/script");
 
-			// Inject <base> + virtual storage shim (syncs back to parent via postMessage if named ID is used)
 			const shimScript =
 				'<base href="' + baseUrl.href.replace(/"/g, "&quot;") + '">' +
 				"<script>(function(){" +
@@ -474,125 +465,89 @@ async function launchVisualBrowOSVm(rawVisualId) {
 }
 
 // ============================================================================
-// Real BrowOS Files Bridge (/files <-> localStorage browos-filestore:*)
+// Permission-Gated BrowOS Files Bridge (/files <-> window.browos.files)
 // ============================================================================
-
-function getRealFileStoreKey() {
-	try {
-		const meta = JSON.parse(localStorage.getItem("browos-profiles-meta") || "null");
-		const id = meta && meta.current ? meta.current : "default";
-		return "browos-filestore:" + (id === "default" ? "browos-files" : "browos-files-" + id);
-	} catch (e) {
-		return "browos-filestore:browos-files";
-	}
-}
-
-function readRealFileStoreMap() {
-	try {
-		const parsed = JSON.parse(localStorage.getItem(getRealFileStoreKey()) || "{}") || {};
-		return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
-	} catch (e) {
-		return {};
-	}
-}
-
-function writeRealFileStoreMap(map) {
-	localStorage.setItem(getRealFileStoreKey(), JSON.stringify(map));
-	window.dispatchEvent(new Event("files-changed"));
-	try {
-		if (window.parent && window.parent !== window && window.parent.document) {
-			window.parent.document.dispatchEvent(new Event("files-changed"));
-		}
-	} catch (e) {}
-}
-
-function decodeStoredRecordText(record) {
-	if (!record) return "";
-	if (typeof record.text === "string") return record.text;
-	if (typeof record.dataUrl === "string" && record.dataUrl.startsWith("data:")) {
-		const comma = record.dataUrl.indexOf(",");
-		const meta = record.dataUrl.slice(5, comma);
-		const body = record.dataUrl.slice(comma + 1);
-		try {
-			if (/;base64$/i.test(meta)) {
-				const bin = atob(body);
-				const bytes = new Uint8Array(bin.length);
-				for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-				return new TextDecoder("utf-8", { fatal: false }).decode(bytes);
-			}
-			return decodeURIComponent(body);
-		} catch (e) {
-			return "[binary data]";
-		}
-	}
-	return "";
-}
-
-function encodeTextToDataUrl(text) {
-	const bytes = new TextEncoder().encode(String(text || ""));
-	let bin = "";
-	for (let i = 0; i < bytes.length; i++) {
-		bin += String.fromCharCode(bytes[i]);
-	}
-	return "data:text/plain;base64," + btoa(bin);
-}
 
 function isRealStorePath(absPath) {
 	return !activeVmId && (absPath === "/files" || absPath.startsWith("/files/"));
 }
 
-function syncFromBrowOSFiles() {
+async function syncFromBrowOSFiles() {
 	if (activeVmId) {
-		return;
+		return true;
 	}
-	const map = readRealFileStoreMap();
-	const now = Date.now();
+	const api = getDesktopApi();
+	if (!api || !api.files) {
+		return false;
+	}
 
-	Object.keys(hostVfs).forEach(function (k) {
-		if (k === "/files" || k.startsWith("/files/")) {
-			delete hostVfs[k];
-		}
-	});
+	try {
+		const now = Date.now();
+		const freshEntries = {
+			"/files": {
+				type: "dir",
+				mtime: now,
+				mode: "drwxr-xr-x",
+				owner: "browos",
+				realId: "root",
+			},
+		};
 
-	hostVfs["/files"] = {
-		type: "dir",
-		mtime: now,
-		mode: "drwxr-xr-x",
-		owner: "browos",
-		realId: "root",
-	};
-
-	const pathById = { root: "/files" };
-	let progress = true;
-	const remaining = Object.values(map).filter(function (n) {
-		return n && n.parent !== "trash";
-	});
-
-	while (progress && remaining.length > 0) {
-		progress = false;
-		for (let i = remaining.length - 1; i >= 0; i--) {
-			const node = remaining[i];
-			const parentPath = pathById[node.parent || "root"];
-			if (parentPath) {
-				const fullPath = (parentPath === "/" ? "" : parentPath) + "/" + node.name;
-				pathById[node.id] = fullPath;
-				hostVfs[fullPath] = {
-					type: node.type === "folder" ? "dir" : "file",
-					mtime: node.modified || node.created || now,
-					mode: node.type === "folder" ? "drwxr-xr-x" : "-rw-r--r--",
-					owner: "browos",
-					realId: node.id,
-					realSize: node.size || 0,
-					content: node.type === "folder" ? undefined : decodeStoredRecordText(node),
-				};
-				remaining.splice(i, 1);
-				progress = true;
+		async function walkFolder(folderId, prefixPath) {
+			const items = await api.files.list(folderId);
+			for (let i = 0; i < items.length; i++) {
+				const item = items[i];
+				const fullPath = prefixPath + "/" + item.name;
+				if (item.type === "folder") {
+					freshEntries[fullPath] = {
+						type: "dir",
+						mtime: item.modified || item.created || now,
+						mode: "drwxr-xr-x",
+						owner: "browos",
+						realId: item.id,
+					};
+					await walkFolder(item.id, fullPath);
+				} else {
+					let textContent = "";
+					try {
+						textContent = await item.blob.text();
+					} catch (e) {
+						textContent = "[binary data]";
+					}
+					freshEntries[fullPath] = {
+						type: "file",
+						mtime: item.modified || item.created || now,
+						mode: "-rw-r--r--",
+						owner: "browos",
+						realId: item.id,
+						realSize: item.size || 0,
+						content: textContent,
+					};
+				}
 			}
 		}
+
+		await walkFolder("root", "/files");
+
+		Object.keys(hostVfs).forEach(function (k) {
+			if (k === "/files" || k.startsWith("/files/")) {
+				delete hostVfs[k];
+			}
+		});
+		Object.assign(hostVfs, freshEntries);
+		return true;
+	} catch (err) {
+		if (err && err.message && err.message.includes("Permission denied")) {
+			print(err.message, "err");
+		}
+		return false;
 	}
 }
 
-function ensureRealStoreFolderPath(dirPath) {
+async function ensureRealStoreFolderPath(dirPath) {
+	const api = getDesktopApi();
+	if (!api || !api.files) return "root";
+
 	const norm = normalizePath(dirPath);
 	if (norm === "/files") return "root";
 
@@ -600,97 +555,66 @@ function ensureRealStoreFolderPath(dirPath) {
 	if (!rel) return "root";
 
 	const segments = rel.split("/").filter(Boolean);
-	const map = readRealFileStoreMap();
 	let parentId = "root";
 
 	for (let i = 0; i < segments.length; i++) {
 		const seg = segments[i];
-		let existing = Object.values(map).find(function (n) {
-			return n && n.type === "folder" && n.parent === parentId && n.name === seg;
+		const items = await api.files.list(parentId);
+		let existing = items.find(function (n) {
+			return n.type === "folder" && n.name === seg;
 		});
 		if (!existing) {
-			const newId = "f" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-			existing = {
-				id: newId,
-				parent: parentId,
-				name: seg,
-				type: "folder",
-				created: Date.now(),
-				modified: Date.now(),
-			};
-			map[newId] = existing;
-			writeRealFileStoreMap(map);
+			existing = await api.files.mkdir(parentId, seg);
 		}
 		parentId = existing.id;
 	}
 
-	syncFromBrowOSFiles();
+	await syncFromBrowOSFiles();
 	return parentId;
 }
 
-function writeRealStoreFile(absPath, content, append) {
+async function writeRealStoreFile(absPath, content, append) {
+	const api = getDesktopApi();
+	if (!api || !api.files) return false;
+
 	const norm = normalizePath(absPath);
 	const parentPath = getParentPath(norm);
 	const baseName = getBaseName(norm);
-	const parentId = ensureRealStoreFolderPath(parentPath);
+	const parentId = await ensureRealStoreFolderPath(parentPath);
 
-	const map = readRealFileStoreMap();
-	let existing = Object.values(map).find(function (n) {
-		return n && n.type === "file" && n.parent === parentId && n.name === baseName;
+	const items = await api.files.list(parentId);
+	const existing = items.find(function (n) {
+		return n.type === "file" && n.name === baseName;
 	});
 
-	const prevText = append && existing ? decodeStoredRecordText(existing) : "";
-	const nextText = prevText + content;
-	const byteLen = new TextEncoder().encode(nextText).length;
-	const dataUrl = encodeTextToDataUrl(nextText);
-
-	if (existing) {
-		existing.dataUrl = dataUrl;
-		existing.size = byteLen;
-		existing.modified = Date.now();
-		map[existing.id] = existing;
-	} else {
-		const newId = "f" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-		map[newId] = {
-			id: newId,
-			parent: parentId,
-			name: baseName,
-			type: "file",
-			mime: baseName.endsWith(".html") ? "text/html" : baseName.endsWith(".json") ? "application/json" : "text/plain",
-			size: byteLen,
-			created: Date.now(),
-			modified: Date.now(),
-			dataUrl: dataUrl,
-		};
+	let prevText = "";
+	if (append && existing) {
+		try {
+			prevText = await existing.blob.text();
+		} catch (e) {}
 	}
 
-	writeRealFileStoreMap(map);
-	syncFromBrowOSFiles();
+	const nextText = prevText + content;
+	await api.files.write(
+		parentId,
+		baseName,
+		new Blob([nextText], { type: "text/plain" }),
+		existing ? { overwriteId: existing.id } : undefined
+	);
+	await syncFromBrowOSFiles();
 	return true;
 }
 
-function deleteRealStorePath(absPath) {
+async function deleteRealStorePath(absPath) {
+	const api = getDesktopApi();
+	if (!api || !api.files) return;
+
 	const norm = normalizePath(absPath);
 	const node = hostVfs[norm];
 	if (!node || !node.realId || node.realId === "root") return;
 
-	const map = readRealFileStoreMap();
-	const toDelete = new Set([node.realId]);
-	let added = true;
-	while (added) {
-		added = false;
-		Object.values(map).forEach(function (n) {
-			if (n && toDelete.has(n.parent) && !toDelete.has(n.id)) {
-				toDelete.add(n.id);
-				added = true;
-			}
-		});
-	}
-	toDelete.forEach(function (id) {
-		delete map[id];
-	});
-	writeRealFileStoreMap(map);
-	syncFromBrowOSFiles();
+	await api.files.remove(node.realId);
+	await syncFromBrowOSFiles();
 }
 
 // ============================================================================
@@ -744,7 +668,7 @@ function createDefaultVfs() {
 			owner: "root",
 			content:
 				"[    0.001] BrowOS Web Kernel initializing...\n" +
-				"[    0.014] Mounted BrowOS Files store on /files\n" +
+				"[    0.014] Mounted permission-gated BrowOS Files on /files\n" +
 				"[    0.028] Desktop IPC bridge registered\n",
 		},
 		"/tmp": { type: "dir", mtime: now, mode: "drwxrwxrwt", owner: "root" },
@@ -780,7 +704,6 @@ function logSyslog(message) {
 	const sec = ((Date.now() - BOOT_TIME) / 1000).toFixed(3).padStart(8, " ");
 	const entry = "[" + sec + "] " + message + "\n";
 	if (!tree["/var/log/syslog"]) {
-		ensureParentDirs("/var/log/syslog");
 		tree["/var/log/syslog"] = { type: "file", mtime: Date.now(), mode: "-rw-r-----", owner: "root", content: "" };
 	}
 	tree["/var/log/syslog"].content += entry;
@@ -840,10 +763,10 @@ function getBaseName(filePath) {
 	return norm.slice(idx + 1);
 }
 
-function ensureParentDirs(targetPath) {
+async function ensureParentDirs(targetPath) {
 	const parent = getParentPath(targetPath);
 	if (isRealStorePath(parent)) {
-		ensureRealStoreFolderPath(parent);
+		await ensureRealStoreFolderPath(parent);
 		return;
 	}
 	const tree = getActiveTree();
@@ -865,10 +788,15 @@ function ensureParentDirs(targetPath) {
 	}
 }
 
-function writeVfsFile(filePath, content, append) {
+async function writeVfsFile(filePath, content, append) {
 	const resolved = normalizePath(filePath);
 	if (isRealStorePath(resolved)) {
-		return writeRealStoreFile(resolved, content, append);
+		try {
+			return await writeRealStoreFile(resolved, content, append);
+		} catch (err) {
+			print(err && err.message ? err.message : "Could not write to BrowOS Files.", "err");
+			return false;
+		}
 	}
 
 	const tree = getActiveTree();
@@ -1238,8 +1166,8 @@ function splitChainedCommands(line) {
 // Interactive Inline File Editor (nano / edit)
 // ============================================================================
 
-function startNanoEditor(targetPath) {
-	syncFromBrowOSFiles();
+async function startNanoEditor(targetPath) {
+	await syncFromBrowOSFiles();
 	const tree = getActiveTree();
 	const resolved = normalizePath(targetPath);
 	const parent = getParentPath(resolved);
@@ -1275,14 +1203,16 @@ function startNanoEditor(targetPath) {
 	return true;
 }
 
-function saveNanoBuffer() {
+async function saveNanoBuffer() {
 	if (!editorSession) {
 		return;
 	}
 	const body = editorSession.lines.join("\n") + (editorSession.lines.length > 0 ? "\n" : "");
-	writeVfsFile(editorSession.path, body, false);
-	editorSession.dirty = false;
-	print("[ Wrote " + editorSession.lines.length + " lines (" + body.length + " bytes) to " + formatShortPath(editorSession.path) + " ]", "accent");
+	const ok = await writeVfsFile(editorSession.path, body, false);
+	if (ok) {
+		editorSession.dirty = false;
+		print("[ Wrote " + editorSession.lines.length + " lines (" + body.length + " bytes) to " + formatShortPath(editorSession.path) + " ]", "accent");
+	}
 }
 
 function exitNanoEditor() {
@@ -1295,15 +1225,15 @@ function exitNanoEditor() {
 	print("[ Closed " + formatShortPath(closedPath) + " ]", "dim");
 }
 
-function handleNanoLine(rawLine) {
+async function handleNanoLine(rawLine) {
 	const trimmed = rawLine.trim();
 
 	if (trimmed === ":w") {
-		saveNanoBuffer();
+		await saveNanoBuffer();
 		return;
 	}
 	if (trimmed === ":wq" || trimmed === ":x") {
-		saveNanoBuffer();
+		await saveNanoBuffer();
 		exitNanoEditor();
 		return;
 	}
@@ -1459,7 +1389,6 @@ const commands = {
 		run: async function (args) {
 			const sub = (args[0] || "list").toLowerCase();
 
-			// Visual BrowOS VM commands (separate from OS cache and CLI filespaces)
 			if (sub === "visual" || sub === "os" || sub === "gui" || sub === "browos") {
 				const subAction = (args[1] || "").toLowerCase();
 				if (subAction === "list" || subAction === "ls") {
@@ -1625,8 +1554,12 @@ const commands = {
 					activeVmId = null;
 				}
 
-				syncFromBrowOSFiles();
-				ensureRealStoreFolderPath(destRoot);
+				const okSync = await syncFromBrowOSFiles();
+				if (!okSync) {
+					if (wasInVm) activeVmId = wasInVm;
+					return false;
+				}
+				await ensureRealStoreFolderPath(destRoot);
 
 				const tree = vmStore[id].tree || {};
 				const filePaths = Object.keys(tree).filter(function (p) {
@@ -1634,15 +1567,16 @@ const commands = {
 				});
 
 				let exportedCount = 0;
-				filePaths.forEach(function (p) {
+				for (let i = 0; i < filePaths.length; i++) {
+					const p = filePaths[i];
 					const relPath = p.startsWith("/home/vm/") ? p.slice("/home/vm/".length) : p.replace(/^\/+/, "");
 					const outFullPath = destRoot + "/" + relPath;
-					writeRealStoreFile(outFullPath, tree[p].content || "", false);
+					await writeRealStoreFile(outFullPath, tree[p].content || "", false);
 					exportedCount++;
 					if (shouldMove) {
 						delete tree[p];
 					}
-				});
+				}
 
 				if (shouldMove) {
 					persistVmStore();
@@ -1677,8 +1611,8 @@ const commands = {
 	bubble: {
 		about: "display custom HTML from a file or string inside BrowOS Bubble",
 		usage: "bubble show <file.html> [title] | bubble html \"<p>Hi</p>\" [title] | bubble shell | bubble hide | bubble list",
-		run: function (args, stdin) {
-			syncFromBrowOSFiles();
+		run: async function (args, stdin) {
+			await syncFromBrowOSFiles();
 			const tree = getActiveTree();
 			const api = os();
 			if (!api || !api.bubble) {
@@ -1831,8 +1765,8 @@ const commands = {
 	cd: {
 		about: "change current working directory",
 		usage: "cd [dir | - | ~ | /files | ..]",
-		run: function (args) {
-			syncFromBrowOSFiles();
+		run: async function (args) {
+			await syncFromBrowOSFiles();
 			const tree = getActiveTree();
 			let target = args[0] || (activeVmId ? "/home/vm" : "/files");
 			if (target === "-") {
@@ -1862,8 +1796,8 @@ const commands = {
 	ls: {
 		about: "list directory contents: ls [-a] [-l] [-h] [-S] [-t] [-R] [path]",
 		usage: "ls [-alhStR] [path]",
-		run: function (args) {
-			syncFromBrowOSFiles();
+		run: async function (args) {
+			await syncFromBrowOSFiles();
 			const tree = getActiveTree();
 			let showAll = false;
 			let longFormat = false;
@@ -2008,8 +1942,8 @@ const commands = {
 	tree: {
 		about: "display directory tree structure",
 		usage: "tree [-a] [path]",
-		run: function (args) {
-			syncFromBrowOSFiles();
+		run: async function (args) {
+			await syncFromBrowOSFiles();
 			const tree = getActiveTree();
 			const showAll = args.includes("-a");
 			const targetArg = args.find(function (a) {
@@ -2060,8 +1994,8 @@ const commands = {
 	mkdir: {
 		about: "create directories: mkdir [-p] <dir...>",
 		usage: "mkdir [-p] <directory...>",
-		run: function (args) {
-			syncFromBrowOSFiles();
+		run: async function (args) {
+			await syncFromBrowOSFiles();
 			const tree = getActiveTree();
 			const recursive = args.includes("-p");
 			const targets = args.filter(function (a) {
@@ -2074,14 +2008,15 @@ const commands = {
 			}
 
 			let ok = true;
-			targets.forEach(function (rawTarget) {
+			for (let i = 0; i < targets.length; i++) {
+				const rawTarget = targets[i];
 				const resolved = normalizePath(rawTarget);
 				if (tree[resolved]) {
 					if (!recursive || tree[resolved].type !== "dir") {
 						print("mkdir: cannot create directory '" + rawTarget + "': File exists", "err");
 						ok = false;
 					}
-					return;
+					continue;
 				}
 
 				if (isRealStorePath(resolved)) {
@@ -2089,27 +2024,32 @@ const commands = {
 					if (!tree[parent] && !recursive) {
 						print("mkdir: cannot create directory '" + rawTarget + "': No such file or directory", "err");
 						ok = false;
-						return;
+						continue;
 					}
-					ensureRealStoreFolderPath(resolved);
-					return;
+					try {
+						await ensureRealStoreFolderPath(resolved);
+					} catch (e) {
+						print(e && e.message ? e.message : "Permission denied.", "err");
+						ok = false;
+					}
+					continue;
 				}
 
 				const parent = getParentPath(resolved);
 				if (!tree[parent] && !recursive) {
 					print("mkdir: cannot create directory '" + rawTarget + "': No such file or directory", "err");
 					ok = false;
-					return;
+					continue;
 				}
 
-				ensureParentDirs(resolved);
+				await ensureParentDirs(resolved);
 				tree[resolved] = {
 					type: "dir",
 					mtime: Date.now(),
 					mode: "drwxr-xr-x",
 					owner: envVars.USER,
 				};
-			});
+			}
 
 			persistActiveStorage();
 			return ok;
@@ -2119,43 +2059,44 @@ const commands = {
 	rmdir: {
 		about: "remove empty directories",
 		usage: "rmdir <dir...>",
-		run: function (args) {
-			syncFromBrowOSFiles();
+		run: async function (args) {
+			await syncFromBrowOSFiles();
 			const tree = getActiveTree();
 			if (args.length === 0) {
 				print("Usage: rmdir <directory>", "err");
 				return false;
 			}
 			let ok = true;
-			args.forEach(function (rawTarget) {
+			for (let i = 0; i < args.length; i++) {
+				const rawTarget = args[i];
 				const resolved = normalizePath(rawTarget);
 				const node = tree[resolved];
 				if (!node) {
 					print("rmdir: failed to remove '" + rawTarget + "': No such file or directory", "err");
 					ok = false;
-					return;
+					continue;
 				}
 				if (node.type !== "dir") {
 					print("rmdir: failed to remove '" + rawTarget + "': Not a directory", "err");
 					ok = false;
-					return;
+					continue;
 				}
 				if (resolved === "/" || resolved === "/files") {
 					print("rmdir: cannot remove root directory '" + resolved + "'", "err");
 					ok = false;
-					return;
+					continue;
 				}
 				if (listChildren(resolved).length > 0) {
 					print("rmdir: failed to remove '" + rawTarget + "': Directory not empty", "err");
 					ok = false;
-					return;
+					continue;
 				}
 				if (isRealStorePath(resolved)) {
-					deleteRealStorePath(resolved);
+					await deleteRealStorePath(resolved);
 				} else {
 					delete tree[resolved];
 				}
-			});
+			}
 			persistActiveStorage();
 			return ok;
 		},
@@ -2164,8 +2105,8 @@ const commands = {
 	touch: {
 		about: "create empty files or update timestamps",
 		usage: "touch <file...>",
-		run: function (args) {
-			syncFromBrowOSFiles();
+		run: async function (args) {
+			await syncFromBrowOSFiles();
 			const tree = getActiveTree();
 			if (args.length === 0) {
 				print("Usage: touch <file>", "err");
@@ -2173,26 +2114,27 @@ const commands = {
 			}
 
 			let ok = true;
-			args.forEach(function (rawTarget) {
+			for (let i = 0; i < args.length; i++) {
+				const rawTarget = args[i];
 				const resolved = normalizePath(rawTarget);
 				const parent = getParentPath(resolved);
 
 				if (!tree[parent] || tree[parent].type !== "dir") {
 					print("touch: cannot touch '" + rawTarget + "': No such file or directory", "err");
 					ok = false;
-					return;
+					continue;
 				}
 
 				if (tree[resolved]) {
 					if (isRealStorePath(resolved)) {
-						writeRealStoreFile(resolved, tree[resolved].content || "", false);
+						await writeRealStoreFile(resolved, tree[resolved].content || "", false);
 					} else {
 						tree[resolved].mtime = Date.now();
 					}
 				} else {
-					writeVfsFile(resolved, "", false);
+					await writeVfsFile(resolved, "", false);
 				}
-			});
+			}
 
 			persistActiveStorage();
 			return ok;
@@ -2214,8 +2156,8 @@ const commands = {
 	cat: {
 		about: "concatenate and print files or stdin: cat [-n] [-b] [file...]",
 		usage: "cat [-n] [-b] [file...]",
-		run: function (args, stdin) {
-			syncFromBrowOSFiles();
+		run: async function (args, stdin) {
+			await syncFromBrowOSFiles();
 			const tree = getActiveTree();
 			const numberAll = args.includes("-n");
 			const numberNonBlank = args.includes("-b");
@@ -2284,8 +2226,8 @@ const commands = {
 	tac: {
 		about: "print lines of a file or stdin in reverse order",
 		usage: "tac [file]",
-		run: function (args, stdin) {
-			const text = readTextSource(args[0], stdin, "tac");
+		run: async function (args, stdin) {
+			const text = await readTextSource(args[0], stdin, "tac");
 			if (text === null) return false;
 			const lines = text.replace(/\n$/, "").split("\n").reverse();
 			lines.forEach(function (l) {
@@ -2298,7 +2240,7 @@ const commands = {
 	head: {
 		about: "output the first N lines: head [-n 10] [file]",
 		usage: "head [-n <count>] [file]",
-		run: function (args, stdin) {
+		run: async function (args, stdin) {
 			let count = 10;
 			let fileArg = null;
 
@@ -2313,7 +2255,7 @@ const commands = {
 				}
 			}
 
-			const text = readTextSource(fileArg, stdin, "head");
+			const text = await readTextSource(fileArg, stdin, "head");
 			if (text === null) return false;
 			if (!text) return true;
 
@@ -2330,7 +2272,7 @@ const commands = {
 	tail: {
 		about: "output the last N lines: tail [-n 10] [file]",
 		usage: "tail [-n <count>] [file]",
-		run: function (args, stdin) {
+		run: async function (args, stdin) {
 			let count = 10;
 			let fileArg = null;
 
@@ -2345,7 +2287,7 @@ const commands = {
 				}
 			}
 
-			const text = readTextSource(fileArg, stdin, "tail");
+			const text = await readTextSource(fileArg, stdin, "tail");
 			if (text === null) return false;
 			if (!text) return true;
 
@@ -2370,7 +2312,7 @@ const commands = {
 	wc: {
 		about: "print line, word, and byte counts: wc [-l|-w|-c] [file]",
 		usage: "wc [-l] [-w] [-c] [file]",
-		run: function (args, stdin) {
+		run: async function (args, stdin) {
 			const onlyL = args.includes("-l");
 			const onlyW = args.includes("-w");
 			const onlyC = args.includes("-c");
@@ -2378,7 +2320,7 @@ const commands = {
 				return !a.startsWith("-");
 			});
 
-			const text = readTextSource(fileArg, stdin, "wc");
+			const text = await readTextSource(fileArg, stdin, "wc");
 			if (text === null) return false;
 
 			const lines = text ? text.split("\n").length - (text.endsWith("\n") ? 1 : 0) : 0;
@@ -2396,8 +2338,8 @@ const commands = {
 	grep: {
 		about: "filter lines matching a regex: grep [-i] [-n] [-v] [-c] <pattern> [file...]",
 		usage: "grep [-invco] <pattern> [file...]",
-		run: function (args, stdin) {
-			syncFromBrowOSFiles();
+		run: async function (args, stdin) {
+			await syncFromBrowOSFiles();
 			const tree = getActiveTree();
 			let ignoreCase = false;
 			let showNumbers = false;
@@ -2490,7 +2432,7 @@ const commands = {
 	sed: {
 		about: "stream text substitution: sed 's/old/new/g' [file]",
 		usage: "sed 's/pattern/replacement/[gi]' [file]",
-		run: function (args, stdin) {
+		run: async function (args, stdin) {
 			if (!args[0]) {
 				print("Usage: sed 's/pattern/replacement/[gi]' [file]", "err");
 				return false;
@@ -2502,7 +2444,7 @@ const commands = {
 				return false;
 			}
 
-			const text = readTextSource(args[1], stdin, "sed");
+			const text = await readTextSource(args[1], stdin, "sed");
 			if (text === null) return false;
 
 			let rx;
@@ -2529,7 +2471,7 @@ const commands = {
 	cut: {
 		about: "extract fields from lines: cut -d ',' -f 1,3 [file]",
 		usage: "cut [-d <delim>] -f <fields> [file]",
-		run: function (args, stdin) {
+		run: async function (args, stdin) {
 			let delim = "\t";
 			let fieldSpec = null;
 			let fileArg = null;
@@ -2555,7 +2497,7 @@ const commands = {
 				return false;
 			}
 
-			const text = readTextSource(fileArg, stdin, "cut");
+			const text = await readTextSource(fileArg, stdin, "cut");
 			if (text === null) return false;
 
 			const indices = fieldSpec
@@ -2632,7 +2574,7 @@ const commands = {
 	sort: {
 		about: "sort lines of text: sort [-r] [-n] [-u] [file]",
 		usage: "sort [-r] [-n] [-u] [file]",
-		run: function (args, stdin) {
+		run: async function (args, stdin) {
 			let reverse = false;
 			let numeric = false;
 			let unique = false;
@@ -2648,7 +2590,7 @@ const commands = {
 				}
 			});
 
-			const text = readTextSource(fileArg, stdin, "sort");
+			const text = await readTextSource(fileArg, stdin, "sort");
 			if (text === null) return false;
 
 			let lines = text.replace(/\n$/, "").split("\n");
@@ -2672,7 +2614,7 @@ const commands = {
 	uniq: {
 		about: "report or omit repeated adjacent lines: uniq [-c] [-d] [-u] [file]",
 		usage: "uniq [-c] [-d] [-u] [file]",
-		run: function (args, stdin) {
+		run: async function (args, stdin) {
 			let showCount = false;
 			let onlyDupes = false;
 			let onlyUnique = false;
@@ -2688,7 +2630,7 @@ const commands = {
 				}
 			});
 
-			const text = readTextSource(fileArg, stdin, "uniq");
+			const text = await readTextSource(fileArg, stdin, "uniq");
 			if (text === null) return false;
 
 			const lines = text.replace(/\n$/, "").split("\n");
@@ -2713,8 +2655,8 @@ const commands = {
 	diff: {
 		about: "compare two files line by line: diff <file1> <file2>",
 		usage: "diff <file1> <file2>",
-		run: function (args) {
-			syncFromBrowOSFiles();
+		run: async function (args) {
+			await syncFromBrowOSFiles();
 			const tree = getActiveTree();
 			if (args.length < 2) {
 				print("Usage: diff <file1> <file2>", "err");
@@ -2750,7 +2692,7 @@ const commands = {
 	tee: {
 		about: "write stdin to both stdout and a file: tee [-a] <file>",
 		usage: "tee [-a] <file>",
-		run: function (args, stdin) {
+		run: async function (args, stdin) {
 			const append = args.includes("-a");
 			const target = args.find(function (a) {
 				return !a.startsWith("-");
@@ -2760,7 +2702,7 @@ const commands = {
 				return false;
 			}
 			const payload = typeof stdin === "string" ? stdin : "";
-			if (!writeVfsFile(target, payload, append)) {
+			if (!(await writeVfsFile(target, payload, append))) {
 				print("tee: " + target + ": No such directory", "err");
 				return false;
 			}
@@ -2774,8 +2716,8 @@ const commands = {
 	find: {
 		about: "search files by name or type: find [path] [-name pat] [-type f|d]",
 		usage: "find [path] [-name <pattern>] [-type f|d]",
-		run: function (args) {
-			syncFromBrowOSFiles();
+		run: async function (args) {
+			await syncFromBrowOSFiles();
 			const tree = getActiveTree();
 			let startPath = envVars.PWD;
 			let namePattern = null;
@@ -2822,8 +2764,8 @@ const commands = {
 	stat: {
 		about: "display detailed file or directory metadata",
 		usage: "stat <path>",
-		run: function (args) {
-			syncFromBrowOSFiles();
+		run: async function (args) {
+			await syncFromBrowOSFiles();
 			const tree = getActiveTree();
 			if (!args[0]) {
 				print("Usage: stat <path>", "err");
@@ -2848,8 +2790,8 @@ const commands = {
 	file: {
 		about: "determine file type",
 		usage: "file <path...>",
-		run: function (args) {
-			syncFromBrowOSFiles();
+		run: async function (args) {
+			await syncFromBrowOSFiles();
 			const tree = getActiveTree();
 			if (args.length === 0) {
 				print("Usage: file <path...>", "err");
@@ -2882,8 +2824,8 @@ const commands = {
 	du: {
 		about: "estimate file and directory space usage: du [-h] [-s] [path]",
 		usage: "du [-h] [-s] [path]",
-		run: function (args) {
-			syncFromBrowOSFiles();
+		run: async function (args) {
+			await syncFromBrowOSFiles();
 			const tree = getActiveTree();
 			const human = args.includes("-h") || args.includes("-sh") || args.includes("-hs");
 			const summary = args.includes("-s") || args.includes("-sh") || args.includes("-hs");
@@ -2924,8 +2866,8 @@ const commands = {
 	df: {
 		about: "report filesystem disk space usage: df [-h]",
 		usage: "df [-h]",
-		run: function (args) {
-			syncFromBrowOSFiles();
+		run: async function (args) {
+			await syncFromBrowOSFiles();
 			const human = args.includes("-h");
 			let used = 0;
 			for (let i = 0; i < localStorage.length; i++) {
@@ -3009,8 +2951,8 @@ const commands = {
 	cp: {
 		about: "copy files or directories: cp [-r] <src> <dst>",
 		usage: "cp [-r] <source> <destination>",
-		run: function (args) {
-			syncFromBrowOSFiles();
+		run: async function (args) {
+			await syncFromBrowOSFiles();
 			const tree = getActiveTree();
 			const recursive = args.includes("-r") || args.includes("-R");
 			const paths = args.filter(function (a) {
@@ -3046,19 +2988,21 @@ const commands = {
 					return false;
 				}
 				const srcPrefix = src === "/" ? "/" : src + "/";
-				Object.keys(tree).forEach(function (key) {
-					if (key === src || key.startsWith(srcPrefix)) {
-						const suffix = key.slice(src.length);
-						const targetKey = normalizePath(dst + suffix);
-						if (tree[key].type === "dir") {
-							ensureParentDirs(targetKey + "/placeholder");
-						} else {
-							writeVfsFile(targetKey, tree[key].content || "", false);
-						}
-					}
+				const keys = Object.keys(tree).filter(function (key) {
+					return key === src || key.startsWith(srcPrefix);
 				});
+				for (let i = 0; i < keys.length; i++) {
+					const key = keys[i];
+					const suffix = key.slice(src.length);
+					const targetKey = normalizePath(dst + suffix);
+					if (tree[key].type === "dir") {
+						await ensureParentDirs(targetKey + "/placeholder");
+					} else {
+						await writeVfsFile(targetKey, tree[key].content || "", false);
+					}
+				}
 			} else {
-				writeVfsFile(dst, srcNode.content || "", false);
+				await writeVfsFile(dst, srcNode.content || "", false);
 			}
 
 			persistActiveStorage();
@@ -3069,8 +3013,8 @@ const commands = {
 	mv: {
 		about: "move or rename files or directories: mv <src> <dst>",
 		usage: "mv <source> <destination>",
-		run: function (args) {
-			syncFromBrowOSFiles();
+		run: async function (args) {
+			await syncFromBrowOSFiles();
 			const tree = getActiveTree();
 			if (args.length < 2) {
 				print("Usage: mv <source> <destination>", "err");
@@ -3099,18 +3043,15 @@ const commands = {
 				return false;
 			}
 
-			if (!activeVmId && isRealStorePath(src) && isRealStorePath(dst) && srcNode.realId) {
-				const map = readRealFileStoreMap();
-				const rec = map[srcNode.realId];
-				if (rec) {
-					rec.parent = ensureRealStoreFolderPath(getParentPath(dst));
-					rec.name = getBaseName(dst);
-					rec.modified = Date.now();
-					map[srcNode.realId] = rec;
-					writeRealFileStoreMap(map);
-					syncFromBrowOSFiles();
-					return true;
+			const api = getDesktopApi();
+			if (!activeVmId && isRealStorePath(src) && isRealStorePath(dst) && srcNode.realId && api && api.files) {
+				const destParentId = await ensureRealStoreFolderPath(getParentPath(dst));
+				await api.files.move(srcNode.realId, destParentId);
+				if (getBaseName(src) !== getBaseName(dst)) {
+					await api.files.rename(srcNode.realId, getBaseName(dst));
 				}
+				await syncFromBrowOSFiles();
+				return true;
 			}
 
 			const srcPrefix = src + "/";
@@ -3118,18 +3059,19 @@ const commands = {
 				return key === src || key.startsWith(srcPrefix);
 			});
 
-			keysToMove.forEach(function (key) {
+			for (let i = 0; i < keysToMove.length; i++) {
+				const key = keysToMove[i];
 				const suffix = key.slice(src.length);
 				const newKey = normalizePath(dst + suffix);
 				if (tree[key].type === "dir") {
-					ensureParentDirs(newKey + "/placeholder");
+					await ensureParentDirs(newKey + "/placeholder");
 				} else {
-					writeVfsFile(newKey, tree[key].content || "", false);
+					await writeVfsFile(newKey, tree[key].content || "", false);
 				}
-			});
+			}
 
 			if (isRealStorePath(src)) {
-				deleteRealStorePath(src);
+				await deleteRealStorePath(src);
 			} else {
 				keysToMove.forEach(function (k) { delete tree[k]; });
 			}
@@ -3145,17 +3087,20 @@ const commands = {
 	},
 
 	rm: {
-		about: "remove files or directories: rm [-r] [-f] <target...>",
-		usage: "rm [-r] [-f] <target...>",
-		run: function (args) {
-			syncFromBrowOSFiles();
+		about: "remove files or directories (supports rm -rf / --no-preserve-root)",
+		usage: "rm [-r] [-f] [--no-preserve-root] <target...>",
+		run: async function (args) {
+			await syncFromBrowOSFiles();
 			const tree = getActiveTree();
 			let recursive = false;
 			let force = false;
+			let noPreserveRoot = false;
 			const targets = [];
 
 			args.forEach(function (arg) {
-				if (arg.startsWith("-") && arg.length > 1) {
+				if (arg === "--no-preserve-root" || arg === "--force-root" || arg === "--yes") {
+					noPreserveRoot = true;
+				} else if (arg.startsWith("-") && arg.length > 1) {
 					if (arg.includes("r") || arg.includes("R")) recursive = true;
 					if (arg.includes("f")) force = true;
 				} else {
@@ -3164,13 +3109,61 @@ const commands = {
 			});
 
 			if (targets.length === 0) {
-				print("Usage: rm [-r] [-f] <target...>", "err");
+				print("Usage: rm [-r] [-f] [--no-preserve-root] <target...>", "err");
 				return false;
 			}
 
 			let ok = true;
-			targets.forEach(function (rawTarget) {
+			for (let i = 0; i < targets.length; i++) {
+				const rawTarget = targets[i];
 				const resolved = normalizePath(rawTarget);
+
+				// Handle rm -rf / --no-preserve-root safely inside the virtual filesystem / active VM
+				if (resolved === "/") {
+					if (!recursive) {
+						print("rm: cannot remove '/': Is a directory", "err");
+						ok = false;
+						continue;
+					}
+					if (!noPreserveRoot) {
+						print("rm: it is dangerous to operate recursively on '/'", "err");
+						print("rm: use --no-preserve-root to override this failsafe (wipes virtual filesystem only)", "dim");
+						ok = false;
+						continue;
+					}
+
+					if (activeVmId) {
+						Object.keys(tree).forEach(function (k) {
+							if (k !== "/") delete tree[k];
+						});
+						envVars.PWD = "/";
+						envVars.OLDPWD = "/";
+						updatePromptDisplay();
+						persistVmStore();
+						print("Wiped all files in CLI VM '" + activeVmId + "' (root '/' preserved).", "accent");
+					} else {
+						// Clear host VFS entries and any files in /files without touching BrowOS OS code or settings
+						const api = getDesktopApi();
+						if (api && api.files) {
+							try {
+								const rootItems = await api.files.list("root");
+								for (let r = 0; r < rootItems.length; r++) {
+									await api.files.remove(rootItems[r].id);
+								}
+							} catch (e) {}
+						}
+						Object.keys(hostVfs).forEach(function (k) {
+							if (k !== "/") delete hostVfs[k];
+						});
+						envVars.PWD = "/";
+						envVars.OLDPWD = "/";
+						updatePromptDisplay();
+						persistActiveStorage();
+						print("Wiped virtual filesystem '/' (BrowOS core system files unaffected).", "accent");
+					}
+					continue;
+				}
+
 				const node = tree[resolved];
 
 				if (!node) {
@@ -3178,23 +3171,25 @@ const commands = {
 						print("rm: cannot remove '" + rawTarget + "': No such file or directory", "err");
 						ok = false;
 					}
-					return;
+					continue;
 				}
 
-				if (resolved === "/" || resolved === "/files" || resolved === "/home" || resolved === "/home/browos" || resolved === "/home/vm") {
-					print("rm: refusing to remove protected path '" + resolved + "'", "err");
-					ok = false;
-					return;
+				if (resolved === "/files" || resolved === "/home" || resolved === "/home/browos" || resolved === "/home/vm") {
+					if (!noPreserveRoot) {
+						print("rm: refusing to remove protected path '" + resolved + "' (pass --no-preserve-root to override)", "err");
+						ok = false;
+						continue;
+					}
 				}
 
 				if (node.type === "dir" && listChildren(resolved).length > 0 && !recursive) {
 					print("rm: cannot remove '" + rawTarget + "': Is a non-empty directory (use -r)", "err");
 					ok = false;
-					return;
+					continue;
 				}
 
 				if (isRealStorePath(resolved)) {
-					deleteRealStorePath(resolved);
+					await deleteRealStorePath(resolved);
 				} else {
 					const prefix = resolved + "/";
 					Object.keys(tree).forEach(function (key) {
@@ -3203,7 +3198,7 @@ const commands = {
 						}
 					});
 				}
-			});
+			}
 
 			persistActiveStorage();
 			return ok;
@@ -3242,7 +3237,7 @@ const commands = {
 				} else if ((a === "-d" || a === "--data" || a === "--data-raw") && args[i + 1] !== undefined) {
 					bodyData = args[++i];
 					if (bodyData.startsWith("@")) {
-						syncFromBrowOSFiles();
+						await syncFromBrowOSFiles();
 						const tree = getActiveTree();
 						const refNode = tree[normalizePath(bodyData.slice(1))];
 						if (!refNode || refNode.type !== "file") {
@@ -3339,7 +3334,7 @@ const commands = {
 				}
 
 				if (outputFile) {
-					if (!writeVfsFile(outputFile, text, false)) {
+					if (!(await writeVfsFile(outputFile, text, false))) {
 						print("curl: cannot write to '" + outputFile + "': No such directory", "err");
 						return false;
 					}
@@ -3884,8 +3879,8 @@ const commands = {
 	open: {
 		about: "open a BrowOS app, URL, or file: open notepad | open github.com | open /files/note.txt",
 		usage: "open <app-id | url | file-path>",
-		run: function (args) {
-			syncFromBrowOSFiles();
+		run: async function (args) {
+			await syncFromBrowOSFiles();
 			const tree = getActiveTree();
 			if (args.length === 0) {
 				print("Usage: open <app | url | file>", "err");
@@ -4181,7 +4176,7 @@ const commands = {
 		about: "execute a shell script file: sh <script.sh>",
 		usage: "sh <script.sh>",
 		run: async function (args) {
-			syncFromBrowOSFiles();
+			await syncFromBrowOSFiles();
 			const tree = getActiveTree();
 			if (!args[0]) {
 				print("Usage: sh <script.sh>", "err");
@@ -4349,10 +4344,10 @@ const commands = {
 	hostname: {
 		about: "show or set the system's host name",
 		usage: "hostname [new-name]",
-		run: function (args) {
+		run: async function (args) {
 			if (args[0]) {
 				envVars.HOSTNAME = args[0];
-				writeVfsFile("/etc/hostname", args[0] + "\n", false);
+				await writeVfsFile("/etc/hostname", args[0] + "\n", false);
 				updatePromptDisplay();
 			}
 			print(envVars.HOSTNAME);
@@ -4390,8 +4385,8 @@ const commands = {
 	neofetch: {
 		about: "display BrowOS system information summary",
 		usage: "neofetch",
-		run: function () {
-			syncFromBrowOSFiles();
+		run: async function () {
+			await syncFromBrowOSFiles();
 			const tree = getActiveTree();
 			const api = os(true);
 			const info = api ? api.systemInfo() : null;
@@ -4605,8 +4600,8 @@ const commands = {
 	json: {
 		about: "pretty-print and validate JSON from file, string, or pipe",
 		usage: "json [file | json-string]",
-		run: function (args, stdin) {
-			syncFromBrowOSFiles();
+		run: async function (args, stdin) {
+			await syncFromBrowOSFiles();
 			const tree = getActiveTree();
 			let raw = "";
 			if (args.length === 0 && typeof stdin === "string") {
@@ -4712,8 +4707,8 @@ const commands = {
 	},
 };
 
-function readTextSource(fileArg, stdin, cmdName) {
-	syncFromBrowOSFiles();
+async function readTextSource(fileArg, stdin, cmdName) {
+	await syncFromBrowOSFiles();
 	const tree = getActiveTree();
 	if (!fileArg && typeof stdin === "string") {
 		return stdin;
@@ -4782,7 +4777,7 @@ async function executeStage(rawStage, stdinText, captureStdout) {
 	}
 
 	if (redirectInFile) {
-		syncFromBrowOSFiles();
+		await syncFromBrowOSFiles();
 		const inResolved = normalizePath(redirectInFile);
 		const inNode = tree[inResolved];
 		if (!inNode || inNode.type !== "file") {
@@ -4794,7 +4789,7 @@ async function executeStage(rawStage, stdinText, captureStdout) {
 
 	const cmdName = cleanTokens[0].toLowerCase();
 	const rawArgs = cleanTokens.slice(1);
-	const args = ["grep", "sed", "find", "alias", "export", "calc", "bubble", "vm"].includes(cmdName) ? rawArgs : expandGlobs(rawArgs);
+	const args = ["grep", "sed", "find", "alias", "export", "calc", "bubble", "vm", "rm"].includes(cmdName) ? rawArgs : expandGlobs(rawArgs);
 
 	if (!commands[cmdName] && cleanTokens.length === 1 && /^https?:\/\//i.test(cleanTokens[0])) {
 		const ok = await commands.open.run([cleanTokens[0]], stdinText);
@@ -4837,7 +4832,7 @@ async function executeStage(rawStage, stdinText, captureStdout) {
 	const stdoutStr = capturedLines.length > 0 ? capturedLines.join("\n") + "\n" : "";
 
 	if (redirectOutMode) {
-		if (!writeVfsFile(redirectOutFile, stdoutStr, redirectOutMode === ">>")) {
+		if (!(await writeVfsFile(redirectOutFile, stdoutStr, redirectOutMode === ">>"))) {
 			print("bsh: " + redirectOutFile + ": No such file or directory", "err");
 			return { ok: false, stdout: "" };
 		}
@@ -4955,7 +4950,6 @@ window.addEventListener("message", function (event) {
 // ============================================================================
 
 function getPathCompletions(partialPath, dirsOnly) {
-	syncFromBrowOSFiles();
 	const tree = getActiveTree();
 	const raw = partialPath || "";
 	let dirPart = "";
@@ -5207,20 +5201,12 @@ term.addEventListener("click", function () {
 });
 
 window.addEventListener("focus", function () {
-	syncFromBrowOSFiles();
 	input.focus();
 });
 
-try {
-	if (window.parent && window.parent !== window) {
-		window.parent.document.addEventListener("files-changed", syncFromBrowOSFiles);
-	}
-} catch (e) {}
-
-syncFromBrowOSFiles();
 updatePromptDisplay();
 
-print("BrowOS Shell (bsh 3.0) - Mounted real BrowOS Files at /files", "accent");
+print("BrowOS Shell (bsh 3.0) - Mounted permission-gated BrowOS Files at /files", "accent");
 print("Commands: 'vm create <id>' (CLI VM), 'vm visual [id]' (Visual VM), 'bubble shell' (Bubble CLI).", "dim");
 
 input.focus();
