@@ -1,6 +1,5 @@
-// Keeps a BrowOS app in step with the desktop theme and accent color,
-// provides window.browos (via desktop.browosApi or localStorage fallback),
-// and universally hooks <input type="file"> and <a download> so all apps use BrowOS Files.
+// Syncs desktop theme/accent, enforces BrowOS file permissions via sdkAllowed,
+// and hooks <input type="file"> and <a download> so all apps use BrowOS Files cleanly.
 
 (function () {
 	if (window.__bosThemeAndFilesHooked) {
@@ -19,179 +18,89 @@
 		desktop = null;
 	}
 
-	function createLocalStorageFilesFallback() {
-		function storageKey() {
-			try {
-				const meta = JSON.parse(localStorage.getItem("browos-profiles-meta") || "null");
-				const id = meta && meta.current ? meta.current : "default";
-				return "browos-filestore:" + (id === "default" ? "browos-files" : "browos-files-" + id);
-			} catch (e) {
-				return "browos-filestore:browos-files";
-			}
-		}
-
-		function readMap() {
-			try {
-				return JSON.parse(localStorage.getItem(storageKey()) || "{}") || {};
-			} catch (e) {
-				return {};
-			}
-		}
-
-		function writeMap(map) {
-			localStorage.setItem(storageKey(), JSON.stringify(map));
-			window.dispatchEvent(new Event("files-changed"));
-			try {
-				if (desktop && desktop.document) {
-					desktop.document.dispatchEvent(new Event("files-changed"));
+	function currentAppMeta() {
+		try {
+			if (window.frameElement) {
+				const win = window.frameElement.closest(".app-window");
+				if (win && win.dataset.appId) {
+					return {
+						id: win.dataset.appId,
+						name: win.dataset.appName || win.dataset.appId,
+					};
 				}
-			} catch (e) {}
-		}
-
-		function storedToBlob(record) {
-			const mime = record.mime || "text/plain";
-			if (typeof record.dataUrl === "string" && record.dataUrl.startsWith("data:")) {
-				const comma = record.dataUrl.indexOf(",");
-				const meta = record.dataUrl.slice(5, comma);
-				const body = record.dataUrl.slice(comma + 1);
-				if (/;base64$/i.test(meta)) {
-					const bin = atob(body);
-					const bytes = new Uint8Array(bin.length);
-					for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-					return new Blob([bytes], { type: mime });
-				}
-				return new Blob([decodeURIComponent(body)], { type: mime });
 			}
-			return new Blob([String(record.text || "")], { type: mime });
+		} catch (e) {}
+		return { id: "unknown-app", name: "App" };
+	}
+
+	const appMeta = currentAppMeta();
+
+	// Wrap raw desktop files API with BrowOS's permission gate (sdkAllowed) for all apps except "files"
+	function createPermissionGatedFilesApi(rawFiles) {
+		if (!rawFiles) return null;
+		if (appMeta.id === "files") {
+			return rawFiles;
 		}
 
-		function hydrate(rec) {
-			if (!rec) return null;
-			if (rec.type === "folder") return Object.assign({}, rec);
-			const blob = storedToBlob(rec);
-			return Object.assign({}, rec, { blob: blob, size: typeof rec.size === "number" ? rec.size : blob.size });
-		}
-
-		function kind(name, mime) {
-			const dot = String(name).lastIndexOf(".");
-			const ext = dot > 0 ? String(name).slice(dot + 1).toLowerCase() : "";
-			if (/^image\//.test(mime || "") || ["png", "jpg", "jpeg", "gif", "webp", "svg", "bmp", "avif", "ico"].includes(ext)) return "image";
-			if (mime === "application/pdf" || ext === "pdf") return "pdf";
-			if (/^audio\//.test(mime || "") || ["mp3", "wav", "ogg", "m4a", "flac"].includes(ext)) return "audio";
-			if (/^video\//.test(mime || "") || ["mp4", "webm", "mkv", "mov"].includes(ext)) return "video";
-			if (/^text\//.test(mime || "") || ["txt", "md", "json", "js", "ts", "css", "html", "htm", "xml", "csv", "py", "java", "c", "cpp", "h", "go", "rs", "sh", "yml", "yaml", "log", "ini", "sql"].includes(ext)) return "text";
-			return "other";
-		}
-
-		function list(parent) {
-			const items = Object.values(readMap()).filter((n) => n && n.parent === parent).map(hydrate);
-			items.sort((a, b) => (a.type !== b.type ? (a.type === "folder" ? -1 : 1) : a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" })));
-			return Promise.resolve(items);
-		}
-
-		function node(id) {
-			if (id === "root" || id === "trash") {
-				return Promise.resolve({ id: id, type: "folder", name: id === "root" ? "Files" : "Trash", parent: null });
+		function requireFilePermission() {
+			if (desktop && typeof desktop.sdkAllowed === "function") {
+				return desktop.sdkAllowed(appMeta, "files").then(function (allowed) {
+					if (!allowed) {
+						throw new Error("Permission denied: " + appMeta.name + " is not allowed to access BrowOS Files.");
+					}
+				});
 			}
-			return Promise.resolve(hydrate(readMap()[id] || null));
+			return Promise.resolve();
 		}
 
-		function read(id) {
-			return node(id).then((n) => {
-				if (!n || n.type !== "file") throw new Error("File not found.");
-				return n;
-			});
-		}
-
-		function text(id) {
-			return read(id).then((n) => n.blob.text());
-		}
-
-		function write(parent, name, data, options) {
-			const clean = String(name || "").replace(/[\\/:*?"<>|\u0000-\u001f]/g, "").trim().slice(0, 120);
-			if (!clean) return Promise.reject(new Error("That name can't be used."));
-			const isBlob = data && typeof data === "object" && typeof data.arrayBuffer === "function";
-			const blob = isBlob ? data : new Blob([String(data)], { type: "text/plain" });
-			const overwrite = options && options.overwriteId;
-
-			return new Promise((resolve, reject) => {
-				const r = new FileReader();
-				r.onload = () => resolve(r.result || "");
-				r.onerror = () => reject(r.error);
-				r.readAsDataURL(blob);
-			}).then((dataUrl) => {
-				const map = readMap();
-				const id = overwrite || ("f" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8));
-				const old = overwrite ? map[overwrite] : null;
-				const rec = {
-					id: id,
-					parent: parent || "root",
-					name: clean,
-					type: "file",
-					mime: blob.type || "text/plain",
-					size: blob.size,
-					created: old && old.created ? old.created : Date.now(),
-					modified: Date.now(),
-					dataUrl: dataUrl,
-				};
-				map[id] = rec;
-				writeMap(map);
-				return hydrate(rec);
-			});
-		}
-
-		function search(q) {
-			const needle = String(q || "").toLowerCase();
-			return Promise.resolve(
-				Object.values(readMap())
-					.filter((n) => n && n.parent !== "trash" && n.name.toLowerCase().includes(needle))
-					.map(hydrate)
-					.sort((a, b) => a.name.localeCompare(b.name))
-			);
+		function gated(methodName) {
+			return function () {
+				const args = arguments;
+				return requireFilePermission().then(function () {
+					return rawFiles[methodName].apply(rawFiles, args);
+				});
+			};
 		}
 
 		return {
-			kind: kind,
-			node: node,
-			list: list,
-			read: read,
-			text: text,
-			write: write,
-			search: search,
-			path: function (id) {
-				const parts = [];
-				const map = readMap();
-				let cur = id;
-				while (cur && cur !== "root" && map[cur]) {
-					parts.unshift({ id: map[cur].id, name: map[cur].name });
-					cur = map[cur].parent;
-				}
-				return Promise.resolve(parts);
-			},
-			totalSize: function () {
-				return Promise.resolve(Object.values(readMap()).reduce((s, n) => s + (n && n.size ? n.size : 0), 0));
-			},
-			takeOpenRequest: function () {
-				return null;
-			},
+			kind: rawFiles.kind,
+			node: gated("node"),
+			list: gated("list"),
+			path: gated("path"),
+			search: gated("search"),
+			totalSize: gated("totalSize"),
+			mkdir: gated("mkdir"),
+			write: gated("write"),
+			read: gated("read"),
+			text: gated("text"),
+			rename: gated("rename"),
+			move: gated("move"),
+			remove: gated("remove"),
+			restore: gated("restore"),
+			emptyTrash: gated("emptyTrash"),
+			download: gated("download"),
+			open: gated("open"),
+			openWith: gated("openWith"),
+			// Taking a file the user explicitly double-clicked in Files is already user-initiated
+			takeOpenRequest: rawFiles.takeOpenRequest,
 		};
 	}
 
 	if (desktop && desktop.browosApi) {
-		window.browos = desktop.browosApi;
+		const gatedFiles = createPermissionGatedFilesApi(desktop.browosApi.files);
+		window.browos = Object.assign({}, desktop.browosApi, {
+			files: gatedFiles,
+		});
 	} else {
-		window.browos = {
-			files: createLocalStorageFilesFallback(),
-		};
+		window.browos = null;
 	}
 
 	function getFilesApi() {
 		if (window.browos && window.browos.files) return window.browos.files;
-		if (desktop && desktop.browosApi && desktop.browosApi.files) return desktop.browosApi.files;
 		return null;
 	}
 
-	// Sync theme & accent if inside desktop frame
+	// Sync theme & accent with desktop
 	if (desktop) {
 		const desktopRoot = desktop.document.documentElement;
 
@@ -213,21 +122,9 @@
 	}
 
 	// =========================================================
-	// UNIVERSAL FILE PICKER & SAVE BRIDGE FOR ALL BUILT-IN APPS
+	// UNIVERSAL FILE PICKER & SAVE BRIDGE (PERMISSION-GATED)
 	// =========================================================
-	function currentAppId() {
-		try {
-			if (window.frameElement) {
-				const win = window.frameElement.closest(".app-window");
-				if (win && win.dataset.appId) return win.dataset.appId;
-			}
-		} catch (e) {}
-		return null;
-	}
-
-	// Don't double-hook the Files manager itself or Code Editor (which has its own custom picker)
-	const appId = currentAppId();
-	if (appId === "files" || appId === "codeeditor") {
+	if (appMeta.id === "files" || appMeta.id === "codeeditor") {
 		return;
 	}
 
@@ -240,13 +137,8 @@
 		const mimeLower = (node.mime || "").toLowerCase();
 
 		return tokens.some(function (tok) {
-			if (tok.startsWith(".")) {
-				return nameLower.endsWith(tok);
-			}
-			if (tok.endsWith("/*")) {
-				const prefix = tok.slice(0, -1);
-				return mimeLower.startsWith(prefix);
-			}
+			if (tok.startsWith(".")) return nameLower.endsWith(tok);
+			if (tok.endsWith("/*")) return mimeLower.startsWith(tok.slice(0, -1));
 			return mimeLower === tok;
 		});
 	}
@@ -266,9 +158,19 @@
 
 	let bypassNativeInput = false;
 
-	function showUniversalOpenModal(inputEl) {
+	async function showUniversalOpenModal(inputEl) {
 		const filesApi = getFilesApi();
 		if (!filesApi) {
+			bypassNativeInput = true;
+			inputEl.click();
+			bypassNativeInput = false;
+			return;
+		}
+
+		// Triggers BrowOS permission prompt before showing user's files
+		try {
+			await filesApi.list("root");
+		} catch (err) {
 			bypassNativeInput = true;
 			inputEl.click();
 			bypassNativeInput = false;
@@ -390,7 +292,7 @@
 				rowBtn.type = "button";
 				rowBtn.style.cssText =
 					"display:flex;align-items:center;justify-content:space-between;width:100%;text-align:left;padding:8px 12px;border-radius:8px;border:1px solid transparent;background:rgba(255,255,255,0.04);color:#f3f4f6;cursor:pointer;font-size:13px;";
-				rowBtn.onmouseenter = function () { rowBtn.style.background = "rgba(168,85,247,0.24)"; };
+				rowBtn.onmouseenter = function () { rowBtn.style.background = "rgba(33,150,243,0.24)"; };
 				rowBtn.onmouseleave = function () { rowBtn.style.background = "rgba(255,255,255,0.04)"; };
 
 				const left = document.createElement("span");
@@ -417,7 +319,6 @@
 		renderFolder(browseFolder);
 	}
 
-	// Intercept programmatic .click() and user clicks on <input type="file">
 	const origInputClick = HTMLInputElement.prototype.click;
 	HTMLInputElement.prototype.click = function () {
 		if (!bypassNativeInput && this.type === "file") {
@@ -441,7 +342,6 @@
 		true
 	);
 
-	// Intercept <a download="..."> clicks so exports/saves can be stored in BrowOS Files
 	let bypassNativeDownload = false;
 
 	function showUniversalSaveModal(anchorEl) {
@@ -505,7 +405,7 @@
 		saveBosBtn.type = "button";
 		saveBosBtn.textContent = "Save to BrowOS Files";
 		saveBosBtn.style.cssText =
-			"background:#7c3aed;border:1px solid rgba(255,255,255,0.25);color:#fff;font-weight:600;border-radius:8px;padding:7px 13px;cursor:pointer;font-size:12.5px;";
+			"background:#2196f3;border:none;color:#fff;font-weight:600;border-radius:8px;padding:7px 13px;cursor:pointer;font-size:12.5px;";
 		saveBosBtn.onclick = async function () {
 			const clean = nameInput.value.trim() || suggestedName;
 			try {
@@ -517,7 +417,7 @@
 					window.browos.notify("Files", "Saved " + clean + " to BrowOS Files");
 				}
 			} catch (err) {
-				status.textContent = err && err.message ? err.message : "Failed to save to BrowOS Files.";
+				status.textContent = err && err.message ? err.message : "Permission denied or failed to save.";
 			}
 		};
 
@@ -553,7 +453,7 @@
 	);
 
 	// Automatic "Open With" support for apps that don't handle open-file manually
-	if (appId && desktop) {
+	if (appMeta.id !== "unknown-app" && desktop) {
 		async function tryAutoLoadPendingFile(id) {
 			const filesApi = getFilesApi();
 			if (!filesApi || !id) return;
@@ -569,7 +469,7 @@
 			setTimeout(function () {
 				const filesApi = getFilesApi();
 				if (!filesApi || typeof filesApi.takeOpenRequest !== "function") return;
-				const pendingId = filesApi.takeOpenRequest(appId);
+				const pendingId = filesApi.takeOpenRequest(appMeta.id);
 				if (pendingId) {
 					tryAutoLoadPendingFile(pendingId);
 				}
@@ -578,9 +478,9 @@
 
 		try {
 			desktop.document.addEventListener("open-file", function (event) {
-				if (event.detail && event.detail.app === appId) {
+				if (event.detail && event.detail.app === appMeta.id) {
 					const filesApi = getFilesApi();
-					if (filesApi) filesApi.takeOpenRequest(appId);
+					if (filesApi) filesApi.takeOpenRequest(appMeta.id);
 					tryAutoLoadPendingFile(event.detail.id);
 				}
 			});
