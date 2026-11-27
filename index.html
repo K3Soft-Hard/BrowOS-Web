@@ -13,6 +13,27 @@
 	<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 	<link rel="apple-touch-icon" href="./icons/browos-logo.png">
 
+	<!-- Early boot intercept: if Auto-Update is enabled and hasn't refreshed this session yet, skip boot animation on pass 1 -->
+	<script>
+		(function () {
+			try {
+				var autoUpd = localStorage.getItem("browos-auto-update") === "on";
+				if (!autoUpd) {
+					var extRaw = localStorage.getItem("browos-ext-settings");
+					if (extRaw) {
+						var extParsed = JSON.parse(extRaw);
+						if (extParsed && extParsed["browos-auto-update"] === "on") {
+							autoUpd = true;
+						}
+					}
+				}
+				if (autoUpd && sessionStorage.getItem("browos-autoupdate-done") !== "1") {
+					document.documentElement.dataset.bosSkipBootOnce = "1";
+				}
+			} catch (e) {}
+		})();
+	</script>
+
 	<link rel="stylesheet" href="css/base.css">
 	<link rel="stylesheet" href="css/taskbar.css">
 	<link rel="stylesheet" href="css/files.css">
@@ -49,6 +70,13 @@
 			--bos-bubble-alpha: 0.78;
 			--bos-bubble-blur: 24px;
 			--bos-bubble-pill-alpha: 0.65;
+		}
+
+		/* Skip boot animation during pass 1 of Auto-Update */
+		html[data-bos-skip-boot-once="1"] .boot-screen,
+		html[data-bos-skip-boot-once="1"] .boot-input-shield {
+			display: none !important;
+			animation: none !important;
 		}
 
 		html, body {
@@ -910,7 +938,7 @@
 			transition: transform 0.26s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.22s ease !important;
 		}
 
-		/* Full-width Windows-style bottom bar (overrides inline width/left/radius cleanly without mutating DOM) */
+		/* Full-width Windows-style bottom bar */
 		html[data-taskbar-style="windows"] .taskbar,
 		html[data-taskbar-style="windows"] .taskbar-blur {
 			position: fixed !important;
@@ -2485,6 +2513,15 @@
 
 					<h3>Updates &amp; reset</h3>
 
+					<div class="setting-row">
+						<span>Auto-update on launch (silent refresh, then animated boot)</span>
+
+						<label class="switch">
+							<input type="checkbox" id="autoUpdateToggle">
+							<span class="slider"></span>
+						</label>
+					</div>
+
 					<p class="settings-note"><strong>Refresh updates</strong> clears only cached HTML, CSS, and JS files and reloads BrowOS while keeping your apps, notes, PIN, and settings. <strong>Reset all data</strong> completely erases all website data and restarts initial setup (Main profile only).</p>
 
 					<div class="button-row">
@@ -3116,12 +3153,15 @@
 
 <script>
 	(function () {
+		const EXT_SETTINGS_BUNDLE_KEY = "browos-ext-settings";
+
 		const OS_CODE_KEY = "browos-os-code";
 		const WIPE_PIN_KEY = "browos-wipe-pin";
 		const WIPE_PENDING_CODE_KEY = "browos-wipe-pending-code";
 		const MASTER_RESET_ENABLED_KEY = "browos-master-reset-enabled";
 		const COMPUTER_SAVER_KEY = "browos-computer-saver";
 		const MENU_AUTOFOCUS_KEY = "browos-autofocus-menus";
+		const AUTO_UPDATE_KEY = "browos-auto-update";
 
 		// Bubble keys
 		const BUBBLE_DESKTOP_TRIGGER_KEY = "browos-bubble-desktop-trigger";
@@ -3148,14 +3188,199 @@
 		const TASKBAR_AUTOHIDE_KEY = "browos-taskbar-autohide";
 		const TASKBAR_AUTOOPEN_KEY = "browos-taskbar-autoopen";
 
-		// Flush settings into active profile snapshot if profiles.js is loaded so reboots never lose changes
+		const MANAGED_SETTING_KEYS = [
+			OS_CODE_KEY,
+			WIPE_PIN_KEY,
+			MASTER_RESET_ENABLED_KEY,
+			COMPUTER_SAVER_KEY,
+			MENU_AUTOFOCUS_KEY,
+			AUTO_UPDATE_KEY,
+			BUBBLE_DESKTOP_TRIGGER_KEY,
+			BUBBLE_APP_TRIGGER_KEY,
+			BUBBLE_PILL_OPACITY_KEY,
+			BUBBLE_OPACITY_KEY,
+			BUBBLE_AUTOCLOSE_KEY,
+			BUBBLE_SYNC_DESKTOPS_KEY,
+			BUBBLE_DESKTOP_STYLES_KEY,
+			BUBBLE_FAVS_KEY,
+			BUBBLE_SYS_CARDS_KEY,
+			BUBBLE_APP_POLICY_KEY,
+			BUBBLE_BLOCKED_APPS_KEY,
+			BUBBLE_NOTE_TEXT_KEY,
+			BUBBLE_NOTE_COLOR_KEY,
+			BUBBLE_IDLE_STYLE_KEY,
+			BUBBLE_IDLE_COLOR_KEY,
+			BUBBLE_PLAYING_STYLE_KEY,
+			BUBBLE_PLAYING_COLOR_KEY,
+			TASKBAR_STYLE_KEY,
+			TASKBAR_ALIGN_KEY,
+			TASKBAR_AUTOHIDE_KEY,
+			TASKBAR_AUTOOPEN_KEY,
+			"browos-pin-limit-mode",
+			"browos-lock-curtain-blur",
+			"browos-window-bar-size",
+			"browos-taskbar-scale",
+			"browos-taskbar-glass-override",
+			"browos-taskbar-glass-pct",
+			"browos-tb-show-start",
+			"browos-tb-show-desktops",
+			"browos-tb-show-clipboard",
+			"browos-tb-show-bell",
+			"browos-tb-show-quick",
+			"browos-taskbar-hide-enabled",
+			"browos-taskbar-hidden",
+		];
+
+		// =========================================================
+		// RESILIENT SETTINGS STORE (SURVIVES PROFILE SNAPSHOT RESTORES)
+		// =========================================================
+		function readExtBundle() {
+			try {
+				const parsed = JSON.parse(localStorage.getItem(EXT_SETTINGS_BUNDLE_KEY) || "{}");
+				return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+			} catch (e) {
+				return {};
+			}
+		}
+
+		let extSettingsCache = readExtBundle();
+
+		function writeExtBundleToIdb(bundle) {
+			try {
+				if (!window.indexedDB) return;
+				const req = indexedDB.open("browos-ext-settings-db", 1);
+				req.onupgradeneeded = function () {
+					const db = req.result;
+					if (!db.objectStoreNames.contains("kv")) {
+						db.createObjectStore("kv");
+					}
+				};
+				req.onsuccess = function () {
+					const db = req.result;
+					try {
+						const tx = db.transaction("kv", "readwrite");
+						tx.objectStore("kv").put(bundle, "bundle");
+						tx.oncomplete = tx.onerror = function () { db.close(); };
+					} catch (e) {
+						db.close();
+					}
+				};
+			} catch (e) {}
+		}
+
+		function loadExtBundleFromIdb() {
+			return new Promise(function (resolve) {
+				try {
+					if (!window.indexedDB) {
+						resolve(null);
+						return;
+					}
+					const req = indexedDB.open("browos-ext-settings-db", 1);
+					req.onupgradeneeded = function () {
+						const db = req.result;
+						if (!db.objectStoreNames.contains("kv")) {
+							db.createObjectStore("kv");
+						}
+					};
+					req.onsuccess = function () {
+						const db = req.result;
+						try {
+							const tx = db.transaction("kv", "readonly");
+							const getReq = tx.objectStore("kv").get("bundle");
+							getReq.onsuccess = function () {
+								db.close();
+								resolve(getReq.result && typeof getReq.result === "object" ? getReq.result : null);
+							};
+							getReq.onerror = function () {
+								db.close();
+								resolve(null);
+							};
+						} catch (e) {
+							db.close();
+							resolve(null);
+						}
+					};
+					req.onerror = function () { resolve(null); };
+				} catch (e) {
+					resolve(null);
+				}
+			});
+		}
+
+		function reconcileExtSettingsStorage() {
+			const bundle = readExtBundle();
+			Object.assign(extSettingsCache, bundle);
+
+			let changedBundle = false;
+			MANAGED_SETTING_KEYS.forEach(function (k) {
+				const lsVal = localStorage.getItem(k);
+				if (lsVal !== null) {
+					if (extSettingsCache[k] !== lsVal) {
+						extSettingsCache[k] = lsVal;
+						changedBundle = true;
+					}
+				} else if (Object.prototype.hasOwnProperty.call(extSettingsCache, k) && extSettingsCache[k] !== null) {
+					localStorage.setItem(k, String(extSettingsCache[k]));
+				}
+			});
+
+			if (changedBundle) {
+				localStorage.setItem(EXT_SETTINGS_BUNDLE_KEY, JSON.stringify(extSettingsCache));
+				writeExtBundleToIdb(extSettingsCache);
+			}
+		}
+
 		function persistSettingKey(key, value) {
-			localStorage.setItem(key, value);
+			if (value === null || value === undefined) {
+				localStorage.removeItem(key);
+				delete extSettingsCache[key];
+			} else {
+				const strVal = String(value);
+				localStorage.setItem(key, strVal);
+				extSettingsCache[key] = strVal;
+			}
+			localStorage.setItem(EXT_SETTINGS_BUNDLE_KEY, JSON.stringify(extSettingsCache));
+			writeExtBundleToIdb(extSettingsCache);
+
 			if (typeof saveCurrentProfileSnapshot === "function") {
 				try {
 					saveCurrentProfileSnapshot();
 				} catch (e) {}
 			}
+		}
+
+		reconcileExtSettingsStorage();
+
+		// =========================================================
+		// AUTO-UPDATE ON LAUNCH (NO BOOT ANIMATION -> REFRESH -> ANIMATED REBOOT)
+		// =========================================================
+		const autoUpdateToggle = document.getElementById("autoUpdateToggle");
+
+		async function performSilentRefreshAndAnimatedReboot() {
+			sessionStorage.setItem("browos-autoupdate-done", "1");
+			try {
+				if ("caches" in window) {
+					const keys = await caches.keys();
+					await Promise.all(keys.map(function (k) { return caches.delete(k); }));
+				}
+				if ("serviceWorker" in navigator) {
+					const regs = await navigator.serviceWorker.getRegistrations();
+					await Promise.all(regs.map(function (r) { return r.update().catch(function () {}); }));
+				}
+			} catch (e) {}
+			location.reload();
+		}
+
+		if (autoUpdateToggle) {
+			autoUpdateToggle.checked = localStorage.getItem(AUTO_UPDATE_KEY) === "on";
+			autoUpdateToggle.onchange = function () {
+				persistSettingKey(AUTO_UPDATE_KEY, autoUpdateToggle.checked ? "on" : "off");
+			};
+		}
+
+		if (localStorage.getItem(AUTO_UPDATE_KEY) === "on" && sessionStorage.getItem("browos-autoupdate-done") !== "1") {
+			performSilentRefreshAndAnimatedReboot();
+			return;
 		}
 
 		const SVG_ICONS = {
@@ -3337,9 +3562,8 @@
 			pinLimitSelect.addEventListener("change", function () {
 				if (typeof setPinLimitMode === "function") {
 					setPinLimitMode(pinLimitSelect.value);
-				} else {
-					persistSettingKey("browos-pin-limit-mode", pinLimitSelect.value);
 				}
+				persistSettingKey("browos-pin-limit-mode", pinLimitSelect.value);
 				if (oobeLimitSelect) {
 					oobeLimitSelect.value = pinLimitSelect.value;
 				}
@@ -4413,7 +4637,6 @@
 			}, { passive: true });
 		}
 
-		// Deterministic pointerup single-tap / double-tap detector (mouse + touch)
 		if (bubbleTriggerZone) {
 			let lastTapTime = 0;
 			let downX = 0;
@@ -4544,6 +4767,7 @@
 				} else {
 					indexedDB.deleteDatabase("browos-profiles");
 					indexedDB.deleteDatabase("browos-files");
+					indexedDB.deleteDatabase("browos-ext-settings-db");
 				}
 			} catch (e) {}
 
@@ -4624,10 +4848,7 @@
 		if (wipePinRemove) {
 			wipePinRemove.addEventListener("click", function () {
 				if (!isMainAdmin()) return;
-				localStorage.removeItem(WIPE_PIN_KEY);
-				if (typeof saveCurrentProfileSnapshot === "function") {
-					try { saveCurrentProfileSnapshot(); } catch (e) {}
-				}
+				persistSettingKey(WIPE_PIN_KEY, null);
 				if (wipePinNew) wipePinNew.value = "";
 				if (wipePinConfirm) wipePinConfirm.value = "";
 				refreshWipePinUI();
@@ -5037,12 +5258,18 @@
 		}
 
 		// =========================================================
-		// MASTER SETTINGS UI HYDRATOR (RUNS ON BOOT & WHEN SETTINGS OPENS)
+		// MASTER SETTINGS UI HYDRATOR (RUNS ON BOOT, AFTER ASYNC PROFILE LOAD & ON SETTINGS OPEN)
 		// =========================================================
 		function syncAllCustomSettingsUI() {
+			reconcileExtSettingsStorage();
 			applyAdminRoleState();
 			currentOsCode = getOrCreateOsCode();
 			refreshOsCodeDisplay();
+
+			// Auto-update toggle
+			if (autoUpdateToggle) {
+				autoUpdateToggle.checked = localStorage.getItem(AUTO_UPDATE_KEY) === "on";
+			}
 
 			// Computer saver mode
 			const saverOn = localStorage.getItem(COMPUTER_SAVER_KEY) === "on";
@@ -5130,7 +5357,22 @@
 			evaluateTaskbarAutoHide();
 		}
 
+		// Hydrate from IndexedDB backup if localStorage was cleared/overwritten by profile restore
+		loadExtBundleFromIdb().then(function (idbBundle) {
+			if (idbBundle && typeof idbBundle === "object") {
+				Object.keys(idbBundle).forEach(function (k) {
+					if (localStorage.getItem(k) === null && idbBundle[k] !== null) {
+						localStorage.setItem(k, String(idbBundle[k]));
+					}
+				});
+			}
+			syncAllCustomSettingsUI();
+		});
+
 		syncAllCustomSettingsUI();
+		setTimeout(syncAllCustomSettingsUI, 250);
+		setTimeout(syncAllCustomSettingsUI, 900);
+
 		if (localStorage.getItem("browos-taskbar-hide-enabled") !== "off" && tbManuallyHidden) {
 			setTbHidden(true, false);
 		}
@@ -5635,9 +5877,8 @@
 					if (oobeLimitSelect) {
 						if (typeof setPinLimitMode === "function") {
 							setPinLimitMode(oobeLimitSelect.value);
-						} else {
-							persistSettingKey("browos-pin-limit-mode", oobeLimitSelect.value);
 						}
+						persistSettingKey("browos-pin-limit-mode", oobeLimitSelect.value);
 						if (pinLimitSelect) {
 							pinLimitSelect.value = oobeLimitSelect.value;
 						}
