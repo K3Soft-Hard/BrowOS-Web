@@ -1,4 +1,4 @@
-// Syncs desktop theme/accent, enforces BrowOS file permissions via sdkAllowed,
+// Syncs desktop theme/accent, binds the host's permission-gated browosApiForApp,
 // and hooks <input type="file"> and <a download> so all apps use BrowOS Files cleanly.
 
 (function () {
@@ -35,69 +35,26 @@
 
 	const appMeta = currentAppMeta();
 
-	// Wrap raw desktop files API with BrowOS's permission gate (sdkAllowed) for all apps except "files"
-	function createPermissionGatedFilesApi(rawFiles) {
-		if (!rawFiles) return null;
-		if (appMeta.id === "files") {
-			return rawFiles;
-		}
-
-		function requireFilePermission() {
-			if (desktop && typeof desktop.sdkAllowed === "function") {
-				return desktop.sdkAllowed(appMeta, "files").then(function (allowed) {
-					if (!allowed) {
-						throw new Error("Permission denied: " + appMeta.name + " is not allowed to access BrowOS Files.");
-					}
+	if (desktop) {
+		if (typeof desktop.browosApiForApp === "function") {
+			try {
+				Object.defineProperty(window, "browos", {
+					value: desktop.browosApiForApp(appMeta),
+					configurable: true,
+					writable: false,
 				});
+			} catch (e) {
+				window.browos = desktop.browosApiForApp(appMeta);
 			}
-			return Promise.resolve();
+		} else if (desktop.browosApi) {
+			window.browos = desktop.browosApi;
 		}
-
-		function gated(methodName) {
-			return function () {
-				const args = arguments;
-				return requireFilePermission().then(function () {
-					return rawFiles[methodName].apply(rawFiles, args);
-				});
-			};
-		}
-
-		return {
-			kind: rawFiles.kind,
-			node: gated("node"),
-			list: gated("list"),
-			path: gated("path"),
-			search: gated("search"),
-			totalSize: gated("totalSize"),
-			mkdir: gated("mkdir"),
-			write: gated("write"),
-			read: gated("read"),
-			text: gated("text"),
-			rename: gated("rename"),
-			move: gated("move"),
-			remove: gated("remove"),
-			restore: gated("restore"),
-			emptyTrash: gated("emptyTrash"),
-			download: gated("download"),
-			open: gated("open"),
-			openWith: gated("openWith"),
-			// Taking a file the user explicitly double-clicked in Files is already user-initiated
-			takeOpenRequest: rawFiles.takeOpenRequest,
-		};
-	}
-
-	if (desktop && desktop.browosApi) {
-		const gatedFiles = createPermissionGatedFilesApi(desktop.browosApi.files);
-		window.browos = Object.assign({}, desktop.browosApi, {
-			files: gatedFiles,
-		});
 	} else {
 		window.browos = null;
 	}
 
 	function getFilesApi() {
-		if (window.browos && window.browos.files) return window.browos.files;
-		return null;
+		return window.browos && window.browos.files ? window.browos.files : null;
 	}
 
 	// Sync theme & accent with desktop
@@ -167,7 +124,6 @@
 			return;
 		}
 
-		// Triggers BrowOS permission prompt before showing user's files
 		try {
 			await filesApi.list("root");
 		} catch (err) {
