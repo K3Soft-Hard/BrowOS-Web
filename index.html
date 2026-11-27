@@ -145,6 +145,11 @@
 			to { opacity: 1; transform: translateY(0) scale(1); }
 		}
 
+		@keyframes bosFlyoutPopCentered {
+			from { opacity: 0; transform: translateX(-50%) translateY(10px) scale(0.97); }
+			to { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+		}
+
 		/* =========================================================
 		   COMPUTER SAVER MODE (DISABLES TRANSPARENCY & HEAVY ANIMATIONS)
 		   ========================================================= */
@@ -928,7 +933,7 @@
 		}
 
 		/* =========================================================
-		   TASKBAR: PURE CSS SWITCHING (OVAL vs WINDOWS BAR + LEFT/CENTER)
+		   TASKBAR & START MENU ALIGNMENT (OVAL vs WINDOWS BAR + LEFT/CENTER)
 		   ========================================================= */
 		.taskbar-blur,
 		.taskbar {
@@ -960,7 +965,7 @@
 			box-sizing: border-box !important;
 		}
 
-		/* Center alignment ONLY affects Windows bottom bar mode, leaving Floating pill (Oval) untouched */
+		/* Center alignment ONLY affects Windows bottom bar mode: centers taskbar-left, #startMenu & #appsPanel */
 		html[data-taskbar-style="windows"][data-taskbar-align="center"] .taskbar {
 			display: flex !important;
 			align-items: center !important;
@@ -976,6 +981,18 @@
 			justify-content: center !important;
 			width: auto !important;
 			max-width: calc(100% - 280px) !important;
+		}
+
+		html[data-taskbar-style="windows"][data-taskbar-align="center"] #startMenu,
+		html[data-taskbar-style="windows"][data-taskbar-align="center"] #appsPanel {
+			left: 50% !important;
+			right: auto !important;
+			transform: translateX(-50%) !important;
+		}
+
+		html[data-taskbar-style="windows"][data-taskbar-align="center"] #startMenu.open,
+		html[data-taskbar-style="windows"][data-taskbar-align="center"] #appsPanel.open {
+			animation: bosFlyoutPopCentered 0.24s cubic-bezier(0.22, 1, 0.36, 1) both !important;
 		}
 
 		html[data-taskbar-hidden="1"]:not([data-taskbar-hover-open="1"]) .taskbar,
@@ -2105,7 +2122,7 @@
 					</div>
 
 					<div class="setting-row" id="taskbarAlignRow" hidden>
-						<span>Windows bar alignment</span>
+						<span>Windows bar &amp; Start alignment</span>
 
 						<select id="taskbarAlignSelect">
 							<option value="left" selected>Left (Windows 10)</option>
@@ -3188,7 +3205,7 @@
 		const TASKBAR_AUTOHIDE_KEY = "browos-taskbar-autohide";
 		const TASKBAR_AUTOOPEN_KEY = "browos-taskbar-autoopen";
 
-		const MANAGED_SETTING_KEYS = [
+		const MANAGED_SETTING_KEYS = new Set([
 			OS_CODE_KEY,
 			WIPE_PIN_KEY,
 			MASTER_RESET_ENABLED_KEY,
@@ -3229,10 +3246,31 @@
 			"browos-tb-show-quick",
 			"browos-taskbar-hide-enabled",
 			"browos-taskbar-hidden",
-		];
+			"browos-boot",
+			"browos-sound",
+			"browos-ui-sounds",
+			"browos-volume",
+			"browos-theme",
+			"browos-accent",
+			"browos-transparency",
+			"browos-corners",
+			"browos-buttons",
+			"browos-desktop-text",
+			"browos-desktop-text-value",
+			"browos-cursor",
+			"browos-cursor-size",
+			"browos-taskbar-auto",
+			"browos-taskbar-width",
+			"browos-clock",
+			"browos-lock-startup",
+			"browos-saver",
+			"browos-saver-minutes",
+			"browos-saver-type",
+			"browos-saver-lock",
+		]);
 
 		// =========================================================
-		// RESILIENT SETTINGS STORE (SURVIVES PROFILE SNAPSHOT RESTORES)
+		// RESILIENT WRITE-THROUGH SETTINGS STORE (SURVIVES REBOOTS & PROFILE LOADS)
 		// =========================================================
 		function readExtBundle() {
 			try {
@@ -3244,6 +3282,7 @@
 		}
 
 		let extSettingsCache = readExtBundle();
+		let isReconcilingStorage = false;
 
 		function writeExtBundleToIdb(bundle) {
 			try {
@@ -3307,45 +3346,81 @@
 			});
 		}
 
-		function reconcileExtSettingsStorage() {
-			const bundle = readExtBundle();
-			Object.assign(extSettingsCache, bundle);
-
-			let changedBundle = false;
-			MANAGED_SETTING_KEYS.forEach(function (k) {
-				const lsVal = localStorage.getItem(k);
-				if (lsVal !== null) {
-					if (extSettingsCache[k] !== lsVal) {
-						extSettingsCache[k] = lsVal;
-						changedBundle = true;
-					}
-				} else if (Object.prototype.hasOwnProperty.call(extSettingsCache, k) && extSettingsCache[k] !== null) {
-					localStorage.setItem(k, String(extSettingsCache[k]));
-				}
-			});
-
-			if (changedBundle) {
-				localStorage.setItem(EXT_SETTINGS_BUNDLE_KEY, JSON.stringify(extSettingsCache));
-				writeExtBundleToIdb(extSettingsCache);
-			}
-		}
-
 		function persistSettingKey(key, value) {
-			if (value === null || value === undefined) {
-				localStorage.removeItem(key);
-				delete extSettingsCache[key];
-			} else {
-				const strVal = String(value);
-				localStorage.setItem(key, strVal);
-				extSettingsCache[key] = strVal;
+			isReconcilingStorage = true;
+			try {
+				if (value === null || value === undefined) {
+					localStorage.removeItem(key);
+					delete extSettingsCache[key];
+				} else {
+					const strVal = String(value);
+					localStorage.setItem(key, strVal);
+					extSettingsCache[key] = strVal;
+				}
+				localStorage.setItem(EXT_SETTINGS_BUNDLE_KEY, JSON.stringify(extSettingsCache));
+			} finally {
+				isReconcilingStorage = false;
 			}
-			localStorage.setItem(EXT_SETTINGS_BUNDLE_KEY, JSON.stringify(extSettingsCache));
 			writeExtBundleToIdb(extSettingsCache);
 
 			if (typeof saveCurrentProfileSnapshot === "function") {
 				try {
 					saveCurrentProfileSnapshot();
 				} catch (e) {}
+			}
+		}
+
+		// Intercept any direct localStorage.setItem / removeItem on managed keys (including built-in settings.js)
+		(function hookHostStorage() {
+			const origSet = Storage.prototype.setItem;
+			const origRemove = Storage.prototype.removeItem;
+
+			Storage.prototype.setItem = function (k, v) {
+				origSet.apply(this, arguments);
+				if (this === window.localStorage && !isReconcilingStorage && MANAGED_SETTING_KEYS.has(String(k))) {
+					extSettingsCache[String(k)] = String(v);
+					origSet.call(window.localStorage, EXT_SETTINGS_BUNDLE_KEY, JSON.stringify(extSettingsCache));
+					writeExtBundleToIdb(extSettingsCache);
+				}
+			};
+
+			Storage.prototype.removeItem = function (k) {
+				// If profiles.js tries to wipe a managed key that we already saved in extSettingsCache, preserve it
+				if (this === window.localStorage && !isReconcilingStorage && MANAGED_SETTING_KEYS.has(String(k))) {
+					if (Object.prototype.hasOwnProperty.call(extSettingsCache, String(k))) {
+						origSet.call(window.localStorage, String(k), String(extSettingsCache[String(k)]));
+						return;
+					}
+				}
+				origRemove.apply(this, arguments);
+			};
+		})();
+
+		function reconcileExtSettingsStorage() {
+			isReconcilingStorage = true;
+			try {
+				const bundle = readExtBundle();
+				Object.assign(extSettingsCache, bundle);
+
+				let changedBundle = false;
+				MANAGED_SETTING_KEYS.forEach(function (k) {
+					const lsVal = localStorage.getItem(k);
+					if (lsVal !== null) {
+						if (extSettingsCache[k] !== lsVal) {
+							extSettingsCache[k] = lsVal;
+							changedBundle = true;
+						}
+					} else if (Object.prototype.hasOwnProperty.call(extSettingsCache, k) && extSettingsCache[k] !== null) {
+						localStorage.setItem(k, String(extSettingsCache[k]));
+					}
+				});
+
+				if (changedBundle) {
+					localStorage.setItem(EXT_SETTINGS_BUNDLE_KEY, JSON.stringify(extSettingsCache));
+					writeExtBundleToIdb(extSettingsCache);
+				}
+			} finally {
+				isReconcilingStorage = false;
 			}
 		}
 
@@ -5220,14 +5295,15 @@
 			}
 		});
 
-		// Taskbar manual hide/restore
+		// Taskbar manual hide/restore (wakeup button)
 		const hideToggle = document.getElementById("taskbarHideFeatureToggle");
 		const hideBtn = document.getElementById("taskbarHideButton");
 		const restoreBtn = document.getElementById("taskbarRestoreBox");
 
 		function setTbFeature(enabled) {
-			if (enabled) delete document.documentElement.dataset.taskbarHideDisabled;
-			else {
+			if (enabled) {
+				delete document.documentElement.dataset.taskbarHideDisabled;
+			} else {
 				document.documentElement.dataset.taskbarHideDisabled = "1";
 				if (tbManuallyHidden) setTbHidden(false, false);
 			}
@@ -5258,7 +5334,7 @@
 		}
 
 		// =========================================================
-		// MASTER SETTINGS UI HYDRATOR (RUNS ON BOOT, AFTER ASYNC PROFILE LOAD & ON SETTINGS OPEN)
+		// MASTER SETTINGS UI HYDRATOR (SYNCS ALL BUILT-IN + CUSTOM CONTROLS)
 		// =========================================================
 		function syncAllCustomSettingsUI() {
 			reconcileExtSettingsStorage();
@@ -5278,6 +5354,41 @@
 
 			// Menu autofocus
 			if (menuAutofocusToggle) menuAutofocusToggle.checked = isMenuAutofocusEnabled();
+
+			// Sync standard BrowOS toggles/selects so UI never drifts from localStorage after profile loads
+			const standardPairs = [
+				{ id: "bootToggle", key: "browos-boot", def: true },
+				{ id: "soundToggle", key: "browos-sound", def: true },
+				{ id: "uiSoundsToggle", key: "browos-ui-sounds", def: true },
+				{ id: "desktopTextToggle", key: "browos-desktop-text", def: false },
+				{ id: "taskbarAutoToggle", key: "browos-taskbar-auto", def: true },
+				{ id: "clockToggle", key: "browos-clock", def: true },
+				{ id: "lockStartupToggle", key: "browos-lock-startup", def: false },
+				{ id: "saverToggle", key: "browos-saver", def: false },
+				{ id: "saverLockToggle", key: "browos-saver-lock", def: false },
+			];
+			standardPairs.forEach(function (pair) {
+				const el = document.getElementById(pair.id);
+				if (!el) return;
+				const raw = localStorage.getItem(pair.key);
+				el.checked = raw === null ? pair.def : raw === "on";
+			});
+
+			const standardSelects = [
+				{ id: "themeSelect", key: "browos-theme", def: "dark" },
+				{ id: "cornersSelect", key: "browos-corners", def: "rounded" },
+				{ id: "buttonsSelect", key: "browos-buttons", def: "windows" },
+				{ id: "cursorSelect", key: "browos-cursor", def: "browos" },
+				{ id: "saverMinutes", key: "browos-saver-minutes", def: "5" },
+				{ id: "saverType", key: "browos-saver-type", def: "stars" },
+			];
+			standardSelects.forEach(function (pair) {
+				const el = document.getElementById(pair.id);
+				const val = localStorage.getItem(pair.key);
+				if (el && val !== null) {
+					el.value = val;
+				}
+			});
 
 			// Security & limits
 			const limMode = typeof getPinLimitMode === "function"
@@ -5327,6 +5438,11 @@
 			setTbFeature(featureOn);
 			if (hideToggle) hideToggle.checked = featureOn;
 
+			tbManuallyHidden = localStorage.getItem("browos-taskbar-hidden") === "1";
+			if (featureOn && tbManuallyHidden) {
+				document.documentElement.dataset.taskbarHidden = "1";
+			}
+
 			// BrowOS Bubble settings
 			if (bubbleDesktopTriggerSelect) bubbleDesktopTriggerSelect.value = getDesktopTriggerMode();
 			if (bubbleAppTriggerSelect) bubbleAppTriggerSelect.value = getAppTriggerMode();
@@ -5360,22 +5476,24 @@
 		// Hydrate from IndexedDB backup if localStorage was cleared/overwritten by profile restore
 		loadExtBundleFromIdb().then(function (idbBundle) {
 			if (idbBundle && typeof idbBundle === "object") {
-				Object.keys(idbBundle).forEach(function (k) {
-					if (localStorage.getItem(k) === null && idbBundle[k] !== null) {
-						localStorage.setItem(k, String(idbBundle[k]));
-					}
-				});
+				isReconcilingStorage = true;
+				try {
+					Object.keys(idbBundle).forEach(function (k) {
+						if (localStorage.getItem(k) === null && idbBundle[k] !== null) {
+							localStorage.setItem(k, String(idbBundle[k]));
+						}
+					});
+				} finally {
+					isReconcilingStorage = false;
+				}
 			}
 			syncAllCustomSettingsUI();
 		});
 
 		syncAllCustomSettingsUI();
-		setTimeout(syncAllCustomSettingsUI, 250);
-		setTimeout(syncAllCustomSettingsUI, 900);
-
-		if (localStorage.getItem("browos-taskbar-hide-enabled") !== "off" && tbManuallyHidden) {
-			setTbHidden(true, false);
-		}
+		setTimeout(syncAllCustomSettingsUI, 200);
+		setTimeout(syncAllCustomSettingsUI, 700);
+		setTimeout(syncAllCustomSettingsUI, 1500);
 
 		// Re-sync whenever Settings window opens or a profile switches
 		const settingsWinEl = document.getElementById("settingsWindow");
